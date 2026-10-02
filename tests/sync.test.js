@@ -72,7 +72,7 @@ test('review stays selected while live moves sync and cannot submit moves',async
 });
 test('background polling never disables otherwise available controls',async()=>{
  const c=await client();const changes=[];
- for(const id of ['pass','new','resign']) {
+ for(const id of ['pass','new','resign-black','resign-white']) {
   let value=c.get(id).disabled;
   Object.defineProperty(c.get(id),'disabled',{get:()=>value,set:v=>{changes.push([id,v]);value=v;}});
  }
@@ -96,4 +96,13 @@ test('background sync failure shows a persistent inline warning and successful r
  const c=await client();c.run("automatic=false");c.offline();await c.run('sync()');
  assert.equal(c.get('sync-warning').hidden,false);assert.match(c.get('sync-warning').textContent,/out of date/);
  c.online();await c.run('sync()');assert.equal(c.get('sync-warning').hidden,true);
+});
+
+test('both resignation buttons select their own side regardless of whose turn it is',async()=>{
+ for(const side of ['black','white']) {
+  const c=await client();assert.equal(c.get('resign-'+side).textContent,side==='black'?'Black resigns':'White resigns');
+  c.get('resign-'+side).onclick();assert.equal(c.get('confirm-title').textContent,side==='black'?'Black resigns?':'White resigns?');
+  c.run('pendingConfirmation()');while(c.run('busy'))await new Promise(r=>setImmediate(r));
+  assert.equal(c.remote().result.winner,side==='black'?'white':'black');
+ }
 });
