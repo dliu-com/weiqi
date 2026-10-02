@@ -76,6 +76,7 @@ function render() {
   $('edit-game').disabled = busy;
   const review = reviewing === null ? null : reviewPosition(state, reviewing);
   const displayed = review || state;
+  $('board').dataset.preview = canPlay() && !busy ? state.turn : '';
   const last = review ? review.last : state.history.at(-1), scoring = state.phase === 'scoring', ended = state.phase === 'ended';
   const totals = !review && (scoring || state.result?.reason === 'score') ? score(state.board,19,state.dead,state.komi) : null;
   for (let i = 0; i < 361; i++) {
