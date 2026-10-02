@@ -71,6 +71,11 @@ function render() {
   $('turn').textContent = ended ? (state.result.winner ? names[state.result.winner] + t("胜"," wins") : t("和棋","Draw")) : scoring ? t("双方数子","Scoring") : t("轮到","To play: ") + names[state.turn];
   $('detail').textContent = ended ? (state.result.reason === 'resign' ? t("对方认输，本局结束。","The opponent resigned. Game over.") : t(`胜差 ${state.result.margin} 点 · 白贴 7.5 点`,`Margin: ${state.result.margin} points · White komi: 7.5`)) : scoring ? t("标记死子，双方确认结果。","Mark dead groups, then both players confirm.") : (canPlay() ? t("点击交叉点落子。","Click an intersection to play.") : t("等待对方落子…","Waiting for the other player…")) + t(" 白贴 7.5 点。"," White komi: 7.5 points.");
   $('black-captures').textContent = displayed.captures.black; $('white-captures').textContent = displayed.captures.white;
+  const undoSide = state.history.at(-1)?.side;
+  $('undo').textContent = undoSide ? t('悔棋（' + names[undoSide] + '）', 'Undo ' + names[undoSide]) : t('悔棋','Undo');
+  $('resign').textContent = t('认输（' + names[state.turn] + '）', names[state.turn] + ' resigns');
+  $('undo').dataset.side = undoSide || '';
+  $('resign').dataset.side = state.turn;
   $('pass').disabled = busy || !canPlay(); $('undo').disabled = !!archiveId || reviewing !== null || busy || !state.history.length; $('new').disabled = !!archiveId || reviewing !== null || busy; $('resign').disabled = !!archiveId || reviewing !== null || busy || ended;
   $('scoring').hidden = !totals;
   $('scoring-help').hidden = ended;
@@ -192,7 +197,7 @@ const points = Array.from({length:361},(_,i) => {
 function confirmAction(title,text,operation) { const revision = state.revision; pendingConfirmation = () => { if (state.revision !== revision) { notice(t('棋局已更新，请重新确认。','The game has changed. Please confirm again.')); return; } operation(); }; $('confirm-title').textContent=title; $('confirm-text').textContent=text; $('confirm-dialog').showModal(); }
 $('cancel-confirm').onclick=()=>$('confirm-dialog').close(); $('accept-confirm').onclick=()=>{ $('confirm-dialog').close(); pendingConfirmation?.(); };
 $('new').onclick=()=>confirmAction(t("重新开始？","Start a new game?"),t("当前棋局会存入历史记录，所有设备都会同步为新局。","This archives the current game and starts a new one on every device."),()=>action({type:'new'}));
-$('undo').onclick=()=>confirmAction(t("悔棋？","Undo the last move?"),t("撤回最近一手，双方设备都会更新。请先征得对方同意。","Undo the last move on all devices. Please agree with your opponent first."),()=>action({type:'undo'}));
+$('undo').onclick=()=>confirmAction(t('撤回' + names[state.history.at(-1)?.side] + '的上一手？','Undo ' + names[state.history.at(-1)?.side] + '’s last move?'),t("撤回最近一手，双方设备都会更新。请先征得对方同意。","Undo the last move on all devices. Please agree with your opponent first."),()=>action({type:'undo'}));
 $('resign').onclick=()=>{ const side=state.turn; confirmAction(names[side]+t("认输？"," resigns?"),t("确认后本局结束。","Confirm to end this game."),()=>action({type:'resign',side})); };
 $('pass').onclick=()=>action({type:'pass'}); $('resume').onclick=()=>action({type:'resume'});
 for(const side of ['black','white']) $('agree-'+side).onclick=()=>action({type:'agree',side});
