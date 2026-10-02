@@ -42,10 +42,12 @@ The browser sends only move commands; the backend validates rules. Game state is
 
 ## Review, metadata, clocks and SGF
 
-The move tree preserves undone moves as branches. Reviewing a node is local and read-only; live sync continues, and Return to live restores the shared position. Starting a new game atomically archives the previous game. Game history is available at /history.html; archived boards are read-only, but game/player names can be edited. Default game labels use date/time.
+The move tree preserves undone moves as branches. Reviewing a node supports temporary local trial moves, with undo and clear controls. Trial moves are never saved or exported. Selecting another node or Return to live discards them; live sync continues while reviewing. Starting a new game atomically archives the previous game. Game history is available at /history.html; archived game records cannot be played on, but local trial moves are available from a review node and game/player names can be edited. Default game labels use date/time.
 
 Move timestamps and player clock totals are recorded from this version onward. Legacy move timestamps cannot be recovered. Timing starts after the first move, uses visible-page heartbeats every five seconds, and can be paused/resumed. After one minute without a heartbeat from any device it automatically pauses, excluding time after the last heartbeat; returning resumes automatically unless manually paused. There is no scheduled background service. Disabling auto-sync also stops that device’s heartbeats. Scoring stops the clock. Undo does not refund elapsed thinking time. Both clients display the same server-maintained totals; device clock accuracy affects the live ticking display.
 
 Download SGF exports the complete tree, player names, game name, result, and timing comments in UTF-8 SGF FF[4]. [Format reference](https://www.red-bean.com/sgf/sgf4.html). Timing is elapsed time, not a countdown; standard time-left properties are intentionally not used.
 
 This remains a public shared app. Game metadata/history is stored in DynamoDB, never committed to this repository. Tests use fictional names and isolated in-memory records. Do not commit production game exports, credentials, or deployment output.
+
+The bilingual rules and controls guide is available at /rules.html. It is static and sends no game API requests.
