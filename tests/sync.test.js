@@ -4,7 +4,7 @@ import vm from 'node:vm';
 import { readFileSync } from 'node:fs';
 import { webcrypto } from 'node:crypto';
 import { createState, transition } from '../backend/game-service.js';
-import { score, gameTree, reviewPosition, gameClock, sgf } from '../src/engine.js';
+import { play, opposite, score, gameTree, reviewPosition, gameClock, sgf } from '../src/engine.js';
 
 // Exercise the actual client with an isolated DOM/network/clock, never the live game.
 async function client() {
@@ -20,7 +20,7 @@ async function client() {
   const get = id => { if(!elements.has(id)) elements.set(id,new Element()); return elements.get(id); };
   let remote = createState(), failAfterSave = false, failGet = false, now = Date.now();
   const context = vm.createContext({
-    score, gameTree, reviewPosition, gameClock, sgf, language:'en', t: (zh,en)=>en, translateError:s=>s, setLanguage(){},
+    play, opposite, score, gameTree, reviewPosition, gameClock, sgf, language:'en', t: (zh,en)=>en, translateError:s=>s, setLanguage(){},
     location:{search:''},URLSearchParams,
     document: {querySelector:()=>new Element(),getElementById:get,createElement:()=>new Element(),createElementNS:()=>new Element(),
       createDocumentFragment:()=>new Element(),querySelectorAll:()=>[],addEventListener(){},visibilityState:'visible',body:new Element()},
@@ -105,4 +105,18 @@ test('both resignation buttons select their own side regardless of whose turn it
   c.run('pendingConfirmation()');while(c.run('busy'))await new Promise(r=>setImmediate(r));
   assert.equal(c.remote().result.winner,side==='black'?'white':'black');
  }
+});
+
+test('preview moves are local, survive sync, undo and clear without changing saved history',async()=>{
+ const c=await client();c.move(180);await c.run('sync()');c.run('selectReview(-1)');
+ const calls=c.calls.length, original=JSON.stringify(c.remote());
+ c.run('previewMove(0)');c.run('previewMove(1)');
+ assert.equal(c.run('trialMoves.at(-1).board.slice(0,2)'), 'BW');
+ assert.equal(c.calls.length,calls);assert.equal(JSON.stringify(c.remote()),original);
+ await c.run('sync()');assert.equal(c.run('trialMoves.length'),2);
+ c.get('trial-undo').onclick();assert.equal(c.run('trialMoves.length'),1);
+ c.get('trial-reset').onclick();assert.equal(c.run('trialMoves.length'),0);
+ c.run('previewMove(0)');c.run('selectReview(0)');assert.equal(c.run('trialMoves.length'),0);
+ c.run('previewMove(1)');c.get('review-live').onclick();assert.equal(c.run('trialMoves.length'),0);
+ assert.equal(c.run('state.history.length'),1);
 });
