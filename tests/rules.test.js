@@ -39,3 +39,14 @@ test('history limit still allows passing to finish, item remains below DynamoDB 
  let s=createState();s.history=Array.from({length:600},()=>({board:s.board,side:'black',captures:{black:0,white:0},passes:0,type:'move',index:0}));
  assert.throws(()=>act(s,{type:'move',index:1}),/600/);s=act(act(s,{type:'pass'}),{type:'pass'});assert.equal(s.phase,'scoring');assert.ok(Buffer.byteLength(JSON.stringify(s))<390000);
 });
+test('undo restores captured stones and prisoner counts',()=>{
+ let s=createState();const b=s.board.split('');
+ for(const i of [1,19,21])b[i]='B';b[20]='W';s.board=b.join('');
+ const captured=act(s,{type:'move',index:39});assert.equal(captured.board[20],'.');assert.equal(captured.captures.black,1);
+ const undone=act(captured,{type:'undo'});assert.equal(undone.board,s.board);assert.equal(undone.captures.black,0);
+});
+test('marking dead stones does not destroy board and resume clears scoring',()=>{
+ let s=act(createState(),{type:'move',index:180});s=act(act(s,{type:'pass'}),{type:'pass'});
+ const before=s.board;s=act(s,{type:'dead',index:180});assert.equal(s.board,before);
+ s=act(s,{type:'resume'});assert.equal(s.board,before);assert.deepEqual(s.dead,[]);assert.equal(s.phase,'play');
+});

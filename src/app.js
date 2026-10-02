@@ -34,7 +34,7 @@ async function action(action) {
   const revision = state.revision; busy = true; render(); $('sync').textContent = t("正在核对棋局…","Checking the latest position…");
   try {
     const remote = await request(); adopt(remote);
-    if (remote.revision !== revision) { notice(t("对方已更新棋局，已同步。请重新操作。","The game has changed and is now synced. Please try your move again.")); return; }
+    if (remote.revision !== revision) { $('sync').textContent = t('已同步最新棋局','Latest position synced'); notice(t("对方已更新棋局，已同步。请重新操作。","The game has changed and is now synced. Please try your move again.")); return; }
     adopt(await request('POST', { expectedRevision: revision, action }));
     $('sync').textContent = t("已保存 · ","Saved · ") + new Date().toLocaleTimeString(t("zh-CN","en-GB"));
   } catch (e) {
@@ -60,7 +60,9 @@ function render() {
   $('detail').textContent = ended ? (state.result.reason === 'resign' ? t("对方认输，本局结束。","The opponent resigned. Game over.") : t(`胜差 ${state.result.margin} 点 · 白贴 7.5 点`,`Margin: ${state.result.margin} points · White komi: 7.5`)) : scoring ? t("标记死子，双方确认结果。","Mark dead groups, then both players confirm.") : (canPlay() ? t("点击交叉点落子。","Click an intersection to play.") : t("等待对方落子…","Waiting for the other player…")) + t(" 白贴 7.5 点。"," White komi: 7.5 points.");
   $('black-captures').textContent = state.captures.black; $('white-captures').textContent = state.captures.white;
   $('pass').disabled = busy || !canPlay(); $('undo').disabled = busy || !state.history.length; $('new').disabled = busy; $('resign').disabled = busy || ended;
-  $('scoring').hidden = !scoring;
+  $('scoring').hidden = !totals;
+  $('scoring-help').hidden = ended;
+  $('scoring-actions').hidden = ended;
   if (totals) $('score').textContent = t(`黑 ${totals.black} 点 · 白 ${totals.white} + 7.5 点 → ${totals.winner ? names[totals.winner] + '领先 ' + totals.margin + ' 点' : '和棋'}`,`Black ${totals.black} · White ${totals.white} + 7.5 → ${totals.winner ? names[totals.winner] + ' leads by ' + totals.margin + ' points' : 'Draw'}`);
   for (const side of ['black','white']) {
     $('agree-'+side).disabled = busy || state.agreed.includes(side);
@@ -78,6 +80,18 @@ for (let i = 0; i < 19; i++) {
 }
 for (const x of [35,95,155]) for (const y of [35,95,155]) { const c = document.createElementNS(svgNS,'circle'); c.setAttribute('cx',x); c.setAttribute('cy',y); c.setAttribute('r',1.1); c.setAttribute('fill','#46351f'); svg.append(c); }
 $('board').append(svg);
+for (const side of ['top','bottom','left','right']) {
+  const rail = document.createElement('div');
+  rail.className = 'coordinates coordinates-' + side;
+  rail.setAttribute('aria-hidden','true');
+  for (let i = 0; i < 19; i++) {
+    const label = document.createElement('span');
+    label.textContent = side === 'top' || side === 'bottom' ? letters[i] : 19 - i;
+    rail.append(label);
+  }
+  $('board').parentElement.append(rail);
+}
+
 const points = Array.from({length:361},(_,i) => {
   const b = document.createElement('button'); b.className='point'; b.style.left=(i%19+.5)/19*100+'%'; b.style.top=(Math.floor(i/19)+.5)/19*100+'%'; b.tabIndex=i===180?0:-1;
   b.addEventListener('click',()=>{ if (busy || !state) return; if (state.phase==='scoring') action({type:'dead',index:i}); else if (canPlay()) action({type:'move',index:i}); });
@@ -100,4 +114,4 @@ setInterval(()=>{ if(!automatic)return; if(Date.now()-lastActivity>=10*60*1000){
 window.addEventListener('focus',()=>{if(automatic)sync();}); window.addEventListener('online',()=>{if(automatic)sync();}); document.addEventListener('visibilitychange',()=>{if(automatic&&document.visibilityState==='visible')sync();});
 sync();
 
-$('language').onchange=()=>{setLanguage($('language').value); focusBoard(document.body.classList.contains('focus')); $('notice').hidden=true; $('sync').textContent=t('语言已切换','Language updated'); render();};
+document.querySelectorAll('[data-language]').forEach(button => button.onclick=()=>{setLanguage(button.dataset.language); focusBoard(document.body.classList.contains('focus')); $('notice').hidden=true; $('sync').textContent=t('语言已切换','Language updated'); render();});

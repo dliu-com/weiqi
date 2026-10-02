@@ -87,6 +87,6 @@ export function setLanguage(value) {
   document.documentElement.lang = language === 'zh' ? 'zh-CN' : 'en';
   for (const {node,original} of nodes) node.textContent = language === 'zh' ? original : original.replace(original.trim(),messages[original.trim()]);
   for (const {node,attr,original} of attributes) node.setAttribute(attr,language === 'zh' ? original : messages[original]);
-  document.getElementById('language').value = language;
+  document.querySelectorAll('[data-language]').forEach(button => button.setAttribute('aria-pressed', String(button.dataset.language === language)));
 }
 setLanguage(language);
