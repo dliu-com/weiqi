@@ -43,3 +43,5 @@ body.focus .history-card{display:block;margin-top:12px}body.focus #history{max-h
 #black-time{background:#0c100e;color:#f4f1e9;border:1px solid #65756c}#white-time{background:#f3f1e8;color:#19271f;border:1px solid #fff}
 
 .actions button[data-side]{display:flex;align-items:center;justify-content:center;gap:5px}.actions button[data-side=black]::before,.actions button[data-side=white]::before{content:"";width:10px;height:10px;flex-shrink:0;border-radius:50%}.actions button[data-side=black]::before{background:#101411;border:1px solid #89958d}.actions button[data-side=white]::before{background:#f3f1e8;border:1px solid #fff}
+
+header a.brand{color:var(--ink);text-decoration:none}header a.brand:hover{color:var(--gold)}
