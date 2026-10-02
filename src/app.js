@@ -227,7 +227,6 @@ $('confirm-score').onclick=()=>{
   confirmAction(winner,t('胜差 '+result.margin+' 点。确认此结果结束棋局？','Margin: '+result.margin+' points. Confirm this result to finish the game?'),()=>action({type:'finish'}),t('确认'+winner,'Confirm '+winner));
   $('confirm-title').className=result.winner ? 'turn-'+result.winner : '';
 };
-$('rules').onclick=()=>$('rules-dialog').showModal(); $('close-rules').onclick=()=>$('rules-dialog').close();
 function focusBoard(on) { document.body.classList.toggle('focus',on); $('focus').textContent=on?t("退出专注 ↙","Exit focus ↙"):t("专注棋盘 ↗","Focus board ↗"); $('focus').setAttribute('aria-pressed',String(on)); }
 $('focus').onclick=()=>focusBoard(!document.body.classList.contains('focus')); document.addEventListener('keydown',e=>{if(e.key==='Escape')focusBoard(false);});
 $('auto').onchange=()=>{automatic=$('auto').checked; if(automatic){lastActivity=Date.now();sync(true);}};

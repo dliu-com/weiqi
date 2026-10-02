@@ -17,7 +17,7 @@ fi
 node --check "$PROJECT_DIR/src/app.js"
 node --check "$PROJECT_DIR/src/engine.js"
 # Upload dependencies first and the entrypoint last. Assets are revalidated on reload.
-for filename in history.html history.js i18n.js engine.js app.js styles.css favicon.svg 404.html; do
+for filename in rules.html rules.js history.html history.js i18n.js engine.js app.js styles.css favicon.svg 404.html; do
   case "$filename" in
     *.js) mime='text/javascript; charset=utf-8' ;;
     *.css) mime='text/css; charset=utf-8' ;;
