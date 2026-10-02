@@ -28,3 +28,9 @@ body.focus .history-card{display:block;margin-top:12px}body.focus #history{max-h
 .history-page{display:block;max-width:900px}.history-page h1{margin-bottom:24px}.game-entry{display:block;color:var(--ink);text-decoration:none;border:1px solid var(--line);border-radius:8px;padding:18px;margin:12px 0}.game-entry:hover{border-color:var(--gold)}.game-entry strong{overflow-wrap:anywhere}.game-entry small{display:block;margin-top:8px}.back-game{color:var(--gold);font-size:13px}header:has(.back-game){flex-wrap:wrap}
 
 .game-clock{display:flex;flex-wrap:wrap;gap:10px;font-variant-numeric:tabular-nums;font-size:13px;margin:12px 0}.game-clock small{width:100%}.game-clock button{padding:5px 8px;font-size:12px}.tree-node small{display:block;font-size:10px;margin-top:4px}body.focus .game-clock small{display:none}
+
+#history{gap:3px}.tree-node{display:flex;align-items:center;gap:6px;padding:5px 7px;min-height:29px;min-width:0;white-space:nowrap;line-height:1.25}
+.tree-label{min-width:0;flex:1;overflow:hidden;text-overflow:ellipsis}.tree-node small{display:inline;margin:0 0 0 auto;font-size:10px;flex-shrink:0;font-variant-numeric:tabular-nums}
+.tree-stone{width:13px;height:13px;flex-shrink:0;border-radius:50%;border:1px solid #adb5ab}
+.tree-black{background:#0b1a1666}.tree-black .tree-stone{background:radial-gradient(circle at 30% 25%,#555,#080a09)}
+.tree-white{background:#ffffff09}.tree-white .tree-stone{background:radial-gradient(circle at 30% 25%,#fff,#d8d8d0);border-color:#eee}

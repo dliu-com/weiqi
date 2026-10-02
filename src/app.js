@@ -116,11 +116,16 @@ function renderTree() {
   const pending = [{id:-1,depth:0,branch:0}];
   while (pending.length) {
     const {id,depth,branch} = pending.pop(), node = tree.nodes[id], button = document.createElement('button');
-    button.type = 'button'; button.className = 'tree-node' + (active.has(id) ? ' active-path' : '');
+    button.type = 'button'; button.className = 'tree-node' + (node ? ' tree-' + node[1] : '') + (active.has(id) ? ' active-path' : '');
     button.style.marginLeft = Math.min(branch,6) * 12 + 'px';
     button.setAttribute('aria-pressed', String(selected === id));
     button.title = node?.[4] ? new Date(node[4]).toLocaleString(language === 'zh' ? 'zh-CN' : 'en-GB') : t('落子时间未记录','Move time not recorded');
-    button.textContent = (branch ? '↳ ' : '') + (node ? depth + '. ' + names[node[1]] + (state.players?.[node[1]] ? ' (' + state.players[node[1]] + ')' : '') + ' · ' + (node[2] === null ? t('停一手','Pass') : coord(node[2])) : t('初始棋盘','Initial position')) + (id === tree.head ? (archiveId ? t(' · 最后局面',' · Final position') : t(' · 当前',' · Live')) : '');
+    const description = (branch ? '↳ ' : '') + (node ? depth + '. ' + names[node[1]] + (state.players?.[node[1]] ? ' (' + state.players[node[1]] + ')' : '') + ' · ' + (node[2] === null ? t('停一手','Pass') : coord(node[2])) : t('初始棋盘','Initial position')) + (id === tree.head ? (archiveId ? t(' · 最后局面',' · Final position') : t(' · 当前',' · Live')) : '');
+    const label = document.createElement('span'); label.className = 'tree-label'; label.textContent = description;
+    if (node) { const marker = document.createElement('span'); marker.className = 'tree-stone'; marker.setAttribute('aria-hidden','true'); button.append(marker); }
+    button.append(label);
+    button.title = description + ' · ' + button.title;
+    button.setAttribute('aria-label',button.title);
     button.onclick = () => selectReview(id);
     if (node?.[4]) { const time = document.createElement('small'); time.textContent = new Date(node[4]).toLocaleTimeString(language === 'zh' ? 'zh-CN' : 'en-GB'); button.append(time); }
     fragment.append(button);
