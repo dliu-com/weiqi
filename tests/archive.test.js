@@ -42,11 +42,11 @@ test('clock charges the correct player, excludes pauses, and records move timest
  assert.equal(s.clock.white,8000);assert.equal(s.tree.nodes[1][4],new Date(now).toISOString());assert.deepEqual(s.tree.nodes[1][5],[0,8000]);
  now+=2000;act({type:'pass'});now+=1000;act({type:'pass'});const end=gameClock(s);now+=99999;assert.deepEqual(gameClock(s),end);
 });
-test('SGF escapes metadata, exports passes and variations with timing',()=>{
+test('SGF escapes metadata, excludes undone moves and includes timing',()=>{
  let s=createState();const act=a=>s=transition(s,{expectedRevision:s.revision,action:a});
  act({type:'metadata',name:'A]B\\C',players:{black:'甲',white:'乙'}});act({type:'move',index:0});act({type:'pass'});act({type:'undo'});act({type:'move',index:1});
  const output=sgf(s);assert.ok(output.includes('GN[A\\]B\\\\C]'));assert.ok(output.includes('PB[甲]PW[乙]'));
- assert.ok(output.includes('(;W[]'));assert.ok(output.includes('(;W[ba]'));assert.ok(output.includes('Played at:'));assert.ok(output.includes('White total:'));
+ assert.ok(!output.includes(';W[]'));assert.ok(output.includes(';W[ba]'));assert.ok(output.includes('Played at:'));assert.ok(output.includes('White total:'));
 });
 
 test('heartbeat and a move racing do not overwrite each other or conflict on game revision',async()=>{

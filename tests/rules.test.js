@@ -50,21 +50,21 @@ test('marking dead stones does not destroy board and resume clears scoring',()=>
  const before=s.board;s=act(s,{type:'dead',index:180});assert.equal(s.board,before);
  s=act(s,{type:'resume'});assert.equal(s.board,before);assert.deepEqual(s.dead,[]);assert.equal(s.phase,'play');
 });
-test('undo retains branches and every node reconstructs its original board',()=>{
+test('undo removes the withdrawn move and keeps earlier positions',()=>{
  let s=createState(), positions=[];
  for(const index of [180,181,182]){s=act(s,{type:'move',index});positions.push(s.board);}
  s=act(s,{type:'undo'});s=act(s,{type:'move',index:200});
- assert.equal(s.tree.nodes.length,4);assert.equal(s.tree.nodes[3][0],1);
- for(let i=0;i<3;i++)assert.equal(reviewPosition(s,i).board,positions[i]);
- assert.equal(reviewPosition(s,3).board,s.board);
+ assert.equal(s.tree.nodes.length,3);assert.equal(s.tree.nodes[2][0],1);
+ for(let i=0;i<2;i++)assert.equal(reviewPosition(s,i).board,positions[i]);
+ assert.equal(reviewPosition(s,2).board,s.board);
  assert.equal(reviewPosition(s,-1).board,createState().board);
- const restored=JSON.parse(JSON.stringify(s));assert.equal(reviewPosition(restored,2).board,positions[2]);
+ const restored=JSON.parse(JSON.stringify(s));assert.equal(reviewPosition(restored,2).board,s.board);
 });
 test('legacy games migrate without losing moves, captures or current position',()=>{
  let s=createState();for(const index of [0,1,19])s=act(s,{type:'move',index});
  delete s.tree;
  assert.equal(reviewPosition(s,2).board,s.board);
- const previous=s.board;s=act(s,{type:'undo'});assert.equal(reviewPosition(s,2).board,previous);
+ s=act(s,{type:'undo'});assert.equal(s.tree.nodes.length,2);assert.equal(reviewPosition(s,1).board,s.board);
  s=act(s,{type:'new'});assert.equal(gameTree(s).nodes.length,0);
 });
 test('single result confirmation finishes scoring and rejects stale results',()=>{

@@ -42,7 +42,13 @@ export function transition(current, request) {
     next.generation = current.revision + 1;
   } else if (a.type === 'undo') {
     const last = next.history.pop(); if (!last) throw new GameError('还没有可以悔棋的记录。');
-    next.tree.head = next.tree.nodes[next.tree.head][0];
+    const removed = new Set([next.tree.head]), parent = next.tree.nodes[next.tree.head][0];
+    const ids = new Map([[-1,-1]]), nodes = [];
+    next.tree.nodes.forEach((node,id) => {
+      if (removed.has(id) || removed.has(node[0])) { removed.add(id); return; }
+      ids.set(id,nodes.length); nodes.push([ids.get(node[0]),...node.slice(1)]);
+    });
+    next.tree.nodes = nodes; next.tree.head = ids.get(parent);
     Object.assign(next, { board: last.board, turn: last.side, captures: last.captures, passes: last.passes, phase: 'play', dead: [], agreed: [], result: null });
   } else if (a.type === 'resume' && current.phase === 'scoring') {
     Object.assign(next, { phase: 'play', passes: 0, dead: [], agreed: [] });

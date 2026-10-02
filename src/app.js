@@ -45,6 +45,7 @@ function adopt(next) {
   if (state && (next.revision < state.revision || (next.revision === state.revision && (next.clockVersion || 0) < (state.clockVersion || 0)))) return;
   if (!state || next.board !== state.board || next.history.length !== state.history.length) lastActivity = Date.now();
   if (moveStatus && moveStatus.phase !== 'submitting' && state && next.revision > state.revision) moveStatus = null;
+  if (state && gameTree(next).nodes.length < gameTree(state).nodes.length) { reviewing = null; trialMoves = []; treeRenderKey = ''; }
   if (state && (state.generation || 0) !== (next.generation || 0)) reviewing = null;
   if (reviewing !== null && reviewing >= gameTree(next).nodes.length) reviewing = null;
   state = next; render();

@@ -120,8 +120,8 @@ const sections = [
           "Undo and the move tree"
         ],
         [
-          "悔棋撤回最近一手，并同步到所有设备；按钮标明撤回的是哪一方。撤回的棋步保留为棋谱分支。点击棋谱树可查看任意历史局面，复盘时可试下，试下棋步仅临时显示，不保存到棋谱或云端；可撤回或清除试下。选择其他节点或返回当前棋局时自动清除。点击“返回当前棋局”继续对弈。复盘期间仍会同步当前棋局。",
-          "Undo retracts the latest move on all devices; its label identifies that move’s color. Undone moves remain as branches in the move tree. Select a node to review an earlier position. You can try temporary moves while reviewing; these are never saved to the move tree or cloud. Undo or clear the preview using its controls. Selecting another node or returning to live discards the preview. Select Return to live to continue the game. The live game keeps syncing during review."
+          "悔棋撤回最近一手，并同步到所有设备；按钮标明撤回的是哪一方。撤回的棋步从棋谱中删除，不会保留为分支或导出到 SGF。点击棋谱树可查看任意历史局面，复盘时可试下，试下棋步仅临时显示，不保存到棋谱或云端；可撤回或清除试下。选择其他节点或返回当前棋局时自动清除。点击“返回当前棋局”继续对弈。复盘期间仍会同步当前棋局。",
+          "Undo retracts the latest move on all devices; its label identifies that move’s color. Undone moves are removed from the move tree and SGF export. Select a node to review an earlier position. You can try temporary moves while reviewing; these are never saved to the move tree or cloud. Undo or clear the preview using its controls. Selecting another node or returning to live discards the preview. Select Return to live to continue the game. The live game keeps syncing during review."
         ]
       ],
       [
