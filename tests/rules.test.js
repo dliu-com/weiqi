@@ -1,0 +1,41 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { play, score } from '../src/engine.js';
+import { createState, transition } from '../backend/game-service.js';
+const act = (s,action) => transition(s,{expectedRevision:s.revision,action});
+test('capture removes a group with its last liberty filled',()=>{
+ const b=['.B.','BWB','...'].join(''); const m=play(b,7,'black',3); assert.equal(m.board[4],'.');assert.deepEqual(m.captured,[4]);
+});
+test('suicide and occupied points are rejected',()=>{
+ assert.throws(()=>play('.B.B.B.B.',4,'white',3),/禁入/);assert.throws(()=>play('B........',0,'white',3),/空/);
+});
+test('ko / repeated board position rejected',()=>{
+ const board=['.....','.BW..','BW.W.','.BW..','.....'].join('');
+ const move=play(board,12,'black',5);assert.equal(move.board[11],'.');
+ assert.throws(()=>play(move.board,11,'white',5,[board]),/同形/);
+});
+test('area scoring counts stones and territory, mixed boundaries neutral',()=>{
+ const s=score('BBBB.BBBB',3,[],7.5);assert.equal(s.black,9);assert.equal(s.white,0);assert.equal(s.margin,1.5);
+ const mixed=score('B.......W',3,[],0);assert.equal(mixed.black,1);assert.equal(mixed.white,1);
+});
+test('shared game enforces revisions, fixed 19 board, undo restores state',()=>{
+ const initial=createState();assert.equal(initial.board.length,361);
+ const moved=act(initial,{type:'move',index:180});assert.equal(moved.turn,'white');
+ assert.throws(()=>transition(moved,{expectedRevision:0,action:{type:'move',index:181}}),e=>e.statusCode===409);
+ const undone=act(moved,{type:'undo'});assert.equal(undone.board,initial.board);assert.equal(undone.turn,'black');assert.equal(undone.revision,2);
+ assert.equal(act(undone,{type:'new',size:9}).size,19);
+});
+test('two passes enter scoring; changes clear agreement; both sides must confirm',()=>{
+ let s=act(createState(),{type:'move',index:180});s=act(s,{type:'pass'});s=act(s,{type:'pass'});assert.equal(s.phase,'scoring');
+ assert.throws(()=>act(s,{type:'move',index:181}));
+ s=act(s,{type:'agree',side:'black'});s=act(s,{type:'dead',index:180});assert.deepEqual(s.agreed,[]);
+ s=act(s,{type:'agree',side:'black'});assert.equal(s.phase,'scoring');s=act(s,{type:'agree',side:'white'});assert.equal(s.phase,'ended');assert.equal(s.result.winner,'white');
+});
+test('resume and resignation work',()=>{
+ let s=act(act(createState(),{type:'pass'}),{type:'pass'});s=act(s,{type:'resume'});assert.equal(s.passes,0);
+ s=act(s,{type:'resign',side:'white'});assert.equal(s.result.winner,'black');assert.throws(()=>act(s,{type:'pass'}));
+});
+test('history limit still allows passing to finish, item remains below DynamoDB limit',()=>{
+ let s=createState();s.history=Array.from({length:600},()=>({board:s.board,side:'black',captures:{black:0,white:0},passes:0,type:'move',index:0}));
+ assert.throws(()=>act(s,{type:'move',index:1}),/600/);s=act(act(s,{type:'pass'}),{type:'pass'});assert.equal(s.phase,'scoring');assert.ok(Buffer.byteLength(JSON.stringify(s))<390000);
+});
