@@ -88,6 +88,7 @@ function render() {
     $('turn').textContent = t('复盘 · 第 ' + review.depth + ' 手', 'Review · Move ' + review.depth);
     $('detail').textContent = t('仅查看历史。返回当前棋局后才能落子。', 'Viewing history only. Return to live to play.');
   }
+  $('turn').className = 'turn-label' + (!archiveId && !review && state.phase === 'play' ? ' turn-' + state.turn : '');
   renderTree();
   renderClock();
 
