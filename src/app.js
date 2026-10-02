@@ -84,7 +84,7 @@ const points = Array.from({length:361},(_,i) => {
   b.addEventListener('keydown', e=>{ const offset={ArrowLeft:-1,ArrowRight:1,ArrowUp:-19,ArrowDown:19}[e.key]; if (!offset) return; e.preventDefault(); const n=i+offset; if(n>=0&&n<361 && (Math.abs(offset)===19 || Math.floor(n/19)===Math.floor(i/19))) { b.tabIndex=-1; points[n].tabIndex=0; points[n].focus(); }});
   $('board').append(b); return b;
 });
-function confirmAction(title,text,operation) { pendingConfirmation = operation; $('confirm-title').textContent=title; $('confirm-text').textContent=text; $('confirm-dialog').showModal(); }
+function confirmAction(title,text,operation) { const revision = state.revision; pendingConfirmation = () => { if (state.revision !== revision) { notice(t('棋局已更新，请重新确认。','The game has changed. Please confirm again.')); return; } operation(); }; $('confirm-title').textContent=title; $('confirm-text').textContent=text; $('confirm-dialog').showModal(); }
 $('cancel-confirm').onclick=()=>$('confirm-dialog').close(); $('accept-confirm').onclick=()=>{ $('confirm-dialog').close(); pendingConfirmation?.(); };
 $('new').onclick=()=>confirmAction(t("重新开始？","Start a new game?"),t("将替换云端当前棋局，所有设备都会同步为新局。","This replaces the shared game on every device."),()=>action({type:'new'}));
 $('undo').onclick=()=>confirmAction(t("悔棋？","Undo the last move?"),t("撤回最近一手，双方设备都会更新。请先征得对方同意。","Undo the last move on all devices. Please agree with your opponent first."),()=>action({type:'undo'}));

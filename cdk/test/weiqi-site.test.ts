@@ -37,6 +37,10 @@ test('serves only the Weiqi subdomain over HTTPS, without always-on infrastructu
   template.resourceCountIs('AWS::DynamoDB::Table', 1);
   template.resourceCountIs('AWS::EC2::NatGateway', 0);
   template.resourceCountIs('AWS::EC2::Instance', 0);
+  template.resourceCountIs('AWS::RDS::DBInstance', 0);
+  template.resourceCountIs('AWS::RDS::DBCluster', 0);
+  template.resourceCountIs('AWS::Route53::HostedZone', 0);
+  template.resourceCountIs('AWS::KMS::Key', 0);
   template.resourceCountIs('AWS::ElasticLoadBalancingV2::LoadBalancer', 0);
 });
 
