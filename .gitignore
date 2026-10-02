@@ -7,3 +7,9 @@ cdk/*.js
 cdk/*.d.ts
 !cdk/jest.config.js
 .openai/
+
+# Game exports and local credentials must not enter the public repository.
+*.sgf
+.aws/
+*.pem
+*.key

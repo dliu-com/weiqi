@@ -13,3 +13,18 @@
 .coordinates-left,.coordinates-right{top:var(--board-padding);bottom:var(--board-padding);width:var(--board-padding);grid-template-rows:repeat(19,minmax(0,1fr));align-items:center}
 .coordinates-left{left:0}.coordinates-right{right:0}
 @media(max-width:480px){.board-wrap,body.focus .board-wrap{--board-padding:20px}.coordinates{font-size:9px}}
+
+#history{max-height:320px;padding:4px 0;display:flex;flex-direction:column;gap:5px}
+.tree-node{text-align:left;flex-shrink:0;font-size:12px;padding:8px;border-left:2px solid var(--line)}
+.tree-node.active-path{border-left-color:var(--gold)}
+.tree-node[aria-pressed=true]{background:#d9bd8022;color:var(--gold);border-color:var(--gold)}
+.review-controls{display:flex;gap:4px;flex-wrap:wrap;margin-bottom:10px}.review-controls button{padding:6px 9px;font-size:12px}
+body.focus .history-card{display:block;margin-top:12px}body.focus #history{max-height:160px}
+
+.game-meta{max-width:1220px;margin:20px auto 0;padding:0 30px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}.game-meta>div{flex:1;min-width:140px}.game-meta p{margin:6px 0}.game-meta a{color:var(--gold)}body.focus .game-meta{display:none}
+#edit-form label{display:block;margin:16px 0;font-size:14px}#edit-form input{display:block;width:100%;margin-top:6px;padding:10px;border:1px solid var(--line);border-radius:5px;background:var(--bg);color:var(--ink);font:inherit}
+#game-name,#player-names,.tree-node{overflow-wrap:anywhere}
+
+.history-page{display:block;max-width:900px}.history-page h1{margin-bottom:24px}.game-entry{display:block;color:var(--ink);text-decoration:none;border:1px solid var(--line);border-radius:8px;padding:18px;margin:12px 0}.game-entry:hover{border-color:var(--gold)}.game-entry strong{overflow-wrap:anywhere}.game-entry small{display:block;margin-top:8px}.back-game{color:var(--gold);font-size:13px}header:has(.back-game){flex-wrap:wrap}
+
+.game-clock{display:flex;flex-wrap:wrap;gap:10px;font-variant-numeric:tabular-nums;font-size:13px;margin:12px 0}.game-clock small{width:100%}.game-clock button{padding:5px 8px;font-size:12px}.tree-node small{display:block;font-size:10px;margin-top:4px}body.focus .game-clock small{display:none}

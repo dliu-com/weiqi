@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { play, score } from '../src/engine.js';
+import { play, score, gameTree, reviewPosition } from '../src/engine.js';
 import { createState, transition } from '../backend/game-service.js';
 const act = (s,action) => transition(s,{expectedRevision:s.revision,action});
 test('capture removes a group with its last liberty filled',()=>{
@@ -49,4 +49,21 @@ test('marking dead stones does not destroy board and resume clears scoring',()=>
  let s=act(createState(),{type:'move',index:180});s=act(act(s,{type:'pass'}),{type:'pass'});
  const before=s.board;s=act(s,{type:'dead',index:180});assert.equal(s.board,before);
  s=act(s,{type:'resume'});assert.equal(s.board,before);assert.deepEqual(s.dead,[]);assert.equal(s.phase,'play');
+});
+test('undo retains branches and every node reconstructs its original board',()=>{
+ let s=createState(), positions=[];
+ for(const index of [180,181,182]){s=act(s,{type:'move',index});positions.push(s.board);}
+ s=act(s,{type:'undo'});s=act(s,{type:'move',index:200});
+ assert.equal(s.tree.nodes.length,4);assert.equal(s.tree.nodes[3][0],1);
+ for(let i=0;i<3;i++)assert.equal(reviewPosition(s,i).board,positions[i]);
+ assert.equal(reviewPosition(s,3).board,s.board);
+ assert.equal(reviewPosition(s,-1).board,createState().board);
+ const restored=JSON.parse(JSON.stringify(s));assert.equal(reviewPosition(restored,2).board,positions[2]);
+});
+test('legacy games migrate without losing moves, captures or current position',()=>{
+ let s=createState();for(const index of [0,1,19])s=act(s,{type:'move',index});
+ delete s.tree;
+ assert.equal(reviewPosition(s,2).board,s.board);
+ const previous=s.board;s=act(s,{type:'undo'});assert.equal(reviewPosition(s,2).board,previous);
+ s=act(s,{type:'new'});assert.equal(gameTree(s).nodes.length,0);
 });

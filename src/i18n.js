@@ -6,6 +6,13 @@ try { saved = localStorage.getItem('weiqi-language'); } catch {}
 export let language = initialLanguage(saved, navigator.language);
 export const t = (zh,en) => language === 'zh' ? zh : en;
 const messages = {
+  "下载 SGF": "Download SGF", "暂停计时": "Pause clock", "请先恢复计时。": "Resume the clock before playing.",
+  "历史棋局 · DL": "Game history · DL", "加载更多": "Load more",
+  "编辑名称": "Edit names", "历史棋局": "Game history", "棋局信息": "Game details",
+  "棋局名称": "Game name", "黑方棋手": "Black player", "白方棋手": "White player", "保存": "Save",
+  "名称须为 1–80 个字符。": "Game names must contain 1–80 characters.",
+  "棋手姓名不能超过 40 个字符。": "Player names must be at most 40 characters.",
+
   "围棋 · DL": "Go · DL",
   "围棋": "Go",
   "十九路 · 双人对弈": "19 × 19 · Two players",
@@ -31,7 +38,8 @@ const messages = {
   "正在连接…": "Connecting…",
   "立即同步": "Sync now",
   "连续 10 分钟无落子，自动暂停同步。": "Auto-sync pauses after 10 minutes without a move.",
-  "落子记录": "Move history",
+  "落子记录": "Move tree",
+  "返回当前棋局": "Return to live",
   "0 手": "0 moves",
   "黑先白后，从第一手开始。": "Black plays first. Your game starts here.",
   "对弈规则": "Rules of play",

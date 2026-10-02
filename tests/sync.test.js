@@ -4,7 +4,7 @@ import vm from 'node:vm';
 import { readFileSync } from 'node:fs';
 import { webcrypto } from 'node:crypto';
 import { createState, transition } from '../backend/game-service.js';
-import { score } from '../src/engine.js';
+import { score, gameTree, reviewPosition, gameClock, sgf } from '../src/engine.js';
 
 // Exercise the actual client with an isolated DOM/network/clock, never the live game.
 async function client() {
@@ -20,8 +20,9 @@ async function client() {
   const get = id => { if(!elements.has(id)) elements.set(id,new Element()); return elements.get(id); };
   let remote = createState(), failAfterSave = false, failGet = false, now = Date.now();
   const context = vm.createContext({
-    score, t: (zh,en)=>en, translateError:s=>s, setLanguage(){},
-    document: {getElementById:get,createElement:()=>new Element(),createElementNS:()=>new Element(),
+    score, gameTree, reviewPosition, gameClock, sgf, language:'en', t: (zh,en)=>en, translateError:s=>s, setLanguage(){},
+    location:{search:''},URLSearchParams,
+    document: {querySelector:()=>new Element(),getElementById:get,createElement:()=>new Element(),createElementNS:()=>new Element(),
       createDocumentFragment:()=>new Element(),querySelectorAll:()=>[],addEventListener(){},visibilityState:'visible',body:new Element()},
     window:{addEventListener(){}},setInterval(fn,ms){intervals.push({fn,ms});},setTimeout(){},clearTimeout(){},
     Date:class extends Date { static now(){return now;} },AbortSignal,TextEncoder,crypto:webcrypto,
@@ -41,8 +42,8 @@ async function client() {
     loseResponse:()=>{failAfterSave=true;},offline:()=>{failGet=true;},advance:ms=>{now+=ms;}};
 }
 test('visible idle page polls every 5 seconds without a focus event',async()=>{
- const c=await client();assert.equal(c.intervals[0].ms,5000);c.move(180);
- await c.intervals[0].fn();await new Promise(r=>setImmediate(r));
+ const c=await client();assert.equal(c.intervals.find(i=>i.ms===5000).ms,5000);c.move(180);
+ await c.intervals.find(i=>i.ms===5000).fn();await new Promise(r=>setImmediate(r));
  assert.equal(c.run('state.board[180]'),'B');assert.match(c.get('turn').textContent,/White/);
 });
 test('preflight rejects a stale move without submitting POST',async()=>{
@@ -59,6 +60,13 @@ test('failed preflight never changes the board',async()=>{
 });
 test('10 minutes idle switches polling off, and hidden tabs do not poll',async()=>{
  const c=await client();c.run("document.visibilityState='hidden'");const before=c.calls.length;
- c.intervals[0].fn();assert.equal(c.calls.length,before);c.advance(600001);c.intervals[0].fn();
+ c.intervals.find(i=>i.ms===5000).fn();assert.equal(c.calls.length,before);c.advance(600001);c.intervals.find(i=>i.ms===5000).fn();
  assert.equal(c.get('auto').checked,false);assert.equal(c.run('automatic'),false);
+});
+test('review stays selected while live moves sync and cannot submit moves',async()=>{
+ const c=await client();c.move(180);await c.run('sync()');c.run('selectReview(-1)');
+ const count=c.calls.length;await c.run("action({type:'move',index:181})");assert.equal(c.calls.length,count);
+ c.move(182);await c.run('sync()');assert.equal(c.run('reviewing'),-1);
+ assert.equal(c.get('turn').textContent,'Review · Move 0');
+ c.get('review-live').onclick();assert.equal(c.run('reviewing'),null);assert.equal(c.run('state.history.length'),2);
 });

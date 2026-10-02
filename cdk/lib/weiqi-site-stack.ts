@@ -86,7 +86,7 @@ export class WeiqiSiteStack extends Stack {
       environment: { TABLE_NAME: gameTable.tableName, SITE_ORIGIN: Fn.join('', ['https://', domainName]) },
       code: lambda.Code.fromInline([engineSource, serviceSource, handlerSource].join('\n')),
     });
-    gameTable.grant(gameHandler, 'dynamodb:GetItem', 'dynamodb:PutItem');
+    gameTable.grant(gameHandler, 'dynamodb:GetItem', 'dynamodb:PutItem', 'dynamodb:Scan');
     const functionUrl = gameHandler.addFunctionUrl({ authType: lambda.FunctionUrlAuthType.AWS_IAM });
 
     const distribution = new cloudfront.Distribution(this, 'SiteDistribution', {

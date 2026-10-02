@@ -55,3 +55,63 @@ export function score(board, size, dead = [], komi = 7.5) {
   const margin = black - white - komi;
   return { black, white, komi, margin: Math.abs(margin), winner: margin > 0 ? 'black' : margin < 0 ? 'white' : null, territory };
 }
+
+// Compact persistent tree: [parent node, moving side, intersection (null = pass), changes].
+// Changes preserve captures without duplicating a 361-point board at every node.
+export function gameTree(state) {
+  if (state.tree) return state.tree;
+  const first = state.history[0];
+  const tree = { root: first?.board || state.board, captures: first?.captures || state.captures, turn: first?.side || state.turn, nodes: [], head: -1 };
+  state.history.forEach((move, i) => {
+    const after = state.history[i + 1]?.board || state.board;
+    const changes = [];
+    for (let p = 0; p < after.length; p++) if (move.board[p] !== after[p]) changes.push([p, after[p]]);
+    tree.nodes.push([i - 1, move.side, move.type === 'pass' ? null : move.index, changes]);
+    tree.head = i;
+  });
+  return tree;
+}
+export function reviewPosition(state, id) {
+  const tree = gameTree(state);
+  if (!Number.isInteger(id) || id < -1 || id >= tree.nodes.length) throw new Error('Invalid review node');
+  const path = [];
+  for (let n = id; n !== -1; n = tree.nodes[n][0]) path.push(n);
+  const board = tree.root.split(''), captures = { ...tree.captures };
+  let turn = tree.turn;
+  for (const n of path.reverse()) {
+    const [,side,,changes] = tree.nodes[n];
+    for (const [point,value] of changes) { if (value === '.' && board[point] === stone(opposite(side))) captures[side]++; board[point] = value; }
+    turn = opposite(side);
+  }
+  const node = tree.nodes[id];
+  return { board: board.join(''), captures, turn, depth: path.length, last: node ? { type: node[2] === null ? 'pass' : 'move', index: node[2] } : null };
+}
+export function gameClock(state, now = Date.now()) {
+  const clock = { black: 0, white: 0, paused: false, since: null, ...state.clock };
+  if (state.phase === 'play' && !clock.paused && clock.since !== null) clock[state.turn] += Math.max(0, now - clock.since);
+  return clock;
+}
+export function sgf(state) {
+  const escape = value => String(value).replace(/\\/g,'\\\\').replace(/\]/g,'\\]').replace(/\r\n?/g,'\n');
+  const prop = (key,value) => value === null || value === undefined || value === '' ? '' : key+'['+escape(value)+']';
+  const tree=gameTree(state), children=new Map();
+  tree.nodes.forEach((node,id)=>{if(!children.has(node[0]))children.set(node[0],[]);children.get(node[0]).push(id);});
+  const coord = i => String.fromCharCode(97+i%19,97+Math.floor(i/19));
+  let root=';GM[1]FF[4]CA[UTF-8]SZ[19]RU[Chinese]KM[7.5]'+prop('GN',state.gameName || state.createdAt)+prop('DT',state.createdAt?.slice(0,10))+prop('PB',state.players?.black)+prop('PW',state.players?.white);
+  if(state.result)root+=prop('RE',(state.result.winner==='black'?'B':state.result.winner==='white'?'W':'0')+(state.result.winner?'+'+(state.result.reason==='resign'?'R':state.result.margin):''));
+  for(const side of ['B','W']) { const points=[...tree.root].flatMap((s,i)=>s===side?[coord(i)]:[]); if(points.length)root+='A'+side+points.map(p=>'['+p+']').join(''); }
+  root+=prop('C','Shared Go game. Times are elapsed wall-clock seconds, not a time limit. Move times unavailable for moves made before timing was enabled.');
+  const sequence = parent => {
+    const branches=(children.get(parent)||[]).map(id=>{
+      const [,side,index,,playedAt,times]=tree.nodes[id];
+      let value=';'+(side==='black'?'B':'W')+'['+(index===null?'':coord(index))+']';
+      const metadata=[playedAt ? 'Played at: '+playedAt : 'Played at: unavailable'];
+      if(times)metadata.push('Black total: '+(times[0]/1000).toFixed(1)+' s','White total: '+(times[1]/1000).toFixed(1)+' s');
+      if(id===tree.head)metadata.push('Current live position');
+      value+=prop('C',metadata.join('\n'));
+      return value+sequence(id);
+    });
+    return branches.length>1 ? branches.map(b=>'('+b+')').join('') : branches.join('');
+  };
+  return '('+root+sequence(-1)+')';
+}

@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import vm from 'node:vm';
 import { readFileSync } from 'node:fs';
+import {gameTree,gameClock} from '../src/engine.js';
 import {createState,transition,GameError} from '../backend/game-service.js';
 
 test('simultaneous requests commit once and return the latest game to the loser',async()=>{
@@ -19,7 +20,7 @@ test('simultaneous requests commit once and return the latest game to the loser'
  const exports={};
  vm.runInNewContext(readFileSync(new URL('../backend/handler.cjs',import.meta.url),'utf8'),{
   require:()=>({DynamoDBClient,GetItemCommand,PutItemCommand}),exports,process:{env:{TABLE_NAME:'test',SITE_ORIGIN:'https://test.invalid'}},
-  Buffer,console,createState,transition,GameError
+  Buffer,console,gameTree,gameClock,createState,transition,GameError
  });
  const event=index=>({rawPath:'/api/game',requestContext:{http:{method:'POST'}},headers:{'content-type':'application/json',origin:'https://test.invalid'},body:JSON.stringify({expectedRevision:0,action:{type:'move',index}})});
  const responses=await Promise.all([exports.handler(event(180)),exports.handler(event(181))]);
