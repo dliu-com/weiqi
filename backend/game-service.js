@@ -43,6 +43,10 @@ export function transition(current, request) {
     const g = groupAt(current.board, a.index, current.size).group;
     next.dead = current.dead.includes(a.index) ? current.dead.filter(i => !g.includes(i)) : [...new Set([...current.dead, ...g])];
     next.agreed = [];
+  } else if (a.type === 'finish' && current.phase === 'scoring') {
+    const result = score(next.board, next.size, next.dead, next.komi);
+    next.result = { winner: result.winner, reason: 'score', black: result.black, white: result.white, margin: result.margin };
+    next.phase = 'ended';
   } else if (a.type === 'agree' && current.phase === 'scoring') {
     if (!['black','white'].includes(a.side)) throw new GameError('请选择执棋方。');
     next.agreed = [...new Set([...current.agreed, a.side])];

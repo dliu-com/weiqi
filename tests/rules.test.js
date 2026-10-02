@@ -67,3 +67,11 @@ test('legacy games migrate without losing moves, captures or current position',(
  const previous=s.board;s=act(s,{type:'undo'});assert.equal(reviewPosition(s,2).board,previous);
  s=act(s,{type:'new'});assert.equal(gameTree(s).nodes.length,0);
 });
+test('single result confirmation finishes scoring and rejects stale results',()=>{
+ let s=act(createState(),{type:'move',index:180});
+ s=act(act(s,{type:'pass'}),{type:'pass'});const oldRevision=s.revision;
+ s=act(s,{type:'dead',index:180});
+ assert.throws(()=>transition(s,{expectedRevision:oldRevision,action:{type:'finish'}}),e=>e.statusCode===409);
+ s=act(s,{type:'finish'});assert.equal(s.phase,'ended');assert.equal(s.result.winner,'white');
+ assert.throws(()=>act(s,{type:'move',index:181}));assert.throws(()=>act(s,{type:'finish'}));
+});

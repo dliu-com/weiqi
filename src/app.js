@@ -30,14 +30,15 @@ function adopt(next) {
 }
 async function sync(manual = false) {
   if (busy) return;
-  busy = true;
+  busy = true; render();
   try { adopt(await request()); $('sync').textContent = t("已同步 · ","Synced · ") + new Date().toLocaleTimeString(t("zh-CN","en-GB")); }
   catch { $('sync').textContent = t("连接失败，请重试","Connection failed. Please retry."); if (manual) notice(t("无法读取云端棋局，请检查网络。","Unable to load the game. Check your connection.")); }
   finally { busy = false; render(); }
 }
 async function action(action) {
   const metadata = action.type === 'metadata';
-  if (busy || !state || (!metadata && (reviewing !== null || archiveId))) return;
+  const newGame = action.type === 'new';
+  if (busy || !state || (!metadata && (archiveId || (!newGame && reviewing !== null)))) return;
   const revision = state.revision; busy = true; render(); $('sync').textContent = t("正在核对棋局…","Checking the latest position…");
   try {
     const remote = await request(); adopt(remote);
@@ -69,22 +70,19 @@ function render() {
     el.setAttribute('aria-disabled',String(!!archiveId || reviewing !== null || busy || ended || (!scoring && !canPlay())));
   }
   $('turn').textContent = ended ? (state.result.winner ? names[state.result.winner] + t("胜"," wins") : t("和棋","Draw")) : scoring ? t("双方数子","Scoring") : t("轮到","To play: ") + names[state.turn];
-  $('detail').textContent = ended ? (state.result.reason === 'resign' ? t("对方认输，本局结束。","The opponent resigned. Game over.") : t(`胜差 ${state.result.margin} 点 · 白贴 7.5 点`,`Margin: ${state.result.margin} points · White komi: 7.5`)) : scoring ? t("标记死子，双方确认结果。","Mark dead groups, then both players confirm.") : (canPlay() ? t("点击交叉点落子。","Click an intersection to play.") : t("等待对方落子…","Waiting for the other player…")) + t(" 白贴 7.5 点。"," White komi: 7.5 points.");
+  $('detail').textContent = ended ? (state.result.reason === 'resign' ? t("对方认输，本局结束。","The opponent resigned. Game over.") : t(`胜差 ${state.result.margin} 点 · 白贴 7.5 点`,`Margin: ${state.result.margin} points · White komi: 7.5`)) : scoring ? t("标记所有死子，然后确认胜负。","Mark all dead stones, then confirm the result.") : (canPlay() ? t("点击交叉点落子。","Click an intersection to play.") : t("等待对方落子…","Waiting for the other player…")) + t(" 白贴 7.5 点。"," White komi: 7.5 points.");
   $('black-captures').textContent = displayed.captures.black; $('white-captures').textContent = displayed.captures.white;
   const undoSide = state.history.at(-1)?.side;
   $('undo').textContent = undoSide ? t('悔棋（' + names[undoSide] + '）', 'Undo ' + names[undoSide]) : t('悔棋','Undo');
   $('resign').textContent = t('认输（' + names[state.turn] + '）', names[state.turn] + ' resigns');
   $('undo').dataset.side = undoSide || '';
   $('resign').dataset.side = state.turn;
-  $('pass').disabled = busy || !canPlay(); $('undo').disabled = !!archiveId || reviewing !== null || busy || !state.history.length; $('new').disabled = !!archiveId || reviewing !== null || busy; $('resign').disabled = !!archiveId || reviewing !== null || busy || ended;
+  $('pass').disabled = busy || !canPlay(); $('undo').disabled = !!archiveId || reviewing !== null || busy || !state.history.length; $('new').disabled = !!archiveId || busy; $('resign').disabled = !!archiveId || reviewing !== null || busy || ended;
   $('scoring').hidden = !totals;
   $('scoring-help').hidden = ended;
   $('scoring-actions').hidden = ended || !!archiveId;
-  if (totals) $('score').textContent = t(`黑 ${totals.black} 点 · 白 ${totals.white} + 7.5 点 → ${totals.winner ? names[totals.winner] + '领先 ' + totals.margin + ' 点' : '和棋'}`,`Black ${totals.black} · White ${totals.white} + 7.5 → ${totals.winner ? names[totals.winner] + ' leads by ' + totals.margin + ' points' : 'Draw'}`);
-  for (const side of ['black','white']) {
-    $('agree-'+side).disabled = busy || state.agreed.includes(side);
-    $('agree-'+side).textContent = names[side] + (state.agreed.includes(side) ? t("已确认 ✓"," confirmed ✓") : t("确认"," confirms"));
-  }
+  if (totals) $('score').textContent = t(`黑 ${totals.black} 点 · 白 ${totals.white} + 7.5 点 → ${totals.winner ? names[totals.winner] + '胜 ' + totals.margin + ' 点' : '和棋'}`,`Black ${totals.black} · White ${totals.white} + 7.5 → ${totals.winner ? names[totals.winner] + ' wins by ' + totals.margin + ' points' : 'Draw'}`);
+  $('confirm-score').disabled = busy || !!archiveId || reviewing !== null;
   $('resume').disabled = busy;
   $('count').textContent = state.history.length + t(" 手"," moves"); $('empty').hidden = state.history.length > 0;
   if (archiveId && !review) { $('turn').textContent = t('已归档棋局','Archived game'); $('detail').textContent = t('选择棋谱节点查看历史局面。','Select a tree node to review an earlier position.'); }
@@ -93,7 +91,7 @@ function render() {
     $('turn').textContent = t('复盘 · 第 ' + review.depth + ' 手', 'Review · Move ' + review.depth);
     $('detail').textContent = t('仅查看历史。返回当前棋局后才能落子。', 'Viewing history only. Return to live to play.');
   }
-  $('turn').className = 'turn-label' + (!archiveId && !review && state.phase === 'play' ? ' turn-' + state.turn : '');
+  $('turn').className = 'turn-label' + (!review && (state.phase === 'play' || state.result?.winner) ? ' turn-' + (state.result?.winner || state.turn) : '');
   renderTree();
   renderClock();
 
@@ -194,13 +192,19 @@ const points = Array.from({length:361},(_,i) => {
   b.addEventListener('keydown', e=>{ const offset={ArrowLeft:-1,ArrowRight:1,ArrowUp:-19,ArrowDown:19}[e.key]; if (!offset) return; e.preventDefault(); const n=i+offset; if(n>=0&&n<361 && (Math.abs(offset)===19 || Math.floor(n/19)===Math.floor(i/19))) { b.tabIndex=-1; points[n].tabIndex=0; points[n].focus(); }});
   $('board').append(b); return b;
 });
-function confirmAction(title,text,operation) { const revision = state.revision; pendingConfirmation = () => { if (state.revision !== revision) { notice(t('棋局已更新，请重新确认。','The game has changed. Please confirm again.')); return; } operation(); }; $('confirm-title').textContent=title; $('confirm-text').textContent=text; $('confirm-dialog').showModal(); }
+function confirmAction(title,text,operation,acceptLabel=t('确认','Confirm')) { $('accept-confirm').textContent=acceptLabel; $('confirm-title').className=''; const revision = state.revision; pendingConfirmation = () => { if (state.revision !== revision) { notice(t('棋局已更新，请重新确认。','The game has changed. Please confirm again.')); return; } operation(); }; $('confirm-title').textContent=title; $('confirm-text').textContent=text; $('confirm-dialog').showModal(); }
 $('cancel-confirm').onclick=()=>$('confirm-dialog').close(); $('accept-confirm').onclick=()=>{ $('confirm-dialog').close(); pendingConfirmation?.(); };
-$('new').onclick=()=>confirmAction(t("重新开始？","Start a new game?"),t("当前棋局会存入历史记录，所有设备都会同步为新局。","This archives the current game and starts a new one on every device."),()=>action({type:'new'}));
+$('new').onclick=()=>action({type:'new'});
 $('undo').onclick=()=>confirmAction(t('撤回' + names[state.history.at(-1)?.side] + '的上一手？','Undo ' + names[state.history.at(-1)?.side] + '’s last move?'),t("撤回最近一手，双方设备都会更新。请先征得对方同意。","Undo the last move on all devices. Please agree with your opponent first."),()=>action({type:'undo'}));
 $('resign').onclick=()=>{ const side=state.turn; confirmAction(names[side]+t("认输？"," resigns?"),t("确认后本局结束。","Confirm to end this game."),()=>action({type:'resign',side})); };
 $('pass').onclick=()=>action({type:'pass'}); $('resume').onclick=()=>action({type:'resume'});
-for(const side of ['black','white']) $('agree-'+side).onclick=()=>action({type:'agree',side});
+$('confirm-score').onclick=()=>{
+  if (!state || busy || reviewing !== null || archiveId) return;
+  const result=score(state.board,19,state.dead,state.komi);
+  const winner=result.winner ? names[result.winner]+t('胜',' wins') : t('和棋','Draw');
+  confirmAction(winner,t('胜差 '+result.margin+' 点。确认此结果结束棋局？','Margin: '+result.margin+' points. Confirm this result to finish the game?'),()=>action({type:'finish'}),t('确认'+winner,'Confirm '+winner));
+  $('confirm-title').className=result.winner ? 'turn-'+result.winner : '';
+};
 $('rules').onclick=()=>$('rules-dialog').showModal(); $('close-rules').onclick=()=>$('rules-dialog').close();
 function focusBoard(on) { document.body.classList.toggle('focus',on); $('focus').textContent=on?t("退出专注 ↙","Exit focus ↙"):t("专注棋盘 ↗","Focus board ↗"); $('focus').setAttribute('aria-pressed',String(on)); }
 $('focus').onclick=()=>focusBoard(!document.body.classList.contains('focus')); document.addEventListener('keydown',e=>{if(e.key==='Escape')focusBoard(false);});
