@@ -88,7 +88,11 @@ export function reviewPosition(state, id) {
 }
 export function gameClock(state, now = Date.now()) {
   const clock = { black: 0, white: 0, paused: false, since: null, ...state.clock };
-  if (state.phase === 'play' && !clock.paused && clock.since !== null) clock[state.turn] += Math.max(0, now - clock.since);
+  const last = clock.lastSeen;
+  const expired = state.phase === 'play' && !clock.paused && Number.isFinite(last) && now - last >= 60000;
+  clock.autoPaused = expired;
+  const until = expired ? last : now;
+  if (state.phase === 'play' && !clock.paused && clock.since !== null) clock[state.turn] += Math.max(0, until - clock.since);
   return clock;
 }
 export function sgf(state) {

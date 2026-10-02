@@ -27,7 +27,7 @@ async function client() {
     window:{addEventListener(){}},setInterval(fn,ms){intervals.push({fn,ms});},setTimeout(){},clearTimeout(){},
     Date:class extends Date { static now(){return now;} },AbortSignal,TextEncoder,crypto:webcrypto,
     fetch:async (url,options)=>{
-      calls.push(options.method);
+      calls.push(options.method === 'POST' && JSON.parse(options.body).action.type === 'heartbeat' ? 'HEARTBEAT' : options.method);
       if(options.method==='GET') {if(failGet)throw new Error('Offline');return {ok:true,json:async()=>({state:structuredClone(remote)})};}
       const request=JSON.parse(options.body);
       remote=transition(remote,request);
@@ -37,13 +37,13 @@ async function client() {
   });
   vm.runInContext(readFileSync(new URL('../src/app.js',import.meta.url),'utf8').replace(/^import .*;\n/gm,''),context);
   const run = code=>vm.runInContext(code,context);
-  await new Promise(resolve=>setImmediate(resolve));
+  while(run('polling')) await new Promise(resolve=>setImmediate(resolve));
   return {run,get,calls,intervals,remote:()=>remote,move:i=>{remote=transition(remote,{expectedRevision:remote.revision,action:{type:'move',index:i}});},
-    loseResponse:()=>{failAfterSave=true;},offline:()=>{failGet=true;},advance:ms=>{now+=ms;}};
+    loseResponse:()=>{failAfterSave=true;},offline:()=>{failGet=true;},online:()=>{failGet=false;failAfterSave=false;},advance:ms=>{now+=ms;}};
 }
 test('visible idle page polls every 5 seconds without a focus event',async()=>{
  const c=await client();assert.equal(c.intervals.find(i=>i.ms===5000).ms,5000);c.move(180);
- await c.intervals.find(i=>i.ms===5000).fn();await new Promise(r=>setImmediate(r));
+ c.intervals.find(i=>i.ms===5000).fn();while(c.run('polling'))await new Promise(r=>setImmediate(r));
  assert.equal(c.run('state.board[180]'),'B');assert.match(c.get('turn').textContent,/White/);
 });
 test('preflight rejects a stale move without submitting POST',async()=>{
@@ -69,4 +69,31 @@ test('review stays selected while live moves sync and cannot submit moves',async
  c.move(182);await c.run('sync()');assert.equal(c.run('reviewing'),-1);
  assert.equal(c.get('turn').textContent,'Review · Move 0');
  c.get('review-live').onclick();assert.equal(c.run('reviewing'),null);assert.equal(c.run('state.history.length'),2);
+});
+test('background polling never disables otherwise available controls',async()=>{
+ const c=await client();const changes=[];
+ for(const id of ['pass','new','resign']) {
+  let value=c.get(id).disabled;
+  Object.defineProperty(c.get(id),'disabled',{get:()=>value,set:v=>{changes.push([id,v]);value=v;}});
+ }
+ await c.run('sync()');
+ assert.ok(changes.length>0);assert.ok(changes.every(([,disabled])=>disabled===false));
+});
+test('submitting label is visible while a move is in flight, then clears on success',async()=>{
+ const c=await client();const saving=c.run("action({type:'move',index:180})");
+ assert.equal(c.get('turn').textContent,'Black · Submitting…');await saving;
+ assert.equal(c.get('turn').textContent,'To play: White');
+});
+test('network errors show not sent and later sync recovers a saved move',async()=>{
+ const before=await client();before.offline();await before.run("action({type:'move',index:180})");
+ assert.equal(before.get('turn').textContent,'Black · Not sent');
+ const after=await client();after.loseResponse();const saving=after.run("action({type:'move',index:180})");after.offline();await saving;
+ assert.equal(after.get('turn').textContent,'Black · Not sent');
+ assert.equal(after.remote().history.length,1);
+ after.online();await after.run('sync()');assert.equal(after.get('turn').textContent,'To play: White');
+});
+test('background sync failure shows a persistent inline warning and successful retry clears it',async()=>{
+ const c=await client();c.run("automatic=false");c.offline();await c.run('sync()');
+ assert.equal(c.get('sync-warning').hidden,false);assert.match(c.get('sync-warning').textContent,/out of date/);
+ c.online();await c.run('sync()');assert.equal(c.get('sync-warning').hidden,true);
 });

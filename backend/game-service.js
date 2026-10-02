@@ -7,16 +7,24 @@ export function createState() {
   return { createdAt: new Date().toISOString(), gameName: null, players: { black: '', white: '' }, revision: 0, size, board: '.'.repeat(size * size), turn: 'black', history: [], captures: { black: 0, white: 0 }, passes: 0, phase: 'play', dead: [], agreed: [], komi: 7.5, result: null, updatedAt: null };
 }
 export function transition(current, request) {
-  if (!request || !Number.isSafeInteger(request.expectedRevision) || request.expectedRevision < 0) throw new GameError('棋局版本无效。');
-  if (request.expectedRevision !== current.revision) throw new GameError('棋局已更新，请重试。', 409);
+  const heartbeat = request?.action?.type === 'heartbeat';
+  if (!heartbeat && (!request || !Number.isSafeInteger(request.expectedRevision) || request.expectedRevision < 0)) throw new GameError('棋局版本无效。');
+  if (!heartbeat && request.expectedRevision !== current.revision) throw new GameError('棋局已更新，请重试。', 409);
   const now = Date.now();
   const a = request.action; if (!a || typeof a.type !== 'string') throw new GameError('操作无效。');
   let next = structuredClone(current);
   next.tree = structuredClone(gameTree(current));
   next.createdAt ||= current.updatedAt || new Date().toISOString();
   next.clock = gameClock(current, now);
+  // Legacy clocks cannot reconstruct presence before this version. Start presence tracking now.
+  if (!Number.isFinite(current.clock?.lastSeen)) next.clock = {black:current.clock?.black || 0,white:current.clock?.white || 0,paused:current.clock?.paused || false,since:current.clock?.since ?? null};
   if (next.clock.since !== null) next.clock.since = now;
-  if (a.type === 'clock') {
+  next.clock.lastSeen = now;
+  next.clock.autoPaused = false;
+  next.clockVersion = (current.clockVersion || 0) + 1;
+  if (heartbeat) {
+    // Presence renewals keep the game revision unchanged, so they do not invalidate moves or dialogs.
+  } else if (a.type === 'clock') {
     if (current.phase !== 'play' || typeof a.paused !== 'boolean') throw new GameError('当前棋局不能执行此操作。');
     next.clock.paused = a.paused; next.clock.since = now;
   } else if (a.type === 'metadata') {
@@ -75,7 +83,7 @@ export function transition(current, request) {
     next.history.push(entry); next.turn = opposite(current.turn);
   } else throw new GameError('当前棋局不能执行此操作。');
   if (a.type === 'resume' || a.type === 'undo') next.clock.since = now;
-  next.revision = current.revision + 1; next.updatedAt = new Date().toISOString();
+  next.revision = current.revision + (heartbeat ? 0 : 1); next.updatedAt = heartbeat ? current.updatedAt : new Date().toISOString();
   if (JSON.stringify(next).length > 350000) throw new GameError('棋谱已达保存上限，请结算当前棋局或重新开始。');
   return next;
 }

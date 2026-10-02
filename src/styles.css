@@ -45,3 +45,5 @@ body.focus .history-card{display:block;margin-top:12px}body.focus #history{max-h
 .actions button[data-side]{display:flex;align-items:center;justify-content:center;gap:5px}.actions button[data-side=black]::before,.actions button[data-side=white]::before{content:"";width:10px;height:10px;flex-shrink:0;border-radius:50%}.actions button[data-side=black]::before{background:#101411;border:1px solid #89958d}.actions button[data-side=white]::before{background:#f3f1e8;border:1px solid #fff}
 
 header a.brand{color:var(--ink);text-decoration:none}header a.brand:hover{color:var(--gold)}
+
+#sync-warning{padding:10px 12px;margin:0 0 14px;border:1px solid #e6b36c;border-radius:6px;background:#70411655;color:#ffe2b4;font-size:13px;line-height:1.5}body.focus #sync-warning{display:block;flex-basis:100%}

@@ -47,17 +47,18 @@ exports.handler = async event => {
     try { request = JSON.parse(raw); } catch { return response(400, { message: '请求格式无效。' }); }
     if (archiveId && !['rename','players','metadata'].includes(request.action?.type)) throw new GameError('当前棋局不能执行此操作。');
     const current = await readGame(key);
+    if (request.action?.type === 'heartbeat' && (current.phase !== 'play' || current.clock?.paused || current.clock?.since === null)) return response(200, { state: current });
     const next = transition(current, request);
     const item = (id, state) => ({
-      gameId: { S: id }, revision: { N: String(state.revision) }, state: { S: JSON.stringify(state) },
+      gameId: { S: id }, revision: { N: String(state.revision) }, clockVersion: { N: String(state.clockVersion || 0) }, state: { S: JSON.stringify(state) },
       gameName: { S: state.gameName || '' }, createdAt: { S: state.createdAt || state.updatedAt || next.updatedAt },
-      updatedAt: { S: state.updatedAt || next.updatedAt },
+      updatedAt: { S: state.updatedAt || state.createdAt || new Date().toISOString() },
     });
     const save = {
       TableName: process.env.TABLE_NAME, Item: item(key, next),
-      ConditionExpression: 'attribute_not_exists(#revision) OR #revision = :expected',
-      ExpressionAttributeNames: { '#revision': 'revision' },
-      ExpressionAttributeValues: { ':expected': { N: String(current.revision) } },
+      ConditionExpression: '(attribute_not_exists(#revision) OR #revision = :expected) AND (attribute_not_exists(#clockVersion) OR #clockVersion = :clockVersion)',
+      ExpressionAttributeNames: { '#revision': 'revision', '#clockVersion': 'clockVersion' },
+      ExpressionAttributeValues: { ':expected': { N: String(current.revision) }, ':clockVersion': { N: String(current.clockVersion || 0) } },
     };
     if (request.action.type === 'new') {
       const archived = { ...current, clock: { ...gameClock(current), paused: true, since: null }, createdAt: current.createdAt || current.updatedAt || next.updatedAt, tree: gameTree(current) };
@@ -69,6 +70,7 @@ exports.handler = async event => {
     return response(200, { state: next });
   } catch (error) {
     if (error.name === 'ConditionalCheckFailedException' || error.name === 'TransactionCanceledException' || error.statusCode === 409) {
+      if (error.statusCode !== 409 && (event._retry || 0) < 3) return exports.handler({ ...event, _retry: (event._retry || 0) + 1 });
       return response(409, { message: '棋局已更新，已为你同步最新进度。', state: await readGame(key) });
     }
     if (error instanceof GameError) return response(error.statusCode, { message: error.message });

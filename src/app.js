@@ -7,50 +7,65 @@ const apiPath = archiveId ? '/api/games/' + encodeURIComponent(archiveId) : '/ap
 const gameTitle = s => s.gameName || new Date(s.createdAt || s.updatedAt || Date.now()).toLocaleString(language === 'zh' ? 'zh-CN' : 'en-GB');
 const letters = 'ABCDEFGHJKLMNOPQRST';
 const coord = i => letters[i % 19] + (19 - Math.floor(i / 19));
+let syncFailed = false;
+function showSyncWarning(failed) {
+  syncFailed = failed;
+  $('sync-warning').hidden = !failed;
+  $('sync-warning').textContent = t('同步中断：无法连接服务器，棋盘可能不是最新状态。请检查网络；连接恢复后会自动更新。','Sync interrupted: the server could not be reached. This board may be out of date. Check your connection; syncing resumes when the connection returns.');
+}
+let moveStatus = null;
 let reviewing = null, treeRenderKey = '';
-let state = null, busy = false, automatic = true, lastActivity = Date.now(), noticeTimer, pendingConfirmation;
+let state = null, busy = false, polling = false, automatic = true, lastActivity = Date.now(), noticeTimer, pendingConfirmation;
 function notice(message) { $('notice').textContent = message; $('notice').hidden = false; clearTimeout(noticeTimer); noticeTimer = setTimeout(() => $('notice').hidden = true, 6000); }
 async function request(method = 'GET', payload) {
-  const headers = {}, options = { method, cache: 'no-store', signal: AbortSignal.timeout(15000), headers };
+  const headers = {}, options = { method, cache: 'no-store', signal: AbortSignal.timeout(10000), headers };
   if (payload) {
     options.body = JSON.stringify(payload); headers['content-type'] = 'application/json';
     const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(options.body));
     headers['x-amz-content-sha256'] = Array.from(new Uint8Array(digest), b => b.toString(16).padStart(2,'0')).join('');
   }
   const response = await fetch(apiPath, options), data = await response.json();
-  if (!response.ok) { const error = new Error(data.message || t("同步失败，请稍后重试。","Sync failed. Please try again.")); error.state = data.state; throw error; }
+  if (!response.ok) { const error = new Error(data.message || t("同步失败，请稍后重试。","Sync failed. Please try again.")); error.state = data.state; error.httpStatus = response.status; throw error; }
+  showSyncWarning(false);
   return data.state;
 }
 function adopt(next) {
-  if (state && next.revision < state.revision) return;
+  if (state && (next.revision < state.revision || (next.revision === state.revision && (next.clockVersion || 0) < (state.clockVersion || 0)))) return;
   if (!state || next.board !== state.board || next.history.length !== state.history.length) lastActivity = Date.now();
+  if (moveStatus && moveStatus.phase !== 'submitting' && state && next.revision > state.revision) moveStatus = null;
   if (state && (state.generation || 0) !== (next.generation || 0)) reviewing = null;
   if (reviewing !== null && reviewing >= gameTree(next).nodes.length) reviewing = null;
   state = next; render();
 }
 async function sync(manual = false) {
-  if (busy) return;
-  busy = true; render();
-  try { adopt(await request()); $('sync').textContent = t("已同步 · ","Synced · ") + new Date().toLocaleTimeString(t("zh-CN","en-GB")); }
-  catch { $('sync').textContent = t("连接失败，请重试","Connection failed. Please retry."); if (manual) notice(t("无法读取云端棋局，请检查网络。","Unable to load the game. Check your connection.")); }
-  finally { busy = false; render(); }
+  if (busy || polling) return;
+  polling = true;
+  try { adopt(await request(!archiveId && automatic && document.visibilityState === 'visible' ? 'POST' : 'GET', !archiveId && automatic && document.visibilityState === 'visible' ? {action:{type:'heartbeat'}} : undefined)); $('sync').textContent = t("已同步 · ","Synced · ") + new Date().toLocaleTimeString(t("zh-CN","en-GB")); }
+  catch { showSyncWarning(true); $('sync').textContent = t("连接失败，请重试","Connection failed. Please retry."); if (manual) notice(t("无法读取云端棋局，请检查网络。","Unable to load the game. Check your connection.")); }
+  finally { polling = false; }
 }
 async function action(action) {
   const metadata = action.type === 'metadata';
   const newGame = action.type === 'new';
   if (busy || !state || (!metadata && (archiveId || (!newGame && reviewing !== null)))) return;
-  const revision = state.revision; busy = true; render(); $('sync').textContent = t("正在核对棋局…","Checking the latest position…");
+  const revision = state.revision;
+  moveStatus = action.type === 'move' ? {side:state.turn,phase:'submitting'} : null;
+  busy = true; render(); $('sync').textContent = t("正在核对棋局…","Checking the latest position…");
   try {
     const remote = await request(); adopt(remote);
-    if (remote.revision !== revision) { $('sync').textContent = t('已同步最新棋局','Latest position synced'); notice(t("对方已更新棋局，已同步。请重新操作。","The game has changed and is now synced. Please try your move again.")); return; }
+    if (remote.revision !== revision) { moveStatus = null; $('sync').textContent = t('已同步最新棋局','Latest position synced'); notice(t("对方已更新棋局，已同步。请重新操作。","The game has changed and is now synced. Please try your move again.")); return; }
     adopt(await request('POST', { expectedRevision: revision, action }));
+    moveStatus = null;
     $('sync').textContent = t("已保存 · ","Saved · ") + new Date().toLocaleTimeString(t("zh-CN","en-GB"));
   } catch (e) {
+    if (!e.httpStatus) showSyncWarning(true);
+    if (moveStatus) moveStatus.phase = 'failed';
+    render();
     if (e.state) adopt(e.state);
     notice(translateError(e.message) || t("保存失败，请重新同步。","Save failed. Please sync again."));
     // Recover an uncertain POST without replaying an action that may already have succeeded.
-    try { adopt(await request()); $('sync').textContent = t("已重新同步，请核对棋局","Synced again. Please check the position."); }
-    catch { $('sync').textContent = t("保存状态未知，请立即同步后核对","Save status unknown. Sync now to check."); }
+    try { adopt(await request()); if (moveStatus && state.revision === revision + 1 && state.history.at(-1)?.index === action.index && state.history.at(-1)?.side === moveStatus.side) moveStatus = null; $('sync').textContent = t("已重新同步，请核对棋局","Synced again. Please check the position."); }
+    catch { showSyncWarning(true); $('sync').textContent = t("连接失败，请同步后重试","Connection failed. Sync and try again."); }
   } finally { busy = false; render(); }
 }
 function canPlay() { return state && !archiveId && reviewing === null && state.phase === 'play' && !state.clock?.paused; }
@@ -91,7 +106,11 @@ function render() {
     $('turn').textContent = t('复盘 · 第 ' + review.depth + ' 手', 'Review · Move ' + review.depth);
     $('detail').textContent = t('仅查看历史。返回当前棋局后才能落子。', 'Viewing history only. Return to live to play.');
   }
-  $('turn').className = 'turn-label' + (!review && (state.phase === 'play' || state.result?.winner) ? ' turn-' + (state.result?.winner || state.turn) : '');
+  if (moveStatus && !review && !archiveId) {
+    $('turn').textContent = names[moveStatus.side] + (moveStatus.phase === 'submitting' ? t(' · 正在提交…',' · Submitting…') : t(' · 未发送',' · Not sent'));
+    $('detail').textContent = moveStatus.phase === 'submitting' ? t('正在核对并保存落子，请稍候。','Checking and saving your move. Please wait.') : t('落子未发送，请检查网络后重试。','Move not sent. Check your connection and try again.');
+  }
+  $('turn').className = 'turn-label' + (!review && (state.phase === 'play' || state.result?.winner) ? ' turn-' + (moveStatus?.side || state.result?.winner || state.turn) : '');
   renderTree();
   renderClock();
 
@@ -159,7 +178,7 @@ function renderClock() {
   $('white-time').textContent = names.white + ' ' + (reviewing !== null && !saved ? '—' : format(clock.white));
   $('pause-clock').disabled = busy || !!archiveId || reviewing !== null || state.phase !== 'play';
   $('pause-clock').textContent = state.clock?.paused ? t('恢复计时','Resume clock') : t('暂停计时','Pause clock');
-  $('clock-note').textContent = reviewing !== null ? t('该手结束时的累计用时','Total time at this move') : !state.clock?.since ? t('首手落子后开始计时','Timing starts after the first move') : state.phase !== 'play' ? t('计时已停止','Clock stopped') : state.clock?.paused ? t('计时已暂停','Clock paused') : t('累计用时 · 关闭网页后继续计时','Elapsed time · Continues while the page is closed');
+  $('clock-note').textContent = reviewing !== null ? t('该手结束时的累计用时','Total time at this move') : !state.clock?.since ? t('首手落子后开始计时','Timing starts after the first move') : state.phase !== 'play' ? t('计时已停止','Clock stopped') : state.clock?.paused ? t('计时已暂停','Clock paused') : clock.autoPaused ? t('无人在线，计时自动暂停','No active page · Clock automatically paused') : t('所有页面离线 1 分钟后自动暂停','Auto-pauses after all pages are inactive for 1 minute');
 }
 $('pause-clock').onclick = () => { if (state) action({type:'clock',paused:!state.clock?.paused}); };
 $('download-sgf').onclick = () => {
@@ -238,4 +257,4 @@ $('edit-form').onsubmit = async event => {
   else $('edit-error').textContent = t('保存失败，请关闭后重试。','Not saved. Close and try again.');
 };
 
-document.querySelectorAll('[data-language]').forEach(button => button.onclick=()=>{setLanguage(button.dataset.language); focusBoard(document.body.classList.contains('focus')); $('notice').hidden=true; $('sync').textContent=t('语言已切换','Language updated'); render();});
+document.querySelectorAll('[data-language]').forEach(button => button.onclick=()=>{setLanguage(button.dataset.language); showSyncWarning(syncFailed); focusBoard(document.body.classList.contains('focus')); $('notice').hidden=true; $('sync').textContent=t('语言已切换','Language updated'); render();});
