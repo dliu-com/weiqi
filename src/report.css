@@ -2,3 +2,5 @@
 @page{size:A4 portrait;margin:12mm}@media print{:root,body{background:white;color:#202629}.report-tools,#report-status{display:none}.report-sheet{width:100%;margin:0;padding:0;box-shadow:none;break-after:page}.report-sheet:last-child{break-after:auto}.report-sheet h1{font-size:23pt}.report-sheet h2{font-size:17pt}.report-table{font-size:8.5pt}.report-table th,.report-table td{padding:5px}.report-meta,.report-sheet p{font-size:10pt}.report-board.single{max-width:150mm}.diagram-pair{grid-template-columns:1fr 1fr;gap:5mm}.report-chart svg{max-height:45mm}.report-note{font-size:8pt}.report-footer{font-size:8pt;margin-top:6mm}.report-board,.report-table,.report-chart{break-inside:avoid}*{-webkit-print-color-adjust:exact;print-color-adjust:exact}}
 
 .report-languages{display:flex;gap:5px}.report-languages button[aria-pressed=true]{background:#e9eff3;border-color:#425d6c;font-weight:650}
+
+.report-formula{font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:14px;padding:10px 12px;background:#eff3f5;border-left:3px solid #526b79;overflow-wrap:anywhere}@media(max-width:600px){.report-formula{font-size:12px}}

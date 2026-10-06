@@ -1,0 +1,43 @@
+{
+  "verifiedAt": "2026-10-06T11:39:41.749398+00:00",
+  "reportUrl": "https://weiqi.dliu.com/record/2026100620/report",
+  "schemaVersion": 6,
+  "region": "eu-west-1",
+  "provisioning": "CloudFormation only; updated existing Lambda code",
+  "storageAndGpuResourcesUnchanged": true,
+  "newPaidAnalysisJobs": 0,
+  "generation": "Replayed completed Batch event using saved 3,000-visit analysis",
+  "productionMatchesIndependentLocalCalculations": true,
+  "independentPythonMetricChecks": 27,
+  "ratedMoves": 321,
+  "wholeGameQualityCounts": {
+    "best": 127,
+    "good": 91,
+    "inaccuracy": 65,
+    "mistake": 31,
+    "blunder": 7
+  },
+  "selectedBadMovesUnchangedFromSchema5": true,
+  "browser": {
+    "languages": [
+      "en",
+      "zh-CN"
+    ],
+    "identicalNumericTableStatistics": true,
+    "sheetsPerLanguage": 22,
+    "formulaBlocksPerLanguage": 16,
+    "boardDiagrams": 20,
+    "boardDiagramsOnlyIn10BadMoveSheets": true,
+    "perMoveTimelineIncludesAll321RatedMoves": true,
+    "mobileWidth": 390,
+    "mobileDocumentWidth": 375,
+    "configurationControls": 0,
+    "savePdfEnabled": true,
+    "screenshot": "/private/tmp/weiqi-all-move-statistics-production.png"
+  },
+  "tests": {
+    "node": 104,
+    "cdk": 14
+  },
+  "pdfExportTest": "Deferred at user request; no PDF export performed"
+}
