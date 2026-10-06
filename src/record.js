@@ -41,13 +41,13 @@ function renderContents(){document.title=(data?.metadata.name || t('棋谱','Gam
 }
 function pendingMessage(){
  const state=data.metadata.analysis,stage=pendingAnalysis(state)||state;
- if(state.status==='retry_wait'){const remaining=Math.max(0,Math.ceil((Date.parse(state.retryAt)-Date.now())/1000));return t('AI 分析暂时失败。棋谱和已完成的结果已保存。','AI analysis temporarily failed. Your record and completed results are safe.')+'\n'+t('自动重试 ','Automatic retry ')+(state.attempt||1)+'/2 · '+formatAnalysisEstimate(Date.parse(state.retryAt))+'\n'+(remaining>0?t('还需约 '+Math.ceil(remaining/60)+' 分钟。','About '+Math.ceil(remaining/60)+' min until retry.'):t('重试已到期，等待调度。','Retry is due; awaiting dispatch.'))+(data.analysis?'':'\n'+t('每分钟检查一次。','Checking once a minute.'));}
+ if(state.status==='retry_wait'){const remaining=Math.max(0,Math.ceil((Date.parse(state.retryAt)-Date.now())/1000));return t('AI 分析暂时失败。棋谱和已完成的分析已保存。','AI analysis temporarily failed. Your record and completed analysis are safe.')+'\n'+t('自动重试 ','Automatic retry ')+(state.attempt||1)+'/2 · '+formatAnalysisEstimate(Date.parse(state.retryAt))+'\n'+(remaining>0?t('还需约 '+Math.ceil(remaining/60)+' 分钟。','About '+Math.ceil(remaining/60)+' min until retry.'):t('重试已到期，等待调度。','Retry is due; awaiting dispatch.'))+(data.analysis?'':'\n'+t('每分钟检查一次。','Checking once a minute.'));}
  const deep=stage.phase==='deep'||data.metadata.benchmark?.queueKind==='deep';
- if(data.metadata.benchmark&&!data.metadata.benchmark.workflow){const started=stage.startedAt||state.startedAt;return (state.status==='queued'?t('基准测试排队中。','Benchmark queued.'):t('基准分析运行中 · 已运行 ','Benchmark analysis running · elapsed ')+Math.floor(Math.max(0,Date.now()-Date.parse(started))/60000)+t(' 分钟',' min')+'\n'+t('开始于：','Started: ')+formatAnalysisTime(Date.parse(started)))+'\n'+analysisTotal(null)+(deep?'':'\n'+t('每分钟检查快速结果。','Quick results are checked once a minute.'));}
+ if(data.metadata.benchmark&&!data.metadata.benchmark.workflow){const started=stage.startedAt||state.startedAt;return (state.status==='queued'?t('基准测试排队中。','Benchmark queued.'):t('基准分析运行中 · 已运行 ','Benchmark analysis running · elapsed ')+Math.floor(Math.max(0,Date.now()-Date.parse(started))/60000)+t(' 分钟',' min')+'\n'+t('开始于：','Started: ')+formatAnalysisTime(Date.parse(started)))+'\n'+analysisTotal(null)+(deep?'':'\n'+t('每分钟检查快速分析。','Checking quick analysis once a minute.'));}
  const wait=analysisWait(stage,data.metadata.moves),completion=analysisCompletion(stage,data.metadata.moves),duration=t(Math.max(1,Math.ceil(wait.seconds/60))+' 分钟',Math.max(1,Math.ceil(wait.seconds/60))+' min');
- const deepName=stage.compute?.instanceType==='g5.xlarge'||stage.fallback?t('深度分析（GPU 后备）','Deep analysis (GPU fallback)'):t('深度分析','Deep analysis');
- const name=deep?(data.analysis?t('当前显示快速结果 · ','Quick results shown · ')+deepName:deepName):t('快速分析','Quick analysis');
- const check=deep?'':'\n'+t('每分钟检查快速结果。','Quick results are checked once a minute.');
+ const name=deep?t('深度分析','Deep analysis'):t('快速分析','Quick analysis');
+ const showing=deep&&data.analysis?t('当前显示快速分析。','Showing quick analysis.')+'\n':'';
+ const check=deep?'':'\n'+t('每分钟检查快速分析。','Checking quick analysis once a minute.');
  if(wait.phase==='queued'){
   const queue=queueWait(stage),range=queue.seconds;
   const messages={dispatching:t('正在提交 AI 作业。','Submitting the AI job.'),starting:t('GPU 已分配，正在启动工作进程。','GPU allocated; starting the worker.'),setup:t('GPU 已启动，正在准备分析。','GPU started; preparing analysis.'),between_passes:t('快速分析完成，正在准备深度分析。','Quick analysis finished; preparing the deep pass.'),capacity_wait:t('等待 AWS GPU 容量，暂时无法可靠估计开始时间。','Waiting for AWS GPU capacity; a reliable start time is not available.'),busy_unknown:t('前面的作业或准备阶段比预计更久，暂时无法可靠估计开始时间。','Earlier jobs or setup are taking longer than expected; a reliable start time is not available.'),updating:t('作业状态更新中。','Updating the job status.'),unavailable:t('排队中，暂时无法读取等待时间估计。','Queued; the waiting-time estimate is temporarily unavailable.')};
@@ -55,18 +55,18 @@ function pendingMessage(){
   if(Number.isInteger(queue.jobsAhead))message+='\n'+t('前面等待的作业：'+queue.jobsAhead+' · 运行或启动中的作业：'+queue.activeJobs,'Jobs waiting ahead: '+queue.jobsAhead+' · Running or starting: '+queue.activeJobs);
   if(range){
    message+='\n'+t('预计开始：','Estimated start: ')+formatAnalysisEstimate(queue.startsAt.latest);
-   message+='\n'+t('排队与准备还需约 '+Math.ceil(range.latest/60)+' 分钟。','Queue and setup remaining: ~'+Math.ceil(range.latest/60)+' min.');
+   message+='\n'+t('预计 '+Math.ceil(range.latest/60)+' 分钟后开始。','Starting in about '+Math.ceil(range.latest/60)+' min.');
    if(completion)message+='\n'+t('预计完成：','Estimated finish: ')+formatAnalysisEstimate(completion.timestamp);
   }else message+='\n'+t('开始后处理约 ','Processing after start: ~')+duration;
-  return name+' · '+message+'\n'+analysisTotal(null)+check;
+  return showing+name+' · '+message+'\n'+analysisTotal(null)+check;
  }
- const progress=wait.phase==='running'?t(' · 预计还需约 '+duration+'。',' · ~'+duration+' remaining.'):t(' · 比预计耗时更长。',' · taking longer than estimated.');
+ const progress=wait.phase==='running'?t('预计 '+duration+' 后完成。',' ready in '+duration+'.'):t('比预计耗时更长。',' is taking longer than expected.');
  const started=Number.isFinite(Date.parse(stage.startedAt))?'\n'+t('开始于：','Started: ')+formatAnalysisTime(Date.parse(stage.startedAt)):'';
  const estimate=completion?'\n'+(wait.phase==='overdue'?t('原预计完成：','Original estimated finish: '):t('预计完成：','Estimated finish: '))+formatAnalysisEstimate(completion.timestamp):'';
  const retry=state.attempt>1?t('自动重试 '+(state.attempt-1)+'/2 · ','Automatic retry '+(state.attempt-1)+'/2 · '):'';
- return retry+name+progress+started+estimate+'\n'+analysisTotal(null)+check;
+ return showing+retry+name+progress+started+estimate+'\n'+analysisTotal(null)+check;
 }
-function terminalAnalysisMessage(){return (data.metadata.analysis.error||t('AI 分析失败。','AI analysis failed.'))+' '+t('已完成两次自动重试。棋谱和已有结果仍可查看。','Both automatic retries have been used. Your record and any completed results remain available.');}
+function terminalAnalysisMessage(){return (data.metadata.analysis.error||t('AI 分析失败。','AI analysis failed.'))+' '+t('已完成两次自动重试。棋谱和已有分析仍可查看。','Both automatic retries have been used. Your record and completed analysis remain available.');}
 function formatAnalysisTime(timestamp){return localTimestamp(timestamp,document.documentElement.lang==='zh-CN'?'zh':'en',{seconds:false});}
 function formatAnalysisEstimate(timestamp){return formatAnalysisTime(conservativeMinute(timestamp));}
 function scheduleStatusTicker(){clearInterval(statusTimer);if(record&&!document.hidden&&pendingAnalysis(data.metadata.analysis))statusTimer=setInterval(()=>{if(trialOffset)return;const message=pendingMessage();if($('analysis-status').textContent!==message)$('analysis-status').textContent=message;},1000);}
@@ -114,7 +114,7 @@ function analysisRuntime(a){
  if(!Number.isFinite(elapsed))return t('AI 运行时间：未记录','AI runtime: not recorded');
  const seconds=Math.round(elapsed/1000),hours=Math.floor(seconds/3600),minutes=Math.floor(seconds%3600/60),remaining=seconds%60;
  const duration=[hours?t(hours+' 小时',hours+' h'):'',minutes?t(minutes+' 分',minutes+' min'):'',t(remaining+' 秒',remaining+' s')].filter(Boolean).join(' ');
- return (Number.isFinite(engineMs)?t('AI 分析时间：','AI analysis time: '):t('AI 作业时间（含准备）：','AI job time (including setup): '))+duration;
+ return (Number.isFinite(engineMs)?t('AI 分析时间：','AI analysis time: '):t('AI 运行时间：','AI runtime: '))+duration;
 }
 
 function analysisCompute(a){
@@ -134,9 +134,9 @@ function restorePosition(){try{const requested=new URLSearchParams(location.sear
 
 function analysisTotal(a){
  const elapsed=analysisTotalMillis(a,data?.metadata);
- if(elapsed===null)return t('总时间（含排队与准备）：未记录','Total time (including queue and setup): not recorded');
+ if(elapsed===null)return t('总耗时：未记录','Total time: not recorded');
  const seconds=a?Math.round(elapsed/1000):Math.floor(elapsed/1000),h=Math.floor(seconds/3600),m=Math.floor(seconds%3600/60),s=seconds%60;
- return (a?t('总时间（含排队与准备）：','Total time (including queue and setup): '):t('总计已等待（含排队与准备）：','Total elapsed (including queue and setup): '))+(h?h+'h ':'')+m+'m '+String(s).padStart(2,'0')+'s';
+ return (a?t('总耗时：','Total time: '):t('已等待：','Time elapsed: '))+(h?h+'h ':'')+m+'m '+String(s).padStart(2,'0')+'s';
 }
 
 function clearAiLine(){trials=[];trialOffset=0;aiLine=null;$('record-message').textContent='';render();}
@@ -170,7 +170,12 @@ function renderSuggestions(){
  }
  const actualNode=record.nodes[selected].children[0],actualMove=record.nodes[actualNode]?.move,actualRow=next.rows.find(row=>row.actual),legend=$('next-recorded-legend');
  legend.hidden=!!aiLine||!!trialOffset||!actualMove;
- legend.textContent=actualMove?.index===null?t('下一手实战：停一手（棋盘上不标记）','Next recorded move: Pass (no board marker)'):t('△ 下一手实战 · 绿：最佳/好棋 · 黄：不精确 · 橙：失误 · 红：严重失误 · 灰：未评定','△ Next recorded move · Green: best/good · Yellow: inaccuracy · Orange: mistake · Red: blunder · Grey: unrated');
+ legend.replaceChildren();
+ if(actualMove?.index===null)legend.textContent=t('下一手实战：停一手','Next recorded move: Pass');
+ else{
+  const title=document.createElement('span');title.className='next-move-legend-title';title.textContent=t('△ 下一手实战','△ Next recorded move');legend.append(title);
+  for(const [quality,zh,en]of [['good','最佳 / 好棋','Best / good'],['inaccuracy','不精确','Inaccuracy'],['mistake','失误','Mistake'],['blunder','严重失误','Blunder'],['unrated','未评定','Unrated']]){const item=document.createElement('span');item.className='next-move-legend-item';const marker=document.createElement('span');marker.className='next-move-swatch';marker.dataset.quality=quality;marker.setAttribute('aria-hidden','true');item.append(marker,document.createTextNode(t(zh,en)));legend.append(item);}
+ }
  if(!aiLine&&!trialOffset&&actualMove?.index!==null&&actualMove?.index!==undefined&&record.nodes[selected].board[actualMove.index]==='.'){
    const point=points[actualMove.index],ns='http://www.w3.org/2000/svg',svg=document.createElementNS(ns,'svg'),triangle=document.createElementNS(ns,'polygon');
    svg.setAttribute('viewBox','0 0 100 100');svg.setAttribute('aria-hidden','true');svg.classList.add('recorded-triangle');triangle.setAttribute('points','50,8 92,88 8,88');svg.append(triangle);point.replaceChildren(svg);
