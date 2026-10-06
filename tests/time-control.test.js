@@ -14,9 +14,9 @@ test('optional absolute, Japanese byo-yomi and Fischer controls round-trip throu
   assert.deepEqual(readSgf(published.sgf).timeControl,value);
   const parsed=timeControlFields(value);assert.equal(parsed.type,fields.type);assert.deepEqual(timeControlValue(parsed),value);
  }
- assert.equal(timeControlSummary({mainSeconds:1800,overtime:'5x30 byo-yomi'}),'30 min + 5 × 30 sec byo-yomi');
- assert.equal(timeControlSummary({mainSeconds:600,overtime:'Fischer: 5 seconds increment'}),'10 min + 5 sec per move');
- assert.equal(timeControlSummary({mainSeconds:3600,overtime:''}),'60 min absolute time');
+ assert.equal(timeControlSummary({mainSeconds:1800,overtime:'5x30 byo-yomi'}),'Japanese byo-yomi: 30 min + 5 × 30 sec');
+ assert.equal(timeControlSummary({mainSeconds:600,overtime:'Fischer: 5 seconds increment'}),'Fischer: 10 min + 5 sec per move');
+ assert.equal(timeControlSummary({mainSeconds:3600,overtime:''}),'Absolute time: 60 min');
 });
 test('unknown imported overtime is preserved until explicitly replaced or cleared',()=>{
  const record=recordingTree('(;SZ[19]TM[1800]OT[25 moves / 10 min])'),before=record.timeControl;
