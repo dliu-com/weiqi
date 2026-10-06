@@ -192,3 +192,16 @@ body{background:#fff}.card,.status-card{background:#fff}button:not(.point):hover
 
 /* Compact candidate comparison; the recorded next move remains visible. */
 #ai-alternatives{display:block}.ai-move-table{border-collapse:collapse;width:100%;table-layout:fixed;font-size:12px;font-variant-numeric:tabular-nums;margin-top:8px}.ai-move-table caption{text-align:left;font-size:11px;color:var(--muted);line-height:1.4;margin-bottom:6px}.ai-move-table th,.ai-move-table td{padding:6px 5px;border-bottom:1px solid #d9dfe2;text-align:left;overflow-wrap:anywhere}.ai-move-table thead th{background:#f3f5f6;font-weight:600;color:#505b61}.ai-move-table th:first-child{width:34%}.ai-move-table tbody th{font-weight:500}.ai-move-table .ai-recorded-move{background:#fff3d6}.ai-move-table .ai-recorded-move th{border-left:3px solid #b77819}.ai-played-badge{display:inline-block;font-size:10px;font-weight:650;color:#795010;margin-left:5px}.ai-move-table td[data-quality=best],.ai-move-table td[data-quality=good]{color:#246344}.ai-move-table td[data-quality=inaccuracy]{color:#885a10}.ai-move-table td[data-quality=mistake],.ai-move-table td[data-quality=blunder]{color:#a02d25}.ai-comparison-note{display:block;margin-top:6px;line-height:1.4}.ai-move-table button{white-space:nowrap} @media(max-width:480px){.ai-move-table{font-size:11px}.ai-move-table th,.ai-move-table td{padding:6px 3px}#ai-alternatives .ai-move-table button{padding:5px;min-height:34px;font-size:11px}}
+
+/* The actual next move is a quality-coloured triangle, including AI matches. */
+#record-main .point.next-recorded-move{--next-move-colour:#64748b;background:none;box-shadow:none;border-radius:0;opacity:1;cursor:pointer;color:white}
+#record-main .point.next-recorded-move[data-next-quality=best],#record-main .point.next-recorded-move[data-next-quality=good]{--next-move-colour:#27834c}
+#record-main .point.next-recorded-move[data-next-quality=inaccuracy]{--next-move-colour:#d7ad20;color:#202629}
+#record-main .point.next-recorded-move[data-next-quality=mistake]{--next-move-colour:#df7a19}
+#record-main .point.next-recorded-move[data-next-quality=blunder]{--next-move-colour:#d33c36}
+#record-main .recorded-triangle polygon{fill:var(--next-move-colour);stroke:#fff;stroke-width:5;stroke-linejoin:round;filter:drop-shadow(0 1px 1px #0007)}
+#record-main .recorded-candidate-letter{z-index:1;margin-top:16%;font-size:75%;font-weight:750;pointer-events:none}
+#record-main .point.next-recorded-move:before,#record-main .point.next-recorded-move:after{display:none}
+#next-recorded-legend{font-size:10px;line-height:1.45;margin:5px 0;color:var(--muted)}
+/* Size the desktop board from the measured header and available viewport. */
+@media(min-width:851px){.record-page #record-main{margin-top:6px;padding:0 16px;gap:20px;grid-template-columns:minmax(0,1fr) minmax(380px,36%);height:calc(100dvh - var(--record-header-height,67px) - 12px)}.record-page #record-main .board-wrap{width:min(100%,calc(100dvh - var(--record-header-height,67px) - 12px));margin:auto}}

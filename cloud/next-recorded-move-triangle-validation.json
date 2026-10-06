@@ -1,0 +1,73 @@
+{
+  "verifiedAt": "2026-10-06T14:54:11.359232+00:00",
+  "recordUrl": "https://weiqi.dliu.com/record/2026100620?move=170",
+  "region": "eu-west-1",
+  "deployment": "Static update in the existing CloudFormation-managed site; no new resources",
+  "testingScope": "Representative positions only; no full-game replay",
+  "positions": [
+    {
+      "move": 170,
+      "nextMove": "Black B10",
+      "quality": "blunder",
+      "triangleColour": "#d33c36",
+      "clickAdvancesRecord": true
+    },
+    {
+      "move": 115,
+      "nextMove": "White Q6",
+      "quality": "best",
+      "triangleColour": "#27834c",
+      "candidateLetter": "A"
+    },
+    {
+      "move": 321,
+      "nextMove": null,
+      "triangleCount": 0
+    },
+    {
+      "localFixture": "2026100699",
+      "analysis": "pending",
+      "triangleColour": "#64748b",
+      "quality": "unrated"
+    }
+  ],
+  "behaviour": {
+    "triangleUsesRecordedNextMove": true,
+    "qualityMatchesComparisonRow": true,
+    "triangleHiddenInAiVariation": true,
+    "triangleHiddenWithSuggestionsOff": true,
+    "aiAlternativeSequenceAndArrowReturn": true,
+    "passHasTextNotice": true
+  },
+  "layout": {
+    "desktop1280x720": {
+      "headerHeight": 67,
+      "boardBefore": 620,
+      "boardAfter": 641,
+      "topGapAfterHeader": 6,
+      "bottomGap": 6,
+      "pageOverflow": false
+    },
+    "desktop1536x960": {
+      "board": 881,
+      "topGapAfterHeader": 6,
+      "bottomGap": 6,
+      "pageOverflow": false
+    },
+    "mobile390x844": {
+      "board": 355,
+      "horizontalOverflow": false,
+      "boardAndNavigationBeforeChart": true
+    }
+  },
+  "tests": {
+    "targetedSuites": [
+      "ai-review",
+      "replay-navigation"
+    ],
+    "passed": 18,
+    "failed": 0
+  },
+  "newAiJobs": 0,
+  "screenshot": "/private/tmp/weiqi-next-recorded-triangle-live.png"
+}
