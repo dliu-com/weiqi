@@ -1,10 +1,10 @@
 {
-  "asOf": "2026-10-06T02:45:27.728688+00:00",
+  "asOf": "2026-10-06T03:19:55.475276+00:00",
   "developmentBudgetUSD": 30,
-  "cpuComputeIpEstimateUSD": 5.148,
-  "gpuComputeIpStorageEstimateUSD": 1.0219366666666667,
+  "cpuComputeIpEstimateUSD": 5.3739,
+  "gpuComputeIpStorageEstimateUSD": 1.4018030892266666,
   "smallServicesAllowanceUSD": 2,
-  "conservativeTotalEstimateUSD": 8.169936666666667,
+  "conservativeTotalEstimateUSD": 8.775703089226667,
   "maximumAdditionalActiveCpuJobUSD": 0,
   "note": "Includes failed/stopped development workers, conservative setup and idle allocation, and a small-service allowance. Not a final AWS invoice.",
   "gpuInstances": [
@@ -70,6 +70,26 @@
       "estimatedComputeIpStorageUSD": 0.20185666666666666,
       "releaseKnown": true,
       "conservativeReleaseSource": "Last CloudTrail TerminateInstances event; repeated attempts may overstate billing."
+    },
+    {
+      "instanceId": "i-05e83d99d66bfc1c4",
+      "type": "g4dn.xlarge",
+      "launchedAt": "2026-10-06T02:58:51+00:00",
+      "state": "shutting-down",
+      "estimatedComputeIpStorageUSD": 0.20459326328000002,
+      "releaseKnown": true,
+      "releasedAt": "2026-10-06T03:18:54.489784+00:00",
+      "releaseSource": "Observed automatic retirement; conservative upper bound."
+    },
+    {
+      "instanceId": "i-06f60d7a3699e8b61",
+      "type": "g4dn.xlarge",
+      "launchedAt": "2026-10-06T02:58:40+00:00",
+      "state": "shutting-down",
+      "estimatedComputeIpStorageUSD": 0.17527315927999998,
+      "releaseKnown": true,
+      "releasedAt": "2026-10-06T03:15:51.018584+00:00",
+      "releaseSource": "Observed automatic retirement; conservative upper bound."
     }
   ]
 }
