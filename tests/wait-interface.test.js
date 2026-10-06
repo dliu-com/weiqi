@@ -15,5 +15,5 @@ test('queue interface uses one conservative minute timestamp for start and finis
 test('deep wait keeps its estimate and removes the refresh notice; only quick jobs poll once per minute',()=>{
  const quick=context({status:'queued'});quick.schedulePoll();assert.equal(quick.delay,60000);
  const deep=context({status:'running',available:'quick',quick:{status:'ready'},deep:{status:'running',startedAt:'2026-10-06T11:58:35Z',estimatedSeconds:600,phase:'deep'}});
- deep.data.analysis={phase:'quick'};const text=deep.pendingMessage();assert.match(text,/Estimated finish:/);assert.doesNotMatch(text,/Refresh|\d{2}:\d{2}:\d{2}/);deep.schedulePoll();assert.equal(deep.delay,undefined);
+ deep.data.analysis={phase:'quick'};const text=deep.pendingMessage();assert.match(text,/^Showing quick analysis\.\nDeep analysis ready in 9 min\./);assert.match(text,/Estimated finish:/);assert.doesNotMatch(text,/Refresh|results|including queue|\d{2}:\d{2}:\d{2}/);deep.schedulePoll();assert.equal(deep.delay,undefined);
 });
