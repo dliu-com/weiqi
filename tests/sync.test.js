@@ -3,11 +3,11 @@ import assert from 'node:assert/strict';
 import vm from 'node:vm';
 import { readFileSync } from 'node:fs';
 import { webcrypto } from 'node:crypto';
-import { createState, transition } from '../backend/game-service.js';
+import { createState, transition, freshLiveGame } from '../backend/game-service.js';
 import { play, opposite, score, gameTree, reviewPosition, gameClock, sgf } from '../src/engine.js';
 
 // Exercise the actual client with an isolated DOM/network/clock, never the live game.
-async function client() {
+async function client({publish=false}={}) {
   const elements = new Map(), intervals = [], calls = [];
   class Element {
     parentElement = {append(){},querySelectorAll(){return [];}}; style = {}; dataset = {}; children = []; attrs = {}; hidden = false; checked = true;
@@ -21,7 +21,7 @@ async function client() {
   let remote = createState(), failAfterSave = false, failGet = false, now = Date.now();
   const context = vm.createContext({
     localTimestamp:()=> 'test · UTC+1', play, opposite, score, gameTree, reviewPosition, gameClock, sgf, language:'en', t: (zh,en)=>en, translateError:s=>s, setLanguage(){},
-    location:{search:'',assign(){}},URLSearchParams,
+    location:{search:'',assign(url){calls.push('NAVIGATE '+url);}},URLSearchParams,
     document: {querySelector:()=>new Element(),getElementById:get,createElement:()=>new Element(),createElementNS:()=>new Element(),
       createDocumentFragment:()=>new Element(),querySelectorAll:()=>[],addEventListener(){},visibilityState:'visible',body:new Element()},
     window:{addEventListener(){}},setInterval(fn,ms){intervals.push({fn,ms});},setTimeout(){},clearTimeout(){},
@@ -31,6 +31,7 @@ async function client() {
       if(options.method==='GET') {if(failGet)throw new Error('Offline');return {ok:true,json:async()=>({state:structuredClone(remote)})};}
       const request=JSON.parse(options.body);
       remote=transition(remote,request);
+      if(publish&&remote.phase==='ended')remote=freshLiveGame(remote,'2026100601');
       if(failAfterSave)throw new Error('Response lost');
       return {ok:true,json:async()=>({state:structuredClone(remote)})};
     }
@@ -149,4 +150,34 @@ test('New game and Confirm dead stones share the result picker and automatic cou
  c.get('result-counted').onclick();assert.equal(c.get('confirm-dialog').open,true);
  c.get('accept-confirm').onclick();while(c.run('busy'))await new Promise(r=>setImmediate(r));
  assert.equal(c.remote().result.reason,'score');assert.equal(c.remote().phase,'ended');
+});
+
+
+test('New game keeps the player on the fresh board after either result choice',async()=>{
+ for(const choice of ['result-counted','result-white']){
+  const c=await client({publish:true});c.move(180);await c.run('sync()');
+  c.get('new').onclick();c.get(choice).onclick();c.get('accept-confirm').onclick();
+  while(c.run('busy'))await new Promise(r=>setImmediate(r));
+  assert.equal(c.run('state.history.length'),0);assert.equal(c.run('state.phase'),'play');
+  assert.ok(!c.calls.some(x=>x.startsWith('NAVIGATE')));
+ }
+});
+test('finishing through passes opens the saved game for counted or manual results',async()=>{
+ for(const choice of ['result-counted','result-draw']){
+  const c=await client({publish:true});c.move(180);await c.run('sync()');
+  await c.run("action({type:'pass'})");await c.run("action({type:'pass'})");
+  c.get('confirm-score').onclick();assert.equal(c.get('result-label').textContent,'Save this game and view it');
+  c.get(choice).onclick();c.get('accept-confirm').onclick();
+  while(c.run('busy'))await new Promise(r=>setImmediate(r));
+  assert.deepEqual(c.calls.filter(x=>x.startsWith('NAVIGATE')),['NAVIGATE /game/2026100601']);
+ }
+});
+test('a lost completion response still opens the saved game once, without replaying the result',async()=>{
+ const c=await client({publish:true});c.move(180);await c.run('sync()');
+ await c.run("action({type:'pass'})");await c.run("action({type:'pass'})");
+ c.get('confirm-score').onclick();c.get('result-counted').onclick();c.loseResponse();
+ const posts=c.calls.filter(x=>x==='POST').length;c.get('accept-confirm').onclick();
+ while(c.run('busy'))await new Promise(r=>setImmediate(r));
+ assert.equal(c.calls.filter(x=>x==='POST').length,posts+1);
+ assert.deepEqual(c.calls.filter(x=>x.startsWith('NAVIGATE')),['NAVIGATE /game/2026100601']);
 });

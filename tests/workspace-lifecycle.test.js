@@ -28,6 +28,7 @@ test('finish saves the live game, then starts a clean game with a new revision',
  s=(await call('/api/game',{expectedRevision:s.revision,action:{type:'move',index:60}})).state;
  const revision=s.revision,done=await call('/api/game',{expectedRevision:revision,action:{type:'result',winner:'white'}});
  assert.equal(done.status,200);assert.equal(done.state.phase,'play');assert.equal(done.state.history.length,0);assert.equal(done.state.board,'.'.repeat(361));assert.equal(done.state.gameName,null);assert.equal(done.state.players.black,'');assert.equal(done.state.players.white,'');assert.equal(done.state.result,null);assert.equal(done.state.libraryId,undefined);assert.ok(done.state.revision>revision);assert.ok(done.state.generation>0);
+ assert.equal(done.state.lastSavedGame.id,'2026100601');assert.equal(done.state.lastSavedGame.generation,0);
  const record=readSgf([...saved.values()][0].sgf);assert.equal(record.name,'Completed game');assert.equal(record.result,'W+');assert.equal(record.nodes.length,2);
  const stale=await call('/api/game',{expectedRevision:revision,action:{type:'result',winner:'white'}});assert.equal(stale.status,409);assert.equal(saved.size,1);assert.equal((await call('/api/game')).state.history.length,0);
 });

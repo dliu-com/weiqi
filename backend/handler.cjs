@@ -81,13 +81,14 @@ exports.handler = async event => {
 
 // Save completed live games through the same idempotent library pipeline as uploads.
 async function publishLiveGame(state){
- if(!state.libraryId){
+ let libraryId=state.libraryId;
+ if(!libraryId){
   const hash=reportHash('sha256').update('live|'+state.createdAt+'|'+(state.generation||0)).digest('hex');
   const uploadId=hash.slice(0,8)+'-'+hash.slice(8,12)+'-'+hash.slice(12,16)+'-'+hash.slice(16,20)+'-'+hash.slice(20,32);
   const source=mainRecordingSgf(sgf(state)),metadata=await uploadRecord(libraryStore,source,'live-game.sgf',uploadId);
-  await enqueueSavedRecord(metadata);
+  await enqueueSavedRecord(metadata);libraryId=metadata.id;
  }
- const fresh=freshLiveGame(state);
+ const fresh=freshLiveGame(state,libraryId);
  try{await db.send(new PutItemCommand({TableName:process.env.TABLE_NAME,Item:{gameId:{S:'current'},revision:{N:String(fresh.revision)},clockVersion:{N:'0'},state:{S:JSON.stringify(fresh)}},ConditionExpression:'#r = :r AND #c = :c',ExpressionAttributeNames:{'#r':'revision','#c':'clockVersion'},ExpressionAttributeValues:{':r':{N:String(state.revision)},':c':{N:String(state.clockVersion||0)}}}));}catch(e){if(e.name!=='ConditionalCheckFailedException')throw e;return readGame();}
  return fresh;
 }
