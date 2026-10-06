@@ -1,0 +1,175 @@
+{
+  "verifiedAt": "2026-10-06T15:36:40.255743+00:00",
+  "rendererVersion": "4413f55745ac775a",
+  "liveReport": "https://weiqi.dliu.com/record/2026100621/report?lang=zh",
+  "changes": {
+    "scoreUnit": "目",
+    "scoreAmount": "目数",
+    "pointDifference": "目差",
+    "leadExample": "黑方领先 1.3 目",
+    "numericResultExample": "白方赢 8.5 目",
+    "pointLoss": "损失目数 / 目数损失",
+    "winProbabilityChange": "百分点"
+  },
+  "validation": {
+    "syntaxChecks": true,
+    "existingGameResultTest": 1,
+    "directBilingualResultAssertion": true,
+    "pdfTerminologyPages": [
+      1,
+      3,
+      6,
+      9,
+      10
+    ],
+    "pdfVisualReviewPages": [
+      3,
+      10
+    ],
+    "pdfs": {
+      "en": {
+        "pages": 15,
+        "sha256": "735701af790400044a0760ac1b15110f31098c390a34f80eca0f0d67a8f29fd3",
+        "bytes": 1203540
+      },
+      "zh": {
+        "pages": 15,
+        "sha256": "fb6022782d1c244a2e44ff646174d8a4f47744523054f3691877aa9115cfed1f",
+        "bytes": 1653628
+      }
+    },
+    "liveReplayPosition": 170,
+    "englishLabelsUnchanged": true,
+    "newAnalysisJobs": 0,
+    "savedReports": {
+      "reports": [
+        {
+          "id": "2026100620",
+          "status": "ready",
+          "version": "4413f55745ac775a",
+          "languages": [
+            "en",
+            "zh"
+          ],
+          "generatedAt": "2026-10-06T15:34:56.569Z"
+        },
+        {
+          "id": "2026100621",
+          "status": "ready",
+          "version": "4413f55745ac775a",
+          "languages": [
+            "en",
+            "zh"
+          ],
+          "generatedAt": "2026-10-06T15:35:05.712Z"
+        },
+        {
+          "id": "2026100601",
+          "status": "ready",
+          "version": "4413f55745ac775a",
+          "languages": [
+            "en",
+            "zh"
+          ],
+          "generatedAt": "2026-10-06T15:35:13.573Z"
+        },
+        {
+          "id": "2026100506",
+          "status": "ready",
+          "version": "4413f55745ac775a",
+          "languages": [
+            "en",
+            "zh"
+          ],
+          "generatedAt": "2026-10-06T15:35:20.408Z"
+        },
+        {
+          "id": "2026100611",
+          "status": "ready",
+          "version": "4413f55745ac775a",
+          "languages": [
+            "en",
+            "zh"
+          ],
+          "generatedAt": "2026-10-06T15:35:27.804Z"
+        },
+        {
+          "id": "2026100612",
+          "status": "ready",
+          "version": "4413f55745ac775a",
+          "languages": [
+            "en",
+            "zh"
+          ],
+          "generatedAt": "2026-10-06T15:35:35.373Z"
+        },
+        {
+          "id": "2026100615",
+          "status": "ready",
+          "version": "4413f55745ac775a",
+          "languages": [
+            "en",
+            "zh"
+          ],
+          "generatedAt": "2026-10-06T15:35:43.323Z"
+        },
+        {
+          "id": "2026100616",
+          "status": "ready",
+          "version": "4413f55745ac775a",
+          "languages": [
+            "en",
+            "zh"
+          ],
+          "generatedAt": "2026-10-06T15:35:50.974Z"
+        },
+        {
+          "id": "2026100617",
+          "status": "ready",
+          "version": "4413f55745ac775a",
+          "languages": [
+            "en",
+            "zh"
+          ],
+          "generatedAt": "2026-10-06T15:35:59.707Z"
+        },
+        {
+          "id": "2026100618",
+          "status": "ready",
+          "version": "4413f55745ac775a",
+          "languages": [
+            "en",
+            "zh"
+          ],
+          "generatedAt": "2026-10-06T15:36:08.468Z"
+        },
+        {
+          "id": "2026100619",
+          "status": "ready",
+          "version": "4413f55745ac775a",
+          "languages": [
+            "en",
+            "zh"
+          ],
+          "generatedAt": "2026-10-06T15:36:15.262Z"
+        }
+      ],
+      "queues": {
+        "WeiqiSite-ReportQueueEBFFFAE8-8rlZ2e5wSqGa.fifo": {
+          "ApproximateNumberOfMessages": "0",
+          "ApproximateNumberOfMessagesNotVisible": "0"
+        },
+        "WeiqiSite-ReportDeadLettersD1941892-50ECZBbXDJ7A.fifo": {
+          "ApproximateNumberOfMessages": "0",
+          "ApproximateNumberOfMessagesNotVisible": "0"
+        }
+      }
+    }
+  },
+  "deployment": {
+    "region": "eu-west-1",
+    "method": "Source-generated CDK/CloudFormation plus static publish",
+    "storageStackUntouched": true
+  },
+  "proofScreenshot": "/private/tmp/weiqi-chinese-terminology-live.png"
+}
