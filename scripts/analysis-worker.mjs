@@ -5,7 +5,7 @@ import path from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {promisify} from 'node:util';
 import {createHash} from 'node:crypto';
-import {readSgf,kataQuery} from '../src/sgf.js';
+import {readSgf,kataQuery,kataCandidates} from '../src/sgf.js';
 import {validRecordId} from '../backend/library-service.js';
 export async function analyse(source, {id,model,engine='katago',visits=1,timeoutMs=120000,configPath}) {
   if (!Number.isInteger(visits) || visits<1 || visits>10000) throw Error('Visits must be between 1 and 10,000.');
@@ -27,7 +27,7 @@ export async function analyse(source, {id,model,engine='katago',visits=1,timeout
           if(r.id!==id || r.isDuringSearch || !r.rootInfo)continue;
           const n=r.turnNumber, {scoreLead,winrate,visits:actual}=r.rootInfo;
           if(!Number.isInteger(n)||n<0||n>=record.mainLine.length||!Number.isFinite(scoreLead)||!Number.isFinite(winrate)||winrate<0||winrate>1)throw Error('Invalid analysis result.');
-          rows.set(n,{nodeId:record.mainLine[n],move:n,blackLead:scoreLead,blackWinrate:winrate,visits:actual});
+          rows.set(n,{nodeId:record.mainLine[n],move:n,blackLead:scoreLead,blackWinrate:winrate,visits:actual,candidates:kataCandidates(r.moveInfos,query.moves[n]?.[1])});
         }catch(e){error=e;child.kill('SIGKILL');}
       }
     });
@@ -37,7 +37,7 @@ export async function analyse(source, {id,model,engine='katago',visits=1,timeout
   if(rows.size!==record.mainLine.length)throw Error('KataGo returned an incomplete analysis.');
   const version = (await promisify(execFile)(engine,['version'],{timeout:15000})).stdout.split('\n')[0].trim();
   const modelHash=createHash('sha256').update(await readFile(model)).digest('hex');
-  return {schemaVersion:1,id,sgfSha256:createHash('sha256').update(source).digest('hex'),engine:'KataGo',engineVersion:version,model:path.basename(model),modelSha256:modelHash,visits,reportPerspective:'BLACK',rules:query.rules,komi:record.komi,completedAt:new Date().toISOString(),elapsedMs:Date.now()-started,positions:[...rows.values()].sort((a,b)=>a.move-b.move)};
+  return {schemaVersion:2,id,sgfSha256:createHash('sha256').update(source).digest('hex'),engine:'KataGo',engineVersion:version,model:path.basename(model),modelSha256:modelHash,visits,reportPerspective:'BLACK',rules:query.rules,komi:record.komi,completedAt:new Date().toISOString(),elapsedMs:Date.now()-started,positions:[...rows.values()].sort((a,b)=>a.move-b.move)};
 }
 export async function runLocalJob(directory,id,options) {
   if(!validRecordId(id))throw Error('Invalid game ID.');

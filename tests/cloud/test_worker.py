@@ -32,6 +32,15 @@ class WorkerTest(unittest.TestCase):
    with self.assertRaisesRegex(RuntimeError,'Incomplete'):self.worker.handler(self.event)
   self.assertNotIn('games/2026100501/analysis.json',self.files)
   self.assertEqual(json.loads(self.files['games/2026100501/metadata.json']['body'])['analysis']['status'],'running')
+ def test_candidate_moves_and_bounded_continuations_are_saved_in_engine_order(self):
+  self.event['query']['moves']=[['B','D16'],['W','Q4']]
+  output='\n'.join(json.dumps({'turnNumber':n,'rootInfo':{'scoreLead':n,'winrate':.5,'visits':10},'moveInfos':[{'move':'Q16','order':0,'scoreLead':5,'winrate':.6,'visits':8,'pv':['Q16','D16','pass']},{'move':'D16','order':1,'scoreLead':1,'winrate':.4,'visits':2,'pv':['D16']}]}) for n in [0,1,2])
+  with patch.object(self.worker.subprocess,'run',return_value=types.SimpleNamespace(returncode=0,stdout=output)) as run,patch.object(self.worker.subprocess,'check_output',return_value='KataGo test\n'):
+   self.worker.handler(self.event)
+  saved=json.loads(self.files['games/2026100501/analysis.json']['body']);self.assertEqual(saved['schemaVersion'],2)
+  self.assertEqual(saved['positions'][0]['candidates'][0]['pv'],['Q16','D16','pass']);self.assertEqual(saved['positions'][0]['candidates'][1]['blackLead'],1)
+  self.assertEqual(json.loads(run.call_args.kwargs['input'])['analysisPVLen'],11)
+  self.assertEqual(self.worker.kata_candidates([{'move':'A1','order':0,'scoreLead':0,'winrate':.5,'visits':10,'pv':['A1','I19','Q4']}])[0]['pv'],['A1'])
  def test_quick_is_available_while_deep_runs_then_replaced(self):
   self.files['games/2026100501/metadata.json']['body']=json.dumps({'analysis':{'status':'queued','quick':{'status':'queued'},'deep':{'status':'running'}}})
   output='\n'.join(json.dumps({'turnNumber':n,'rootInfo':{'scoreLead':n,'winrate':.5,'visits':1}}) for n in [0,1,2])

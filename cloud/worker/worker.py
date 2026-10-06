@@ -1,11 +1,26 @@
 import datetime, hashlib, json, os, pathlib, subprocess, tempfile, time, shutil
-import urllib.request, zipfile, resource
+import urllib.request, zipfile, resource, re, math
 import boto3
 s3=boto3.client('s3')
 BUCKET=os.environ['LIBRARY_BUCKET']
 os.environ['APPIMAGE_EXTRACT_AND_RUN']='1'
 ENGINE=os.environ.get('KATAGO_BIN','/opt/bin/katago')
 MODEL_KEY=os.environ.get('KATAGO_MODEL_KEY','models/g170e-b20c256x2-s5303129600-d1228401921.bin.gz')
+def kata_candidates(move_infos,played_move=None):
+    def valid_move(move):return isinstance(move,str) and re.fullmatch(r'(?:pass|[A-HJ-T](?:[1-9]|1[0-9]))',move,re.I) is not None
+    def finite(value):return isinstance(value,(int,float)) and not isinstance(value,bool) and math.isfinite(value)
+    candidates=sorted([m for m in (move_infos if isinstance(move_infos,list) else []) if isinstance(m,dict) and valid_move(m.get('move')) and type(m.get('order')) is int and m['order']>=0 and finite(m.get('scoreLead')) and finite(m.get('winrate')) and 0<=m['winrate']<=1 and finite(m.get('visits')) and m['visits']>0],key=lambda m:m['order'])
+    retained=candidates[:8]
+    played=next((m for m in candidates if m['move'].lower()==(played_move or '').lower()),None)
+    if played and played not in retained:retained.append(played)
+    result=[]
+    for m in retained:
+        pv=[]
+        for p in (m.get('pv') or [])[:12]:
+            if not valid_move(p):break
+            pv.append('pass' if p.lower()=='pass' else p.upper())
+        result.append({'move':'pass' if m['move'].lower()=='pass' else m['move'].upper(),'order':m['order'],'blackLead':m['scoreLead'],'blackWinrate':m['winrate'],'visits':m['visits'],'pv':pv})
+    return result
 def update_phase(game_id,phase,patch):
     key='games/'+game_id+'/metadata.json'
     for attempt in range(6):
@@ -50,7 +65,7 @@ def handler(event,context=None):
         pathlib.Path(ENGINE).chmod(0o755)
 
     timings['downloadExtractKataGoMs']=round((time.time()-engine_download_started)*1000)
-    query=event['query']; visits=query['maxVisits']
+    query={**event['query'],'analysisPVLen':11}; visits=query['maxVisits']
     if query['boardXSize']!=19 or query['boardYSize']!=19 or not 1<=visits<=1000: raise ValueError('Invalid benchmark request')
     prefix=event['outputPrefix']
     if not (prefix.startswith('benchmarks/') or production and prefix=='games/'+event['id']) or '..' in prefix: raise ValueError('Invalid output prefix')
@@ -79,7 +94,9 @@ def handler(event,context=None):
             if 'error' in item: raise RuntimeError(item['error'])
             if not item.get('isDuringSearch',False) and 'rootInfo' in item:
                 info=item['rootInfo']; n=item['turnNumber']
-                rows[n]={'nodeId':event['nodeIds'][n],'move':n,'blackLead':info['scoreLead'],'blackWinrate':info['winrate'],'visits':info['visits']}
+                moves=query.get('moves',[])
+                played=moves[n][1] if n<len(moves) else None
+                rows[n]={'nodeId':event['nodeIds'][n],'move':n,'blackLead':info['scoreLead'],'blackWinrate':info['winrate'],'visits':info['visits'],'candidates':kata_candidates(item.get('moveInfos'),played)}
         if set(rows)!=set(query['analyzeTurns']): raise RuntimeError('Incomplete analysis')
         finished=time.time()
         timings['engineLoadAndAnalysisMs']=round((finished-engine_started)*1000)
@@ -92,7 +109,7 @@ def handler(event,context=None):
             except (OSError,ValueError):pass
         provenance_started=time.time()
         version=subprocess.check_output([ENGINE,'version'],text=True).splitlines()[0]
-        analysis={'schemaVersion':1,'id':event['id'],'sgfSha256':event['sgfSha256'],'engine':'KataGo','engineVersion':version,'model':MODEL_KEY.split('/')[-1],'modelSha256':hashlib.sha256(model.read_bytes()).hexdigest(),'modelUrl':os.environ.get('KATAGO_MODEL_URL'),'configuration':{'analysisThreads':int(os.environ.get('ANALYSIS_THREADS','1')),'searchThreads':threads,'neuralNetThreads':int(os.environ.get('NN_THREADS','1')),'maxVisits':visits,'maxBatchSize':max_batch},'visits':visits,'phase':phase,'reportPerspective':'BLACK','rules':query['rules'],'komi':query['komi'],'completedAt':datetime.datetime.now(datetime.timezone.utc).isoformat(),'elapsedMs':round((finished-started)*1000),'positions':[rows[n] for n in sorted(rows)],'benchmark':{'backend':os.environ.get('BACKEND','cpu'),'downloadMs':round((downloaded-started)*1000),'engineMs':round((finished-engine_started)*1000),'requestStartedAt':event['requestedAt'],'workerStartedAt':datetime.datetime.fromtimestamp(started,datetime.timezone.utc).isoformat(),'searchThreads':threads}}
+        analysis={'schemaVersion':2,'id':event['id'],'sgfSha256':event['sgfSha256'],'engine':'KataGo','engineVersion':version,'model':MODEL_KEY.split('/')[-1],'modelSha256':hashlib.sha256(model.read_bytes()).hexdigest(),'modelUrl':os.environ.get('KATAGO_MODEL_URL'),'configuration':{'analysisThreads':int(os.environ.get('ANALYSIS_THREADS','1')),'searchThreads':threads,'neuralNetThreads':int(os.environ.get('NN_THREADS','1')),'maxVisits':visits,'maxBatchSize':max_batch,'analysisPVLen':11},'visits':visits,'phase':phase,'reportPerspective':'BLACK','rules':query['rules'],'komi':query['komi'],'completedAt':datetime.datetime.now(datetime.timezone.utc).isoformat(),'elapsedMs':round((finished-started)*1000),'positions':[rows[n] for n in sorted(rows)],'benchmark':{'backend':os.environ.get('BACKEND','cpu'),'downloadMs':round((downloaded-started)*1000),'engineMs':round((finished-engine_started)*1000),'requestStartedAt':event['requestedAt'],'workerStartedAt':datetime.datetime.fromtimestamp(started,datetime.timezone.utc).isoformat(),'searchThreads':threads}}
         if event.get('compute'):analysis['compute']=event['compute']
         origin=event.get('enqueuedAt') or (metadata or {}).get('analysis',{}).get('enqueuedAt')
         if origin:

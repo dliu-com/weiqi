@@ -97,5 +97,18 @@ export function kataQuery(record, id, visits = 1000) {
   return {id,boardXSize:record.size,boardYSize:record.size,komi:record.komi,rules:normalized,initialPlayer:record.initialPlayer,
     initialStones:[...record.nodes[0].board].flatMap((v,i) => v === '.' ? [] : [[v,coord(i)]]),
     moves:record.mainLine.slice(1).map(n => {const m=record.nodes[n].move;return [m.side,m.index === null ? 'pass' : coord(m.index)];}),
-    analyzeTurns:record.mainLine.map((_,i) => i),maxVisits:visits};
+    analyzeTurns:record.mainLine.map((_,i) => i),maxVisits:visits,analysisPVLen:11};
+}
+
+// Keep the engine's ranking, rather than sorting noisy, low-visit score estimates.
+export function kataCandidates(moveInfos, playedMove) {
+  const validMove=m=>typeof m==='string'&&/^(?:pass|[A-HJ-T](?:[1-9]|1[0-9]))$/i.test(m);
+  const candidates=(Array.isArray(moveInfos)?moveInfos:[]).filter(m=>m&&validMove(m.move)&&Number.isInteger(m.order)&&m.order>=0&&Number.isFinite(m.scoreLead)&&Number.isFinite(m.winrate)&&m.winrate>=0&&m.winrate<=1&&Number.isFinite(m.visits)&&m.visits>0).sort((a,b)=>a.order-b.order);
+  const retained=candidates.slice(0,8),played=candidates.find(m=>m.move.toLowerCase()===playedMove?.toLowerCase());
+  if(played&&!retained.includes(played))retained.push(played);
+  return retained.map(m=>{
+    const pv=[];
+    for(const p of (Array.isArray(m.pv)?m.pv:[]).slice(0,12)){if(!validMove(p))break;pv.push(p.toLowerCase()==='pass'?'pass':p.toUpperCase());}
+    return {move:m.move.toLowerCase()==='pass'?'pass':m.move.toUpperCase(),order:m.order,blackLead:m.scoreLead,blackWinrate:m.winrate,visits:m.visits,pv};
+  });
 }
