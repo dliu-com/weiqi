@@ -14,3 +14,11 @@ test('workers stop on completion with bounded runs and no automatic paid retries
  template.resourceCountIs('AWS::Lambda::Url',0);
  const functions=template.findResources('AWS::Lambda::Function');for(const resource of Object.values(functions))expect(resource.Properties.ProvisionedConcurrencyConfig).toBeUndefined();
 });
+
+test('retiring the legacy upload consumer preserves the CPU quick and fallback workers',()=>{
+ const final=Template.fromStack(new WeiqiFargateStack(new App(),'FinalCpu',{libraryBucket:'fictional-library',analysisQueueArn:'arn:aws:sqs:eu-west-1:123456789012:legacy',dispatchEnabled:false,env:{account:'123456789012',region:'eu-west-1'}}));
+ final.resourceCountIs('AWS::Lambda::EventSourceMapping',0);
+ final.resourceCountIs('AWS::Batch::ComputeEnvironment',2);
+ final.resourceCountIs('AWS::Batch::JobQueue',2);
+ final.resourceCountIs('AWS::Batch::JobDefinition',1);
+});

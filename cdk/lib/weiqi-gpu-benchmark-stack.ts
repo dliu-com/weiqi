@@ -25,7 +25,7 @@ export class WeiqiGpuBenchmarkStack extends Stack {
   let productionCompute:batch.CfnComputeEnvironment,productionQueue:batch.CfnJobQueue;
   const variants:readonly (readonly [string,string,number])[]=props.production?[['T4','g4dn.xlarge',4]]:[['T4','g4dn.xlarge',4],['A10G','g5.xlarge',4]];
   for(const [name,type,limit] of variants){
-   const compute=new batch.CfnComputeEnvironment(this,name+'Compute',{type:'MANAGED',state:'ENABLED',replaceComputeEnvironment:false,computeResources:{type:'EC2',allocationStrategy:'BEST_FIT_PROGRESSIVE',minvCpus:0,maxvCpus:limit,scalingPolicy:{minScaleDownDelayMinutes:20},instanceTypes:[type],instanceRole:profile.attrArn,subnets:[...vpc.publicSubnets.map(s=>s.subnetId),capacitySubnet.ref],launchTemplate:{launchTemplateId:launch.ref,version:launch.attrLatestVersionNumber},ec2Configuration:[{imageType:'ECS_AL2023_NVIDIA'}],tags:{service:'weiqi-gpu-benchmark',benchmarkGpu:name}}});
+   const compute=new batch.CfnComputeEnvironment(this,name+'Compute',{type:'MANAGED',state:'ENABLED',replaceComputeEnvironment:false,computeResources:{type:'EC2',allocationStrategy:'BEST_FIT_PROGRESSIVE',minvCpus:0,maxvCpus:limit,scalingPolicy:{minScaleDownDelayMinutes:props.production?0:20},instanceTypes:[type],instanceRole:profile.attrArn,subnets:[...vpc.publicSubnets.map(s=>s.subnetId),capacitySubnet.ref],launchTemplate:{launchTemplateId:launch.ref,version:launch.attrLatestVersionNumber},ec2Configuration:[{imageType:'ECS_AL2023_NVIDIA'}],tags:{service:'weiqi-gpu-benchmark',benchmarkGpu:name}}});
    compute.node.addDependency(capacityRoute);
    const queue=new batch.CfnJobQueue(this,name+'Queue',{priority:name==='T4'&&props.production?100:1,state:'ENABLED',computeEnvironmentOrder:[{computeEnvironment:compute.ref,order:1}]});
    if(name==='T4'){productionCompute=compute;productionQueue=queue;}
@@ -38,6 +38,7 @@ export class WeiqiGpuBenchmarkStack extends Stack {
   const build=new codebuild.Project(this,'Build',{source:codebuild.Source.s3({bucket,path:'build/gpu-source.zip'}),environment:{buildImage:codebuild.LinuxBuildImage.STANDARD_7_0,privileged:true,computeType:codebuild.ComputeType.SMALL},timeout:Duration.minutes(20),environmentVariables:{REPOSITORY_URI:{value:repository.repositoryUri}},buildSpec:codebuild.BuildSpec.fromObject({version:'0.2',phases:{pre_build:{commands:['aws ecr get-login-password --region "$AWS_DEFAULT_REGION" | docker login --username AWS --password-stdin "$REPOSITORY_URI"']},build:{commands:['docker build -f gpu/Dockerfile -t "$REPOSITORY_URI:benchmark" .']},post_build:{commands:['docker push "$REPOSITORY_URI:benchmark"']}}})});repository.grantPullPush(build);bucket.grantRead(build,'build/*');
   if(props.production){
    if(!props.analysisQueueArn||!props.cpuQuickQueue||!props.cpuDeepQueue||!props.cpuJobDefinition)throw Error('GPU production requires the upload queue and CPU fallback queues/job definition.');
+   const uploads=new sqs.Queue(this,'ProductionUploads',{visibilityTimeout:Duration.minutes(3),retentionPeriod:Duration.days(14)});
    const deep=new batch.CfnJobQueue(this,'ProductionDeepQueue',{priority:1,state:'ENABLED',computeEnvironmentOrder:[{computeEnvironment:productionCompute!.ref,order:1}]});
    const dead=new sqs.Queue(this,'FallbackDeadLetters',{retentionPeriod:Duration.days(7)});
    const fallbackQueue=new sqs.Queue(this,'FallbackQueue',{visibilityTimeout:Duration.seconds(60),retentionPeriod:Duration.days(1),deadLetterQueue:{queue:dead,maxReceiveCount:4}});
@@ -48,13 +49,14 @@ export class WeiqiGpuBenchmarkStack extends Stack {
    fallback.addEventSource(new sources.SqsEventSource(fallbackQueue,{batchSize:1,maxConcurrency:2,reportBatchItemFailures:true}));
    const shared=['src/engine.js','src/sgf.js','backend/library-service.js'].map(file=>fs.readFileSync(path.join(root,file),'utf8').replace(/^import .*;\n/gm,'').replace(/^export /gm,'')).join('\n');
    const modelResolver=fs.readFileSync(path.join(root,'backend/katago-model.cjs'),'utf8').replace(/^module.exports=.*;$/gm,'');
-   const dispatcher=new lambda.Function(this,'ProductionDispatcher',{runtime:lambda.Runtime.NODEJS_22_X,handler:'index.handler',code:lambda.Code.fromInline(shared+'\n'+modelResolver+'\n'+fs.readFileSync(path.join(root,'backend/fargate-dispatcher.cjs'),'utf8')),timeout:Duration.seconds(30),memorySize:256,environment:{LIBRARY_BUCKET:bucket.bucketName,JOB_QUEUE:productionQueue!.ref,DEEP_QUEUE:deep.ref,JOB_DEFINITION:job.ref,ANALYSIS_BACKEND:'gpu',FALLBACK_QUEUE:fallbackQueue.queueUrl,GPU_ANALYSIS_THREADS:'16',GPU_MAX_BATCH_SIZE:'32'},logRetention:logs.RetentionDays.ONE_WEEK});
+   const dispatcher=new lambda.Function(this,'ProductionDispatcher',{runtime:lambda.Runtime.NODEJS_22_X,handler:'index.handler',code:lambda.Code.fromInline(shared+'\n'+modelResolver+'\n'+fs.readFileSync(path.join(root,'backend/fargate-dispatcher.cjs'),'utf8')),timeout:Duration.seconds(30),memorySize:256,environment:{LIBRARY_BUCKET:bucket.bucketName,JOB_QUEUE:props.cpuQuickQueue,DEEP_QUEUE:deep.ref,JOB_DEFINITION:job.ref,CPU_JOB_DEFINITION:props.cpuJobDefinition,ANALYSIS_BACKEND:'gpu',FALLBACK_QUEUE:fallbackQueue.queueUrl,GPU_ANALYSIS_THREADS:'16',GPU_MAX_BATCH_SIZE:'32'},logRetention:logs.RetentionDays.ONE_WEEK});
    bucket.grantReadWrite(dispatcher,'games/*');bucket.grantWrite(dispatcher,'jobs/*');fallbackQueue.grantSendMessages(dispatcher);
-   dispatcher.addToRolePolicy(new iam.PolicyStatement({actions:['batch:SubmitJob'],resources:[productionQueue!.ref,deep.ref,job.ref]}));
-   dispatcher.addEventSource(new sources.SqsEventSource(sqs.Queue.fromQueueArn(this,'UploadQueue',props.analysisQueueArn),{batchSize:1,maxConcurrency:2,reportBatchItemFailures:true,enabled:props.dispatchEnabled!==false}));
+   dispatcher.addToRolePolicy(new iam.PolicyStatement({actions:['batch:SubmitJob'],resources:[props.cpuQuickQueue,props.cpuJobDefinition,deep.ref,job.ref]}));
+   dispatcher.addEventSource(new sources.SqsEventSource(uploads,{batchSize:1,maxConcurrency:2,reportBatchItemFailures:true,enabled:props.dispatchEnabled!==false}));
    const failure=new lambda.Function(this,'FailureStatus',{runtime:lambda.Runtime.NODEJS_22_X,handler:'index.handler',code:lambda.Code.fromInline(fs.readFileSync(path.join(root,'backend/fargate-status.cjs'),'utf8')),timeout:Duration.seconds(15),environment:{LIBRARY_BUCKET:bucket.bucketName},logRetention:logs.RetentionDays.ONE_WEEK});
    bucket.grantReadWrite(failure,'games/*');
    new events.Rule(this,'ProductionJobFailure',{eventPattern:{source:['aws.batch'],detailType:['Batch Job State Change'],detail:{status:['FAILED'],jobQueue:[productionQueue!.ref,deep.ref]}},targets:[new targets.LambdaFunction(failure)]});
+   new CfnOutput(this,'ProductionUploadQueueArn',{value:uploads.queueArn});new CfnOutput(this,'ProductionUploadQueueUrl',{value:uploads.queueUrl});
    new CfnOutput(this,'ProductionDispatcherName',{value:dispatcher.functionName});
    new CfnOutput(this,'ProductionDeepQueueArn',{value:deep.ref});
   }

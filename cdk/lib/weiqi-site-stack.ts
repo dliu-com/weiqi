@@ -22,7 +22,7 @@ import {
 } from 'aws-cdk-lib';
 
 export class WeiqiSiteStack extends Stack {
-  constructor(scope: Construct, id: string, props: StackProps = {}) {
+  constructor(scope: Construct, id: string, props: StackProps & {analysisQueueArnOverride?:string;keepLegacyAnalysisQueue?:boolean} = {}) {
     super(scope, id, props);
 
     const rootDomain = Fn.importValue('MainDomain');
@@ -77,9 +77,11 @@ export class WeiqiSiteStack extends Stack {
       enforceSSL:true, removalPolicy:RemovalPolicy.RETAIN, versioned:true,
       lifecycleRules:[{noncurrentVersionExpiration:Duration.days(30),abortIncompleteMultipartUploadAfter:Duration.days(1)}],
     });
-    const analysisQueue = new sqs.Queue(this,'AnalysisQueue',{
+    const legacyAnalysisQueue = props.keepLegacyAnalysisQueue!==false?new sqs.Queue(this,'AnalysisQueue',{
       retentionPeriod:Duration.days(14), visibilityTimeout:Duration.minutes(3),
-    });
+    }):undefined;
+    const analysisQueue=props.analysisQueueArnOverride?sqs.Queue.fromQueueArn(this,'ImportedAnalysisQueue',props.analysisQueueArnOverride):legacyAnalysisQueue;
+    if(!analysisQueue)throw Error('Provide the new queue before removing the legacy queue.');
     const root = path.join(__dirname, '..', '..');
     // Reuse the exact browser rules, and keep the deployed handler dependency-free.
     const engineSource = fs.readFileSync(path.join(root, 'src/engine.js'), 'utf8').replace(/^export /gm, '');

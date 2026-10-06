@@ -8,7 +8,7 @@ function dispatcher({lookupFailure=false,deepFailure=false,gpu=false}={}){
  class SQSClient{async send(c){fallbacks.push(c.input);return {};}}
  class BatchClient{async send(c){if(deepFailure&&c.input.jobName.endsWith('-deep'))throw Error('Deep submit unavailable');submitted.push(c.input);return {jobId:'job-'+submitted.length};}}
  const exports={},source=['src/engine.js','src/sgf.js','backend/library-service.js','backend/fargate-dispatcher.cjs'].map(f=>readFileSync(new URL('../'+f,import.meta.url),'utf8').replace(/^import .*;\n/gm,'').replace(/^export /gm,'')).join('\n');
- vm.runInNewContext(source,{exports,TextEncoder,require:name=>name.includes('client-s3')?{S3Client,GetObjectCommand,PutObjectCommand}:name.includes('client-batch')?{BatchClient,SubmitJobCommand}:name.includes('client-sqs')?{SQSClient,SendMessageCommand}:{createHash,randomUUID},process:{env:{LIBRARY_BUCKET:'test',JOB_QUEUE:'quick',DEEP_QUEUE:'deep',JOB_DEFINITION:'definition',...(gpu?{ANALYSIS_BACKEND:'gpu',FALLBACK_QUEUE:'fallback'}:{})}},console:{error(){}},resolveLatestModel:async()=>{lookups++;if(lookupFailure)throw Error('Latest lookup unavailable');return {name:'kata1-test.bin.gz',key:'models/kata1-test.bin.gz',url:'https://media.katagotraining.org/uploaded/networks/models/kata1/kata1-test.bin.gz'};}});
+ vm.runInNewContext(source,{exports,TextEncoder,require:name=>name.includes('client-s3')?{S3Client,GetObjectCommand,PutObjectCommand}:name.includes('client-batch')?{BatchClient,SubmitJobCommand}:name.includes('client-sqs')?{SQSClient,SendMessageCommand}:{createHash,randomUUID},process:{env:{LIBRARY_BUCKET:'test',JOB_QUEUE:'quick',DEEP_QUEUE:'deep',JOB_DEFINITION:'definition',...(gpu?{ANALYSIS_BACKEND:'gpu',FALLBACK_QUEUE:'fallback',CPU_JOB_DEFINITION:'cpu-definition'}:{})}},console:{error(){}},resolveLatestModel:async()=>{lookups++;if(lookupFailure)throw Error('Latest lookup unavailable');return {name:'kata1-test.bin.gz',key:'models/kata1-test.bin.gz',url:'https://media.katagotraining.org/uploaded/networks/models/kata1/kata1-test.bin.gz'};}});
  const call=count=>exports.handler({Records:[{messageId:'message',body:JSON.stringify({id}),attributes:{ApproximateReceiveCount:String(count)}}]});
  return {call,files,submitted,fallbacks,key,original,lookups:()=>lookups};
 }
@@ -27,9 +27,10 @@ test('failed deep submission preserves already available quick results and never
  const state=JSON.parse(d.files.get(d.key)).analysis;assert.equal(state.deep.status,'failed');assert.equal(state.status,'ready');assert.equal(state.available,'quick');assert.equal(d.submitted.length,1);
 });
 
-test('GPU dispatcher pins one latest model, requests T4 for both phases and schedules usage-based fallback checks',async()=>{
+test('hybrid dispatcher pins one model for independent CPU quick/GPU deep jobs and checks only deep capacity',async()=>{
  const d=dispatcher({gpu:true});await d.call(1);assert.equal(d.lookups(),1);assert.equal(d.submitted.length,2);
- for(const job of d.submitted){assert.equal(job.containerOverrides.resourceRequirements.find(r=>r.type==='GPU').value,'1');assert.equal(job.containerOverrides.resourceRequirements.find(r=>r.type==='VCPU').value,'4');assert.equal(job.containerOverrides.environment.some(e=>e.name==='KATAGO_DOWNLOAD_URL'),false);}
- assert.equal(JSON.parse(d.files.get('jobs/2026100601/quick-request.json')).query.maxVisits,64);assert.equal(JSON.parse(d.files.get('jobs/2026100601/deep-request.json')).query.maxVisits,1000);
- assert.deepEqual(d.fallbacks.map(m=>m.DelaySeconds),[60,600]);
+ const [quick,deep]=d.submitted;assert.equal(quick.jobDefinition,'cpu-definition');assert.equal(quick.containerOverrides.resourceRequirements.find(r=>r.type==='VCPU').value,'32');assert.equal(quick.containerOverrides.resourceRequirements.some(r=>r.type==='GPU'),false);
+ assert.equal(deep.containerOverrides.resourceRequirements.find(r=>r.type==='GPU').value,'1');assert.equal(deep.containerOverrides.resourceRequirements.find(r=>r.type==='VCPU').value,'4');
+ assert.equal(JSON.parse(d.files.get('jobs/2026100601/quick-request.json')).query.maxVisits,8);assert.equal(JSON.parse(d.files.get('jobs/2026100601/deep-request.json')).query.maxVisits,1000);
+ assert.deepEqual(d.fallbacks.map(m=>m.DelaySeconds),[600]);
 });
