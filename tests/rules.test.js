@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { play, score, gameTree, reviewPosition } from '../src/engine.js';
-import { createState, transition } from '../backend/game-service.js';
+import { createState, transition, freshLiveGame } from '../backend/game-service.js';
 const act = (s,action) => transition(s,{expectedRevision:s.revision,action});
 test('capture removes a group with its last liberty filled',()=>{
  const b=['.B.','BWB','...'].join(''); const m=play(b,7,'black',3); assert.equal(m.board[4],'.');assert.deepEqual(m.captured,[4]);
@@ -23,7 +23,7 @@ test('shared game enforces revisions, fixed 19 board, undo restores state',()=>{
  const moved=act(initial,{type:'move',index:180});assert.equal(moved.turn,'white');
  assert.throws(()=>transition(moved,{expectedRevision:0,action:{type:'move',index:181}}),e=>e.statusCode===409);
  const undone=act(moved,{type:'undo'});assert.equal(undone.board,initial.board);assert.equal(undone.turn,'black');assert.equal(undone.revision,2);
- assert.equal(act(undone,{type:'new',size:9}).size,19);
+ assert.throws(()=>act(undone,{type:'new',size:9}));assert.equal(freshLiveGame(act(undone,{type:'result',winner:'draw'})).size,19);
 });
 test('two passes enter scoring; changes clear agreement; both sides must confirm',()=>{
  let s=act(createState(),{type:'move',index:180});s=act(s,{type:'pass'});s=act(s,{type:'pass'});assert.equal(s.phase,'scoring');
@@ -65,7 +65,7 @@ test('legacy games migrate without losing moves, captures or current position',(
  delete s.tree;
  assert.equal(reviewPosition(s,2).board,s.board);
  s=act(s,{type:'undo'});assert.equal(s.tree.nodes.length,2);assert.equal(reviewPosition(s,1).board,s.board);
- s=act(s,{type:'new'});assert.equal(gameTree(s).nodes.length,0);
+ s=freshLiveGame(act(s,{type:'result',winner:'draw'}));assert.equal(gameTree(s).nodes.length,0);
 });
 test('single result confirmation finishes scoring and rejects stale results',()=>{
  let s=act(createState(),{type:'move',index:180});

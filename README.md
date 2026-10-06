@@ -5,8 +5,8 @@ A public 19 × 19 Go app at https://weiqi.dliu.com. Chinese and English interfac
 ## App flows
 
 - `/`: landing page and AI features.
-- `/play`: one public live game, on one device or across devices. Finishing saves automatically and redirects to `/game/<id>`.
-- `/record`: one public, autosaved recording draft. Enter moves or import SGF after confirmation; keep variations, promote the preferred branch and save only the main line. Saving confirms deletion of other draft branches and treats unfinished games as Draw. A revision conflict preserves a browser backup instead of overwriting another device.
+- `/play`: one public live game, on one device or across devices. End game opens a winner/draw choice. Finishing saves automatically to the library, clears the shared live board and starts the next game on `/play`.
+- `/record`: one public, autosaved recording draft. Enter moves or import SGF after confirmation; keep variations, promote the preferred branch and save only the main line. Saving confirms deletion of other draft branches and treats unfinished games as Draw. Once publication succeeds, the shared draft clears all moves, branches and metadata; the saved library record opens. Failed saves keep the workspace recoverable. A revision conflict preserves a browser backup instead of overwriting another device.
 - `/game`: newest ten saved games per page; `/game/<id>` provides replay and AI. Legacy `/record/<id>` links still work.
 - `/guide`: site-specific workflow; `/about`: architecture and links to `/cost` and `/security`.
 
@@ -54,7 +54,7 @@ The browser sends only move commands; the backend validates rules. Game state is
 
 ## Review, metadata, clocks and SGF
 
-Undo removes the withdrawn move from the saved move tree and SGF export. Reviewing a node supports temporary local trial moves, with undo and clear controls. Trial moves are never saved or exported. Selecting another node or Return to live discards them; live sync continues while reviewing. Finishing a game saves its main line to the public S3 library. Starting a new unfinished game first asks to save the current game as Draw. The separate history page redirects to `/game`. Legacy archive reads remain available, with edits disabled.
+Undo removes the withdrawn move from the saved move tree and SGF export. Reviewing a node supports temporary local trial moves, with undo and clear controls. Trial moves are never saved or exported. Selecting another node or Return to live discards them; live sync continues while reviewing. Finishing a game saves its main line to the public S3 library. A completed save automatically starts a clean live game; there is no manual New game action. The separate history page redirects to `/game`. Legacy archive reads remain available, with edits disabled.
 
 Move timestamps and player clock totals are recorded from this version onward. Legacy move timestamps cannot be recovered. Timing starts after the first move, uses visible-page heartbeats every five seconds, and can be paused/resumed. After one minute without a heartbeat from any device it automatically pauses, excluding time after the last heartbeat; returning resumes automatically unless manually paused. There is no scheduled background service. Disabling auto-sync also stops that device’s heartbeats. Scoring stops the clock. Undo does not refund elapsed thinking time. Both clients display the same server-maintained totals; device clock accuracy affects the live ticking display.
 

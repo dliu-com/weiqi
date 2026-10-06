@@ -15,3 +15,6 @@ export function draftPublication(current,request){
  if(!/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/.test(request.id||''))throw Object.assign(Error('Invalid save request.'),{statusCode:400});
  return {revision:current.revision+1,sgf:mainRecordingSgf(current.sgf),selected:0,updatedAt:new Date().toISOString(),publication:{id:request.id,status:'pending'}};
 }
+export function freshSavedDraft(pending,gameId){
+ return {...createDraft(),revision:pending.revision+1,updatedAt:new Date().toISOString(),publication:{id:pending.publication.id,status:'ready',gameId}};
+}

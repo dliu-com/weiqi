@@ -51,9 +51,9 @@ function adopt(next) {
   if (state && gameTree(next).nodes.length < gameTree(state).nodes.length) { reviewing = null; trialMoves = []; treeRenderKey = ''; }
   if (state && (state.generation || 0) !== (next.generation || 0)) reviewing = null;
   if (reviewing !== null && reviewing >= gameTree(next).nodes.length) reviewing = null;
-  const justEnded=state&&((state.phase!=='ended'&&next.phase==='ended')||(state.phase==='ended'&&!state.libraryId&&next.libraryId));
+  const freshGame=state&&(state.generation||0)!==(next.generation||0);
   state = next; render();
-  if(justEnded&&next.libraryId)location.assign('/game/'+next.libraryId);
+  if(freshGame)notice(t('棋局已保存到棋谱库，新一局已准备好。','Game saved to the library. A new game is ready.'));
 }
 async function sync(manual = false) {
   if (busy || polling) return;
@@ -64,8 +64,7 @@ async function sync(manual = false) {
 }
 async function action(action) {
   const metadata = action.type === 'metadata';
-  const newGame = action.type === 'new';
-  if (busy || !state || (!metadata && (archiveId || (!newGame && reviewing !== null)))) return;
+  if (busy || !state || (!metadata && (archiveId || reviewing !== null))) return;
   const revision = state.revision;
   moveStatus = action.type === 'move' ? {side:state.turn,phase:'submitting'} : null;
   busy = true; render(); $('sync').textContent = t("正在核对棋局…","Checking the latest position…");
@@ -113,7 +112,7 @@ function render() {
     $('resign-' + side).disabled = !!archiveId || reviewing !== null || busy || ended;
   }
   $('undo').dataset.side = undoSide || '';
-  $('pass').disabled = busy || !canPlay(); $('undo').disabled = !!archiveId || reviewing !== null || busy || !state.history.length; $('new').disabled = !!archiveId || busy;
+  $('pass').disabled = busy || !canPlay(); $('undo').disabled = !!archiveId || reviewing !== null || busy || !state.history.length; $('new').disabled = !!archiveId || busy || reviewing !== null;
   $('scoring').hidden = !totals;
   $('scoring-help').hidden = ended;
   $('scoring-actions').hidden = ended || !!archiveId;
@@ -132,7 +131,7 @@ function render() {
     $('detail').textContent = moveStatus.phase === 'submitting' ? t('正在核对并保存落子，请稍候。','Checking and saving your move. Please wait.') : t('落子未发送，请检查网络后重试。','Move not sent. Check your connection and try again.');
   }
   $('turn').className = 'turn-label' + (!review && (state.phase === 'play' || state.result?.winner) ? ' turn-' + (moveStatus?.side || state.result?.winner || state.turn) : '');
-  $('saved-game').hidden=!state.libraryId;if(state.libraryId){$('saved-game').href='/game/'+state.libraryId;$('saved-game').textContent=t('查看已保存棋局','View saved game');}
+  $('new').textContent=t('结束棋局','End game');$('end-game-cancel').textContent=t('取消','Cancel');
   $('result-label').textContent=t('结束棋局并自动保存','Finish and save automatically');for(const [key,zh,en] of [['black','黑方获胜','Black wins'],['white','白方获胜','White wins'],['draw','和棋 / 未完成','Draw / unfinished']]){$('result-'+key).textContent=t(zh,en);$('result-'+key).disabled=busy||ended||reviewing!==null;}
   if (review) $('turn').className = 'turn-label turn-' + displayed.turn;
   $('trial-controls').hidden = !review;
@@ -222,8 +221,9 @@ const boardView=new BoardView($('board'),{onPoint:i=>{if(busy||!state)return;if(
 const points=boardView.points;
 function confirmAction(title,text,operation,acceptLabel=t('确认','Confirm')) { $('accept-confirm').textContent=acceptLabel; $('confirm-title').className=''; const revision = state.revision; pendingConfirmation = () => { if (state.revision !== revision) { notice(t('棋局已更新，请重新确认。','The game has changed. Please confirm again.')); return; } operation(); }; $('confirm-title').textContent=title; $('confirm-text').textContent=text; $('confirm-dialog').showModal(); }
 $('cancel-confirm').onclick=()=>$('confirm-dialog').close(); $('accept-confirm').onclick=()=>{ $('confirm-dialog').close(); pendingConfirmation?.(); };
-$('new').onclick=()=>{if(state.phase==='ended'||!state.history.length)action({type:'new'});else confirmAction(t('结束未完成棋局？','Finish the unfinished game?'),t('当前棋局将按和棋自动保存，然后打开已保存棋局。','The current game will automatically save as Draw and open its saved page.'),()=>action({type:'result',winner:'draw'}));};
-for(const winner of ['black','white','draw'])$('result-'+winner).onclick=()=>confirmAction(t('确认结果并保存？','Confirm result and save?'),t('本局结束并自动保存到公共棋谱库。','The game will finish and save automatically to the public library.'),()=>action({type:'result',winner}));
+$('new').onclick=()=>{if(state&&!busy&&!archiveId)$('end-game-dialog').showModal();};
+$('end-game-cancel').onclick=()=>$('end-game-dialog').close();
+for(const winner of ['black','white','draw'])$('result-'+winner).onclick=()=>{$('end-game-dialog').close();confirmAction(t('确认结果并保存？','Confirm result and save?'),t('本局结束并自动保存到公共棋谱库。','The game will finish and save automatically to the public library.'),()=>action({type:'result',winner}));};
 $('undo').onclick=()=>confirmAction(t('撤回' + names[state.history.at(-1)?.side] + '的上一手？','Undo ' + names[state.history.at(-1)?.side] + '’s last move?'),t("撤回最近一手，双方设备都会更新。请先征得对方同意。","Undo the last move on all devices. Please agree with your opponent first."),()=>action({type:'undo'}));
 for (const side of ['black','white']) $('resign-' + side).onclick=()=>{ confirmAction(names[side]+t("认输？"," resigns?"),t("确认后本局结束。","Confirm to end this game."),()=>action({type:'resign',side})); };
 $('pass').onclick=()=>action({type:'pass'}); $('resume').onclick=()=>action({type:'resume'});

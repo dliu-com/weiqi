@@ -20,8 +20,8 @@ function api() {
  const exports={};vm.runInNewContext(readFileSync(new URL('../backend/handler.cjs',import.meta.url),'utf8'),{require:()=>({DynamoDBClient,GetItemCommand,PutItemCommand,ScanCommand,TransactWriteItemsCommand}),exports,Buffer,console,process:{env:{}},createState,transition,GameError,gameTree,gameClock});
  return async(path,body)=>{const r=await exports.handler({rawPath:path,requestContext:{http:{method:body?'POST':'GET'}},headers:{'content-type':'application/json'},body:body?JSON.stringify(body):undefined});return {status:r.statusCode,...JSON.parse(r.body)};};
 }
-test('new live games reset current state without creating a second history library',async()=>{
- const call=api();let s=(await call('/api/game')).state;s=(await call('/api/game',{expectedRevision:s.revision,action:{type:'move',index:180}})).state;const results=await Promise.all([1,2].map(()=>call('/api/game',{expectedRevision:s.revision,action:{type:'new'}})));assert.deepEqual(results.map(r=>r.status).sort(),[200,409]);assert.equal((await call('/api/games')).games.length,0);assert.equal((await call('/api/game')).state.history.length,0);
+test('manual resets cannot discard a live game without saving',async()=>{
+ const call=api();let s=(await call('/api/game')).state;s=(await call('/api/game',{expectedRevision:s.revision,action:{type:'move',index:180}})).state;const result=await call('/api/game',{expectedRevision:s.revision,action:{type:'new'}});assert.equal(result.status,400);assert.equal((await call('/api/games')).games.length,0);assert.equal((await call('/api/game')).state.history.length,1);
 });
 test('clock charges the correct player, excludes pauses, and records move timestamps',t=>{
  let now=100000;t.mock.method(Date,'now',()=>now);

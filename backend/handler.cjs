@@ -80,15 +80,26 @@ exports.handler = async event => {
 
 // Save completed live games through the same idempotent library pipeline as uploads.
 async function publishLiveGame(state){
- if(state.libraryId)return state;
- const hash=reportHash('sha256').update('live|'+state.createdAt+'|'+(state.generation||0)).digest('hex');
- const uploadId=hash.slice(0,8)+'-'+hash.slice(8,12)+'-'+hash.slice(12,16)+'-'+hash.slice(16,20)+'-'+hash.slice(20,32);
- const source=mainRecordingSgf(sgf(state)),metadata=await uploadRecord(libraryStore,source,'live-game.sgf',uploadId);
- await enqueueSavedRecord(metadata);state={...state,libraryId:metadata.id};
- try{await db.send(new PutItemCommand({TableName:process.env.TABLE_NAME,Item:{gameId:{S:'current'},revision:{N:String(state.revision)},clockVersion:{N:String(state.clockVersion||0)},state:{S:JSON.stringify(state)}},ConditionExpression:'#r = :r AND #c = :c',ExpressionAttributeNames:{'#r':'revision','#c':'clockVersion'},ExpressionAttributeValues:{':r':{N:String(state.revision)},':c':{N:String(state.clockVersion||0)}}}));}catch(e){if(e.name!=='ConditionalCheckFailedException')throw e;}
- return state;
+ if(!state.libraryId){
+  const hash=reportHash('sha256').update('live|'+state.createdAt+'|'+(state.generation||0)).digest('hex');
+  const uploadId=hash.slice(0,8)+'-'+hash.slice(8,12)+'-'+hash.slice(12,16)+'-'+hash.slice(16,20)+'-'+hash.slice(20,32);
+  const source=mainRecordingSgf(sgf(state)),metadata=await uploadRecord(libraryStore,source,'live-game.sgf',uploadId);
+  await enqueueSavedRecord(metadata);
+ }
+ const fresh=freshLiveGame(state);
+ try{await db.send(new PutItemCommand({TableName:process.env.TABLE_NAME,Item:{gameId:{S:'current'},revision:{N:String(fresh.revision)},clockVersion:{N:'0'},state:{S:JSON.stringify(fresh)}},ConditionExpression:'#r = :r AND #c = :c',ExpressionAttributeNames:{'#r':'revision','#c':'clockVersion'},ExpressionAttributeValues:{':r':{N:String(state.revision)},':c':{N:String(state.clockVersion||0)}}}));}catch(e){if(e.name!=='ConditionalCheckFailedException')throw e;return readGame();}
+ return fresh;
 }
-async function readDraft(){const obj=await db.send(new GetItemCommand({TableName:process.env.TABLE_NAME,Key:{gameId:{S:'record-draft'}},ConsistentRead:true}));return obj.Item?JSON.parse(obj.Item.state.S):createDraft();}
+async function readDraft(){
+ for(let attempt=0;attempt<3;attempt++){
+  const obj=await db.send(new GetItemCommand({TableName:process.env.TABLE_NAME,Key:{gameId:{S:'record-draft'}},ConsistentRead:true})),current=obj.Item?JSON.parse(obj.Item.state.S):createDraft();
+  // Clear already-published drafts left by the previous app version too.
+  if(current.publication?.status!=='ready'||current.sgf===newRecordingSgf())return current;
+  const fresh=freshSavedDraft(current,current.publication.gameId);
+  try{await writeDraft(fresh,current.revision);return fresh;}catch(e){if(e.name!=='ConditionalCheckFailedException')throw e;}
+ }
+ throw Object.assign(Error('The public draft changed. Please retry.'),{statusCode:409});
+}
 async function writeDraft(next,expected){await db.send(new PutItemCommand({TableName:process.env.TABLE_NAME,Item:{gameId:{S:'record-draft'},revision:{N:String(next.revision)},state:{S:JSON.stringify(next)}},ConditionExpression:'attribute_not_exists(#r) OR #r = :r',ExpressionAttributeNames:{'#r':'revision'},ExpressionAttributeValues:{':r':{N:String(expected)}}}));}
 async function draftHandler(event){
  try{
@@ -102,7 +113,7 @@ async function draftHandler(event){
    else {if(current.publication?.status==='pending')return response(409,{message:'Another save is still in progress. Reload the draft.'});pending=draftPublication(current,request);await writeDraft(pending,current.revision);}
    if(pending.publication.status==='ready')return response(200,{draft:pending,id:pending.publication.gameId});
    const metadata=await uploadRecord(libraryStore,pending.sgf,'recorded-game.sgf',pending.publication.id);await enqueueSavedRecord(metadata);
-   const finished={...pending,publication:{...pending.publication,status:'ready',gameId:metadata.id}};await writeDraft(finished,pending.revision);return response(200,{draft:finished,id:metadata.id});
+   const finished=freshSavedDraft(pending,metadata.id);await writeDraft(finished,pending.revision);return response(200,{draft:finished,id:metadata.id});
   }
   if(request.action!=='update')return response(400,{message:'Invalid draft action.'});
   const next=draftTransition(current,request);await writeDraft(next,current.revision);return response(200,{draft:next});
