@@ -2,7 +2,7 @@ const {S3Client,GetObjectCommand,PutObjectCommand}=require('@aws-sdk/client-s3')
 const s3=new S3Client({});
 exports.handler=async event=>{
  const job=event.detail,match=job.jobName?.match(/^weiqi-([0-9]{10,14})(?:-(quick|deep))?$/);if(job.status!=='FAILED'||!match)return;
- const [,id,phase]=match,key='games/'+id+'/metadata.json';
+ const [,id,phase]=match,key=gamePrefix(id)+'/metadata.json';
  for(let n=0;n<6;n++){
   const obj=await s3.send(new GetObjectCommand({Bucket:process.env.LIBRARY_BUCKET,Key:key})),meta=JSON.parse(await obj.Body.transformToString()),state=meta.analysis,target=phase?state[phase]:state;
   if(!target||target.status==='ready'||target.jobId&&target.jobId!==job.jobId)return;

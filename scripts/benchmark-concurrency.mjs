@@ -1,3 +1,4 @@
+import {gamePrefix} from '../backend/library-service.js';
 import {readFile,writeFile,mkdir} from 'node:fs/promises';
 import {execFile} from 'node:child_process';
 import {promisify} from 'node:util';
@@ -22,7 +23,7 @@ await attachBenchmarkRecords({bucket,model:'latest official model',queueKind:'co
 const get=async key=>JSON.parse((await execute('aws',['s3','cp','s3://'+bucket+'/'+key,'-','--region',region,'--only-show-errors'],{maxBuffer:8*1024*1024})).stdout);
 const report={scenario:'Two simultaneous cold full-game workflows',region,startedAt:new Date().toISOString(),records:[],completed:false};
 for(const result of results){
- const key='games/'+result.recordId+'/metadata.json',file=outdir+'/'+result.recordId+'-metadata.json';
+ const key=gamePrefix(result.recordId)+'/metadata.json',file=outdir+'/'+result.recordId+'-metadata.json';
  const original=await aws(['s3api','get-object','--bucket',bucket,'--key',key,file]);
  const metadata=JSON.parse(await readFile(file,'utf8'));
  metadata.name=`Concurrency benchmark ${result.sequence}/2 · quick 32 CPUs / 60 GB / 8 visits · deep T4 / 1,000 visits`;
@@ -41,7 +42,7 @@ try{
   const catalog=JSON.parse(await readFile('cloud/benchmark-catalog.json','utf8'));
   let changed=false;
   for(const record of report.records){
-   const metadata=await get('games/'+record.id+'/metadata.json'),state=metadata.analysis;
+   const metadata=await get(gamePrefix(record.id)+'/metadata.json'),state=metadata.analysis;
    record.enqueuedAt=state.enqueuedAt;record.analysis=state;
    const status=['quick','deep'].map(phase=>phase+': '+(state[phase]?.status||state.status)).join(' · ');
    if(previous.get(record.id)!==status){console.log(new Date().toISOString()+' '+record.id+' '+status);previous.set(record.id,status);changed=true;}
@@ -50,10 +51,10 @@ try{
     if(!stage?.jobId||stage.jobId.startsWith('fallback:'))continue;
     if(!catalog.some(r=>r.id===stage.jobId)){
      const gpu=phase==='deep'&&!stage.fallback;
-     catalog.push({id:stage.jobId,jobId:stage.jobId,backend:gpu?'gpu':'fargate-cpu',...(gpu?{gpuType:'T4',instanceType:'g4dn.xlarge'}:{}),recordId:record.id,recordUrl:record.recordUrl,productionPrefix:'games/'+record.id,phase,visits:stage.visits,enqueuedAt:state.enqueuedAt,status:'SUBMITTED',runId:state.enqueuedAt,scenario:report.scenario,triggerSeconds:0});changed=true;
+     catalog.push({id:stage.jobId,jobId:stage.jobId,backend:gpu?'gpu':'fargate-cpu',...(gpu?{gpuType:'T4',instanceType:'g4dn.xlarge'}:{}),recordId:record.id,recordUrl:record.recordUrl,productionPrefix:gamePrefix(record.id),phase,visits:stage.visits,enqueuedAt:state.enqueuedAt,status:'SUBMITTED',runId:state.enqueuedAt,scenario:report.scenario,triggerSeconds:0});changed=true;
     }
     if(stage.status==='ready'&&!record.phases[phase]){
-     const analysis=await get('games/'+record.id+(phase==='quick'?'/analysis-quick.json':'/analysis.json'));
+     const analysis=await get(gamePrefix(record.id)+(phase==='quick'?'/analysis-quick.json':'/analysis.json'));
      record.phases[phase]={jobId:stage.jobId,visits:analysis.visits,totalSeconds:analysis.endToEndMs/1000,engineSeconds:analysis.benchmark.engineMs/1000,compute:analysis.compute,model:analysis.model,modelSha256:analysis.modelSha256,completedAt:analysis.completedAt};
      await writeFile(outdir+'/'+record.id+'-'+phase+'.json',JSON.stringify(analysis,null,2));
      console.log(record.id+' '+phase+' result: '+JSON.stringify(record.phases[phase]));changed=true;
@@ -68,6 +69,6 @@ try{
  if(!report.completed)throw Error('Concurrency development benchmark exceeded its monitoring allowance.');
 }catch(error){
  // Cancel only this test's jobs. Batch owns retirement; never provision or terminate EC2 manually.
- for(const record of report.records){const state=await get('games/'+record.id+'/metadata.json');for(const phase of ['quick','deep']){const stage=state.analysis[phase];if(stage?.jobId&&!stage.jobId.startsWith('fallback:')&&['queued','running'].includes(stage.status))await aws(['batch','terminate-job','--job-id',stage.jobId,'--reason','Concurrency development benchmark stopped']);}}
+ for(const record of report.records){const state=await get(gamePrefix(record.id)+'/metadata.json');for(const phase of ['quick','deep']){const stage=state.analysis[phase];if(stage?.jobId&&!stage.jobId.startsWith('fallback:')&&['queued','running'].includes(stage.status))await aws(['batch','terminate-job','--job-id',stage.jobId,'--reason','Concurrency development benchmark stopped']);}}
  report.error=error.message;await save();throw error;
 }

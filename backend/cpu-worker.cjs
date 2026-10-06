@@ -13,7 +13,7 @@ exports.handler=async(event,context)=>{
   let metadata,claim,prefix;
   try {
    const {id}=JSON.parse(message.body);if(!validRecordId(id))throw Error('Invalid game ID');
-   prefix='games/'+id+'/';const initial=await readObject(prefix+'metadata.json');metadata=JSON.parse(initial.body);
+   prefix=gamePrefix(id)+'/';const initial=await readObject(prefix+'metadata.json');metadata=JSON.parse(initial.body);
    if(['ready','failed','limited'].includes(metadata.analysis.status))continue;
    if(metadata.analysis.status==='running'&&Date.now()-Date.parse(metadata.analysis.startedAt)<30*60*1000){batchItemFailures.push({itemIdentifier:message.messageId});continue;}
    const visits=10;metadata.analysis={status:'running',startedAt:new Date().toISOString(),visits,estimatedSeconds:Math.max(30,Math.ceil((metadata.moves+1)*Number(process.env.SECONDS_PER_POSITION || 1)))};

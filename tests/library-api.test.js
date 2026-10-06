@@ -1,3 +1,4 @@
+import {gamePrefix} from '../backend/library-service.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import vm from 'node:vm';
@@ -28,7 +29,7 @@ const id='12345678-1234-1234-1234-123456789abc',sgf='(;GM[1]SZ[19]KM[7.5]GN[API 
 test('deployed library handler allocates a short ID, stores portable files, queues analysis and immediately serves the original record',async()=>{
  const {call,files,messages}=api();const uploaded=await call('/api/library',{id,sgf,filename:'test.sgf'});assert.equal(uploaded.status,200);const recordId=uploaded.id;assert.match(recordId,/^[0-9]{8}01$/);assert.equal(messages.length,1);assert.equal(messages[0].MessageBody,JSON.stringify({id:recordId}));
  const record=await call('/api/library/'+recordId);assert.equal(record.sgf,sgf);assert.equal(record.metadata.analysis.status,'queued');assert.ok(Number.isFinite(Date.parse(record.metadata.analysis.enqueuedAt)));assert.equal(record.analysis,null);assert.equal((await call('/api/library')).games.length,1);
- files.set('games/'+recordId+'/analysis.json',JSON.stringify({positions:[{move:0,blackLead:2,blackWinrate:.9}]}));const meta=JSON.parse(files.get('games/'+recordId+'/metadata.json'));meta.analysis.status='ready';files.set('games/'+recordId+'/metadata.json',JSON.stringify(meta));assert.equal((await call('/api/library/'+recordId)).analysis.positions[0].blackWinrate,.9);
+ files.set(gamePrefix(recordId)+'/analysis.json',JSON.stringify({positions:[{move:0,blackLead:2,blackWinrate:.9}]}));const meta=JSON.parse(files.get(gamePrefix(recordId)+'/metadata.json'));meta.analysis.status='ready';files.set(gamePrefix(recordId)+'/metadata.json',JSON.stringify(meta));assert.equal((await call('/api/library/'+recordId)).analysis.positions[0].blackWinrate,.9);
 });
 test('deployed library rejects wrong origin, unsupported sizes, malformed files, missing records and overwrite attempts',async()=>{
  const {call,files}=api();assert.equal((await call('/api/library',{id,sgf,filename:'x.sgf'},{origin:'https://evil.invalid'})).status,403);
@@ -38,7 +39,7 @@ test('deployed library rejects wrong origin, unsupported sizes, malformed files,
  assert.equal((await call('/api/library/../../etc')).status,404);
 });
 test('quick results are served during deeper work, then the API switches to deeper results',async()=>{
- const {call,files}=api(),uploaded=await call('/api/library',{id,sgf,filename:'test.sgf'}),prefix='games/'+uploaded.id+'/';
+ const {call,files}=api(),uploaded=await call('/api/library',{id,sgf,filename:'test.sgf'}),prefix=gamePrefix(uploaded.id)+'/';
  const meta=JSON.parse(files.get(prefix+'metadata.json'));
  meta.analysis={status:'running',available:'quick',quick:{status:'ready'},deep:{status:'running'}};
  files.set(prefix+'metadata.json',JSON.stringify(meta));files.set(prefix+'analysis-quick.json',JSON.stringify({phase:'quick',visits:1}));
@@ -52,7 +53,7 @@ test('library lists newest ten records and returns a cursor for the next page wi
  for(let n=0;n<23;n++){
   const recordId='20261005'+String(n+1).padStart(2,'0');
   const metadata={id:recordId,uploadedAt:new Date(Date.UTC(2026,9,5,12,0,n)).toISOString()};
-  files.set('games/'+recordId+'/metadata.json',JSON.stringify(metadata));
+  files.set(gamePrefix(recordId)+'/metadata.json',JSON.stringify(metadata));
   const stamp=String(Date.parse(metadata.uploadedAt)).replace(/[0-9]/g,d=>9-Number(d));
   files.set('library-index/'+stamp+'-'+recordId+'.json',JSON.stringify({id:recordId}));
  }
@@ -63,7 +64,7 @@ test('library lists newest ten records and returns a cursor for the next page wi
 });
 
 test('report reads never generate artifacts or invoke document workers',async()=>{
- const {call,files,messages,invocations,event}=api(),upload=await call('/api/library',{id,sgf,filename:'report.sgf'}),prefix='games/'+upload.id+'/';
+ const {call,files,messages,invocations,event}=api(),upload=await call('/api/library',{id,sgf,filename:'report.sgf'}),prefix=gamePrefix(upload.id)+'/';
  const meta=JSON.parse(files.get(prefix+'metadata.json'));meta.analysis={status:'ready',available:'deep',deep:{status:'ready',jobId:'job'}};files.set(prefix+'metadata.json',JSON.stringify(meta));
  const a={phase:'deep',visits:3000,completedAt:'2026-10-06T00:00:00Z',sgfSha256:createHash('sha256').update(sgf).digest('hex'),modelSha256:'abc',positions:[0,1,2].map(n=>({nodeId:n,move:n,blackLead:0,blackWinrate:.5,candidates:[{move:n===0?'Q16':'D4',order:0,blackLead:2,blackWinrate:.6,visits:100,pv:[n===0?'Q16':'D4']}]}))};files.set(prefix+'analysis.json',JSON.stringify(a));
  assert.equal((await call('/api/library/'+upload.id+'/report')).status,409);assert.equal(invocations.length,0);assert.equal([...files.keys()].filter(k=>k.includes('/reports/')).length,0);
@@ -73,13 +74,13 @@ test('report reads never generate artifacts or invoke document workers',async()=
  files.set(prefix+'analysis.json',JSON.stringify({...a,visits:1000}));assert.equal((await call('/api/library/'+upload.id+'/report')).status,409);assert.equal(invocations.length,0);assert.equal(messages.length,2);
 });
 test('report API rejects analysis for another SGF and incomplete positions',async()=>{
- const {call,files}=api(),upload=await call('/api/library',{id,sgf,filename:'report.sgf'}),prefix='games/'+upload.id+'/';const meta=JSON.parse(files.get(prefix+'metadata.json'));meta.analysis={status:'ready',available:'deep'};files.set(prefix+'metadata.json',JSON.stringify(meta));
+ const {call,files}=api(),upload=await call('/api/library',{id,sgf,filename:'report.sgf'}),prefix=gamePrefix(upload.id)+'/';const meta=JSON.parse(files.get(prefix+'metadata.json'));meta.analysis={status:'ready',available:'deep'};files.set(prefix+'metadata.json',JSON.stringify(meta));
  files.set(prefix+'analysis.json',JSON.stringify({phase:'deep',sgfSha256:'wrong',positions:[]}));assert.equal((await call('/api/library/'+upload.id+'/report')).status,409);
  files.set(prefix+'analysis.json',JSON.stringify({phase:'deep',sgfSha256:createHash('sha256').update(sgf).digest('hex'),positions:[]}));assert.equal((await call('/api/library/'+upload.id+'/report')).status,409);
 });
 
 test('successful production completion prepares the report before viewing, deduplicates repeats and ignores stale jobs',async()=>{
- const {call,files,messages,event}=api(),upload=await call('/api/library',{id,sgf,filename:'automatic-report.sgf'}),prefix='games/'+upload.id+'/';
+ const {call,files,messages,event}=api(),upload=await call('/api/library',{id,sgf,filename:'automatic-report.sgf'}),prefix=gamePrefix(upload.id)+'/';
  const meta=JSON.parse(files.get(prefix+'metadata.json'));meta.analysis={status:'ready',available:'deep',deep:{status:'ready',jobId:'completed-job'}};files.set(prefix+'metadata.json',JSON.stringify(meta));
  files.set(prefix+'analysis.json',JSON.stringify({phase:'deep',visits:3000,completedAt:'2026-10-06T00:00:00Z',sgfSha256:createHash('sha256').update(sgf).digest('hex'),modelSha256:'model',positions:[0,1,2].map(n=>({nodeId:n,move:n,blackLead:0,blackWinrate:.5,candidates:[{move:n===0?'Q16':'D4',order:0,blackLead:2,blackWinrate:.6,visits:100,pv:[n===0?'Q16':'D4']}]}))}));
  const notice=jobId=>({source:'aws.batch','detail-type':'Batch Job State Change',detail:{status:'SUCCEEDED',jobName:'weiqi-'+upload.id+'-a1-1234abcd',jobId}});
@@ -91,7 +92,7 @@ test('successful production completion prepares the report before viewing, dedup
 });
 
 test('queued record reads expose a stable queue forecast without changing records or scheduling jobs',async()=>{
- const h=api(),upload=await h.call('/api/library',{id,sgf,filename:'queue.sgf'}),key='games/'+upload.id+'/metadata.json',m=JSON.parse(h.files.get(key));
+ const h=api(),upload=await h.call('/api/library',{id,sgf,filename:'queue.sgf'}),key=gamePrefix(upload.id)+'/metadata.json',m=JSON.parse(h.files.get(key));
  m.analysis={status:'queued',backend:'primary',jobId:'job',quick:{status:'queued',estimatedSeconds:60},deep:{status:'queued',estimatedSeconds:3000}};h.files.set(key,JSON.stringify(m));
  h.batchJobs.set('job',{jobId:'job',jobName:'weiqi-'+upload.id+'-a1-1234abcd',jobQueue:'gpu-queue',status:'RUNNABLE',createdAt:Date.now()});
  const original=h.files.get(key),first=await h.call('/api/library/'+upload.id),second=await h.call('/api/library/'+upload.id);
@@ -105,7 +106,7 @@ test('queued record reads expose a stable queue forecast without changing record
 
 test('a different game cannot reuse an upload ID, mutate saved files or enqueue another analysis',async()=>{
  const {call,files,messages,event}=api();
- const saved=await call('/api/library',{id,sgf,filename:'original.sgf'}),prefix='games/'+saved.id+'/';
+ const saved=await call('/api/library',{id,sgf,filename:'original.sgf'}),prefix=gamePrefix(saved.id)+'/';
  const original=[...files].filter(([key])=>key.startsWith(prefix)),slots=[...files].filter(([key])=>key.startsWith('daily-analysis/'));
  const replacements=['(;SZ[19]GN[Different game];B[pp];W[dd])',sgf.replace('GN[API test]','GN[Changed name]'),sgf.replace('KM[7.5]','KM[6.5]')];
  for(const replacement of replacements){

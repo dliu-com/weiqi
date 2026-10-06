@@ -1,3 +1,4 @@
+import {gamePrefix} from '../backend/library-service.js';
 import {readFile,writeFile,mkdir} from 'node:fs/promises';
 import {execFile} from 'node:child_process';
 import {promisify} from 'node:util';
@@ -15,7 +16,7 @@ const get=async key=>JSON.parse((await execute('aws',['s3','cp','s3://'+bucket+'
 const put=async(key,value,etag)=>{const file=outdir+'/upload.json';await writeFile(file,JSON.stringify(value));await aws(['s3api','put-object','--bucket',bucket,'--key',key,'--body',file,'--content-type','application/json',...(etag?['--if-match',etag]:[])]);};
 const placeholder={cpu:32,memoryGB:60,visits:8,status:'SUBMITTED'};
 if(!existingId)await attachBenchmarkRecords({bucket,model:'latest official model',queueKind:'hybrid-workflow',results:[placeholder]},source);
-const id=existingId||placeholder.recordId,key='games/'+id+'/metadata.json';
+const id=existingId||placeholder.recordId,key=gamePrefix(id)+'/metadata.json';
  const responseFile=outdir+'/metadata.json';
  const original=await aws(['s3api','get-object','--bucket',bucket,'--key',key,responseFile]);
  const metadata=JSON.parse(await readFile(responseFile,'utf8'));
@@ -37,10 +38,10 @@ for(let n=0;n<720;n++){
  for(const phase of ['quick','deep']){
   const p=state[phase];if(!p?.jobId||p.jobId.startsWith('fallback:'))continue;
   if(!catalog.some(r=>r.id===p.jobId)){
-   catalog.push({id:p.jobId,jobId:p.jobId,backend:phase==='quick'||p.fallback?'fargate-cpu':'gpu',...(phase==='deep'&&!p.fallback?{gpuType:'T4',instanceType:'g4dn.xlarge'}:{}),recordId:id,recordUrl:report.recordUrl,productionPrefix:'games/'+id,phase,visits:p.visits,enqueuedAt:state.enqueuedAt,status:'SUBMITTED',runId:state.enqueuedAt,triggerSeconds:0});changed=true;
+   catalog.push({id:p.jobId,jobId:p.jobId,backend:phase==='quick'||p.fallback?'fargate-cpu':'gpu',...(phase==='deep'&&!p.fallback?{gpuType:'T4',instanceType:'g4dn.xlarge'}:{}),recordId:id,recordUrl:report.recordUrl,productionPrefix:gamePrefix(id),phase,visits:p.visits,enqueuedAt:state.enqueuedAt,status:'SUBMITTED',runId:state.enqueuedAt,triggerSeconds:0});changed=true;
   }
   if(p.status==='ready'&&!report.phases[phase]){
-   const analysis=await get('games/'+id+(phase==='quick'?'/analysis-quick.json':'/analysis.json'));
+   const analysis=await get(gamePrefix(id)+(phase==='quick'?'/analysis-quick.json':'/analysis.json'));
    report.phases[phase]={jobId:p.jobId,visits:analysis.visits??p.visits,totalSeconds:analysis.endToEndMs/1000,engineSeconds:(analysis.benchmark?.engineMs??analysis.elapsedMs)/1000,compute:analysis.compute,completedAt:analysis.completedAt};
    await writeFile(outdir+'/'+phase+'-analysis.json',JSON.stringify(analysis,null,2));
    console.log(phase+' result: '+JSON.stringify(report.phases[phase]));

@@ -9,7 +9,7 @@ const libraryStore = {
 // Versioned reports are prepared by the Batch completion event. The same cache
 // path is read-only on user requests; only completion events create reports.
 async function storedAiReport(id,prepare=false) {
-  const prefix='games/'+id+'/',metadata=JSON.parse(await libraryStore.get(prefix+'metadata.json'));
+  const prefix=gamePrefix(id)+'/',metadata=JSON.parse(await libraryStore.get(prefix+'metadata.json'));
   if(metadata.analysis.available==='quick'||metadata.analysis.status!=='ready')throw Object.assign(Error('The report will be available when deep analysis finishes. Refresh the game page to check.'),{statusCode:409});
   const analysis=JSON.parse(await libraryStore.get(prefix+'analysis.json'));
   const hash=reportHash('sha256').update(JSON.stringify([REPORT_SCHEMA_VERSION,analysis.sgfSha256,analysis.modelSha256,analysis.visits,analysis.completedAt])).digest('hex'),key=prefix+'reports/'+hash+'.json';
@@ -23,7 +23,7 @@ async function storedAiReport(id,prepare=false) {
 async function completedAnalysisReport(job) {
   const match=/^weiqi-(\d{10,14})-a\d+-[a-f0-9]{8}$/.exec(job.jobName||'');
   if(job.status!=='SUCCEEDED'||!match)return {ignored:true};
-  const id=match[1],metadata=JSON.parse(await libraryStore.get('games/'+id+'/metadata.json'));
+  const id=match[1],metadata=JSON.parse(await libraryStore.get(gamePrefix(id)+'/metadata.json'));
   if(metadata.analysis.status!=='ready'||metadata.analysis.deep?.status!=='ready'||metadata.analysis.deep.jobId!==job.jobId)return {ignored:true};
   const saved=await storedAiReport(id,true);
   if(process.env.REPORT_QUEUE){await libraryQueue.send(new SendMessageCommand({QueueUrl:process.env.REPORT_QUEUE,MessageGroupId:'reports',MessageDeduplicationId:reportHash('sha256').update(saved.key+'|'+job.jobId).digest('hex'),MessageBody:JSON.stringify({id,reportKey:saved.key,jobId:job.jobId})}));}
@@ -37,7 +37,7 @@ async function libraryHandler(event) {
       const cursor=event.queryStringParameters?.cursor;
       if (cursor && cursor.length>2048) return response(400,{message:'Invalid page cursor.'});
       const list=await libraryS3.send(new ListObjectsV2Command({Bucket:process.env.LIBRARY_BUCKET,Prefix:'library-index/',MaxKeys:10,...(cursor?{ContinuationToken:cursor}:{})}));
-      const games=await Promise.all((list.Contents || []).map(async p=>{try{const entry=JSON.parse(await libraryStore.get(p.Key));if(!validRecordId(entry.id))return null;return JSON.parse(await libraryStore.get('games/'+entry.id+'/metadata.json'));}catch(e){if(e.name==='NoSuchKey')return null;throw e;}}));
+      const games=await Promise.all((list.Contents || []).map(async p=>{try{const entry=JSON.parse(await libraryStore.get(p.Key));if(!validRecordId(entry.id))return null;return JSON.parse(await libraryStore.get(gamePrefix(entry.id)+'/metadata.json'));}catch(e){if(e.name==='NoSuchKey')return null;throw e;}}));
       return response(200,{games:games.filter(Boolean),cursor:list.NextContinuationToken || null});
     }
     const reportId=path.match(/^\/api\/library\/([^/]+)\/report$/)?.[1];
@@ -45,7 +45,7 @@ async function libraryHandler(event) {
       return response(200,(await storedAiReport(reportId)).report);
     }
     if (method==='GET' && validRecordId(id)) {
-      const prefix='games/'+id+'/', metadata=JSON.parse(await libraryStore.get(prefix+'metadata.json'));
+      const prefix=gamePrefix(id)+'/', metadata=JSON.parse(await libraryStore.get(prefix+'metadata.json'));
       const sgf=await libraryStore.get(prefix+'original.sgf'); let analysis=null;
       if(metadata.analysis.status==='ready'||metadata.analysis.available) analysis=JSON.parse(await libraryStore.get(prefix+(metadata.analysis.available==='quick'?'analysis-quick.json':'analysis.json')));
       await attachQueueStatus(metadata);
@@ -71,7 +71,7 @@ async function enqueueSavedRecord(metadata) {
     // Only eligible uploads enqueue the quick and deep cloud analyses.
     // Duplicate deliveries are safe: workers reuse complete results and claim jobs.
     if(process.env.ANALYSIS_QUEUE && metadata.analysis.status==='queued') {
-      const key='games/'+metadata.id+'/metadata.json';
+      const key=gamePrefix(metadata.id)+'/metadata.json';
       for(let n=0;n<6;n++){
         const obj=await libraryS3.send(new GetObjectCommand({Bucket:process.env.LIBRARY_BUCKET,Key:key})),current=JSON.parse(await obj.Body.transformToString());
         if(current.analysis.enqueuedAt)break;

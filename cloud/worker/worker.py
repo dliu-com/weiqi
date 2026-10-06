@@ -6,6 +6,10 @@ BUCKET=os.environ['LIBRARY_BUCKET']
 os.environ['APPIMAGE_EXTRACT_AND_RUN']='1'
 ENGINE=os.environ.get('KATAGO_BIN','/opt/bin/katago')
 MODEL_KEY=os.environ.get('KATAGO_MODEL_KEY','models/g170e-b20c256x2-s5303129600-d1228401921.bin.gz')
+def game_prefix(game_id):
+    if not re.fullmatch(r'\d{10,14}',game_id):raise ValueError('Invalid game ID')
+    return 'games/'+game_id[:8]+'/'+game_id[8:]
+
 def kata_candidates(move_infos,played_move=None):
     def valid_move(move):return isinstance(move,str) and re.fullmatch(r'(?:pass|[A-HJ-T](?:[1-9]|1[0-9]))',move,re.I) is not None
     def finite(value):return isinstance(value,(int,float)) and not isinstance(value,bool) and math.isfinite(value)
@@ -22,7 +26,7 @@ def kata_candidates(move_infos,played_move=None):
         result.append({'move':'pass' if m['move'].lower()=='pass' else m['move'].upper(),'order':m['order'],'blackLead':m['scoreLead'],'blackWinrate':m['winrate'],'visits':m['visits'],'pv':pv})
     return result
 def update_phase(game_id,phase,patch,token=None):
-    key='games/'+game_id+'/metadata.json'
+    key=game_prefix(game_id)+'/metadata.json'
     for attempt in range(6):
         obj=s3.get_object(Bucket=BUCKET,Key=key)
         metadata=json.loads(obj['Body'].read());state=metadata['analysis']
@@ -50,7 +54,7 @@ def handler(event,context=None):
     if phase not in [None,'quick','deep']:raise ValueError('Invalid analysis phase')
     metadata=None
     if production:
-        obj=s3.get_object(Bucket=BUCKET,Key='games/'+event['id']+'/metadata.json')
+        obj=s3.get_object(Bucket=BUCKET,Key=game_prefix(event['id'])+'/metadata.json')
         metadata=json.loads(obj['Body'].read())
         if event.get('token') and metadata['analysis'].get('token')!=event['token']:return {'status':'skipped'}
         if metadata['analysis']['status'] in ['ready','failed','limited'] or phase and metadata['analysis'].get(phase,{}).get('status') in ['ready','failed']: return {'status':'skipped'}
@@ -58,7 +62,7 @@ def handler(event,context=None):
         if phase:update_phase(event['id'],phase,patch,event.get('token'))
         else:
             metadata['analysis']={**metadata['analysis'],**patch}
-            s3.put_object(Bucket=BUCKET,Key='games/'+event['id']+'/metadata.json',Body=json.dumps(metadata).encode(),ContentType='application/json',IfMatch=obj['ETag'])
+            s3.put_object(Bucket=BUCKET,Key=game_prefix(event['id'])+'/metadata.json',Body=json.dumps(metadata).encode(),ContentType='application/json',IfMatch=obj['ETag'])
     engine_download_started=time.time()
     timings['readClaimGameMs']=round((engine_download_started-worker_started)*1000)
     if os.environ.get('DOWNLOAD_ENGINE')=='1' and not pathlib.Path(ENGINE).exists():
@@ -73,7 +77,7 @@ def handler(event,context=None):
     query={**event['query'],'analysisPVLen':11}; visits=query['maxVisits']
     if query['boardXSize']!=19 or query['boardYSize']!=19 or not 1<=visits<=3000: raise ValueError('Invalid benchmark request')
     prefix=event['outputPrefix']
-    if not (prefix.startswith('benchmarks/') or production and prefix=='games/'+event['id']) or '..' in prefix: raise ValueError('Invalid output prefix')
+    if not (prefix.startswith('benchmarks/') or production and prefix==game_prefix(event['id'])) or '..' in prefix: raise ValueError('Invalid output prefix')
     model=pathlib.Path(os.environ.get('KATAGO_MODEL_PATH','/tmp/katago-model.bin.gz'))
     model_download_started=time.time()
     url=os.environ.get('KATAGO_MODEL_URL','')

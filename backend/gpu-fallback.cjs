@@ -24,7 +24,7 @@ exports.handler=async event=>{
  for(const message of event.Records){try{
   const {id,phase,jobId}=JSON.parse(message.body);
   if(!/^[0-9]{10,14}$/.test(id)||!['quick','deep'].includes(phase))throw Error('Invalid fallback request');
-  const key='games/'+id+'/metadata.json',marker='fallback:'+jobId;
+  const key=gamePrefix(id)+'/metadata.json',marker='fallback:'+jobId;
   const {value:meta}=await get(key),target=meta.analysis[phase];
   if(!target||['ready','failed'].includes(target.status)||![jobId,marker].includes(target.jobId))continue;
   let job=await describe(jobId);

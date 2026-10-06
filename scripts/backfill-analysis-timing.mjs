@@ -1,3 +1,4 @@
+import {gamePrefix} from '../backend/library-service.js';
 import {readFile,writeFile,mkdtemp} from 'node:fs/promises';
 import {execFile} from 'node:child_process';
 import {promisify} from 'node:util';
@@ -8,11 +9,11 @@ const put=async(key,value)=>{const filename=directory+'/data.json';await writeFi
 const records=JSON.parse(await readFile(new URL('../cloud/benchmark-catalog.json',import.meta.url),'utf8'));
 for(const r of records){
  if(!r.recordId||r.productionPrefix||!r.createdAt)continue;
- let metadata,analysis;try{metadata=await get('games/'+r.recordId+'/metadata.json');if(metadata.analysis.enqueuedAt!==r.createdAt){metadata.analysis.enqueuedAt=r.createdAt;await put('games/'+r.recordId+'/metadata.json',metadata);}if(!['SUCCEEDED','COMPLETE'].includes((r.status||'').toUpperCase())||!r.completedAt)continue;analysis=await get('games/'+r.recordId+'/analysis.json');}catch(e){if(/404|NoSuchKey|does not exist/.test(e.stderr||''))continue;throw e;}
+ let metadata,analysis;try{metadata=await get(gamePrefix(r.recordId)+'/metadata.json');if(metadata.analysis.enqueuedAt!==r.createdAt){metadata.analysis.enqueuedAt=r.createdAt;await put(gamePrefix(r.recordId)+'/metadata.json',metadata);}if(!['SUCCEEDED','COMPLETE'].includes((r.status||'').toUpperCase())||!r.completedAt)continue;analysis=await get(gamePrefix(r.recordId)+'/analysis.json');}catch(e){if(/404|NoSuchKey|does not exist/.test(e.stderr||''))continue;throw e;}
  const total=Date.parse(r.completedAt)-Date.parse(r.createdAt);
  if(!Number.isFinite(total)||total<0)continue;
  analysis.enqueuedAt=r.createdAt;analysis.endToEndMs=total;
  metadata.analysis.enqueuedAt=r.createdAt;
- await put('games/'+r.recordId+'/analysis.json',analysis);await put('games/'+r.recordId+'/metadata.json',metadata);
+ await put(gamePrefix(r.recordId)+'/analysis.json',analysis);await put(gamePrefix(r.recordId)+'/metadata.json',metadata);
  console.log('Recorded total timing for '+r.recordId);
 }

@@ -2,8 +2,9 @@ import {createHash} from 'node:crypto';
 export function reportEvents(event){return event?.Records?event.Records.map(record=>JSON.parse(record.body)):[event];}
 export async function prepareReportFiles(event,{store,render,version,libraryBucket,siteBucket,now=()=>new Date().toISOString()}){
  const {id,reportKey,jobId}=event;
- if(!/^\d{10,14}$/.test(id||'')||!new RegExp('^games/'+id+'/reports/[a-f0-9]{64}\\.json$').test(reportKey||'')||!jobId)throw Error('Invalid report preparation request.');
- const current=async()=>{const metadata=await store.json(libraryBucket,'games/'+id+'/metadata.json');return metadata?.analysis?.deep?.status==='ready'&&metadata.analysis.deep.jobId===jobId;};
+ const recordPrefix='games/'+String(id).slice(0,8)+'/'+String(id).slice(8);
+ if(!/^\d{10,14}$/.test(id||'')||!new RegExp('^'+recordPrefix+'/reports/[a-f0-9]{64}\\.json$').test(reportKey||'')||!jobId)throw Error('Invalid report preparation request.');
+ const current=async()=>{const metadata=await store.json(libraryBucket,recordPrefix+'/metadata.json');return metadata?.analysis?.deep?.status==='ready'&&metadata.analysis.deep.jobId===jobId;};
  if(!await current())return {ignored:true};
  const indexKey='prepared-reports/'+id+'/index.json',previous=await store.json(siteBucket,indexKey);
  if(previous?.status==='ready'&&previous.sourceReportKey===reportKey&&previous.renderVersion===version)return {id,alreadyPrepared:true};

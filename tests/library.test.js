@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readSgf,kataQuery} from '../src/sgf.js';
-import {saveRecord,uploadRecord} from '../backend/library-service.js';
+import {saveRecord,uploadRecord,gamePrefix} from '../backend/library-service.js';
 const id='12345678-1234-1234-1234-123456789abc';
 const sample='(;GM[1]FF[4]CA[UTF-8]SZ[19]KM[6.5]RU[Japanese]GN[Test]PB[A]PW[B]C[escaped \\] ; ( comment];B[dd](;W[pp];B[])(;W[dp]))';
 test('SGF imports variations, escapes and passes; KataGo uses the main line and original rules',()=>{
@@ -18,7 +18,7 @@ test('malformed, oversized, unsupported and illegal SGF is rejected before stora
 });
 test('saving portable files is idempotent and refuses to overwrite another game',async()=>{
  const files=new Map(),store={get:async key=>files.get(key),create:async(key,value)=>{if(files.has(key))return false;files.set(key,value);return true;}};
- const meta=await saveRecord(store,sample,'test.sgf',id);assert.equal(meta.analysis.status,'queued');assert.equal(files.get('games/'+id+'/original.sgf'),sample);assert.equal(files.size,3);
+ const meta=await saveRecord(store,sample,'test.sgf',id);assert.equal(meta.analysis.status,'queued');assert.equal(files.get(gamePrefix(id)+'/original.sgf'),sample);assert.equal(files.size,3);
  await saveRecord(store,sample,'test.sgf',id);assert.equal(files.size,3);await assert.rejects(()=>saveRecord(store,'(;SZ[19])','other.sgf',id),e=>e.statusCode===409);
  await assert.rejects(()=>saveRecord(store,sample,'x','../../etc'),e=>e.statusCode===400);
 });
@@ -38,7 +38,7 @@ test('concurrent uploads claim at most 10 paid slots, keeping later records repl
  const store=memoryStore(),now=new Date('2026-10-05T15:00:00Z');
  const records=await Promise.all(Array.from({length:21},(_,n)=>uploadRecord(store,sample,'game.sgf',uploadId(n),now)));
  assert.equal(records.filter(r=>r.analysis.status==='queued').length,10);
- const limited=records.find(r=>r.analysis.status==='limited');assert.equal(limited.analysis.dailyLimit,10);assert.equal(await store.get('games/'+limited.id+'/original.sgf'),sample);
+ const limited=records.find(r=>r.analysis.status==='limited');assert.equal(limited.analysis.dailyLimit,10);assert.equal(await store.get(gamePrefix(limited.id)+'/original.sgf'),sample);
  assert.equal([...store.files.keys()].filter(k=>k.startsWith('daily-analysis/')).length,10);
 });
 test('operator benchmarks do not consume public paid slots; retries and the London day are respected',async()=>{
@@ -49,4 +49,12 @@ test('operator benchmarks do not consume public paid slots; retries and the Lond
  const next=await uploadRecord(store,sample,'game.sgf',uploadId(201),new Date('2026-10-05T23:00:01Z'));assert.equal(next.id,'2026100601');
  assert.equal([...store.files.keys()].filter(k=>k.startsWith('daily-analysis/')).length,2);
  await assert.rejects(()=>uploadRecord(store,'(;SZ[9])','bad.sgf',uploadId(202),now));assert.equal([...store.files.keys()].filter(k=>k.startsWith('daily-analysis/')).length,2);
+});
+
+
+test('numeric game storage groups the date and sequence without changing the public ID',()=>{
+ assert.equal(gamePrefix('2026100501'),'games/20261005/01');
+ assert.equal(gamePrefix('20261006100'),'games/20261006/100');
+ assert.equal(gamePrefix(id),'games/'+id);
+ for(const invalid of ['../2026100501','20261005/01','','games/2026100501'])assert.throws(()=>gamePrefix(invalid));
 });

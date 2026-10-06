@@ -1,6 +1,6 @@
 import {readFile,mkdir,open,readdir} from 'node:fs/promises';
 import path from 'node:path';
-import {uploadRecord,validRecordId} from '../backend/library-service.js';
+import {uploadRecord,validRecordId,gamePrefix} from '../backend/library-service.js';
 import {buildAiReport} from '../src/report-data.js';
 import {runLocalJob} from './analysis-worker.mjs';
 export function localLibrary(directory,options={}) {
@@ -15,20 +15,21 @@ export function localLibrary(directory,options={}) {
     try {
       if(request.method==='GET'&&pathname==='/api/library'){
         let entries=[];try{entries=await readdir(path.join(directory,'games'));}catch(e){if(e.code!=='ENOENT')throw e;}
-        const games=[];for(const id of entries.filter(validRecordId)){try{games.push(JSON.parse(await store.get('games/'+id+'/metadata.json')));}catch(e){if(e.code!=='ENOENT')throw e;}}
+        const ids=entries.filter(validRecordId);for(const day of entries.filter(name=>/^[0-9]{8}$/.test(name))){for(const sequence of await readdir(path.join(directory,'games',day)))if(validRecordId(day+sequence))ids.push(day+sequence);}
+        const games=[];for(const id of ids){try{games.push(JSON.parse(await store.get(gamePrefix(id)+'/metadata.json')));}catch(e){if(e.code!=='ENOENT')throw e;}}
         games.sort((a,b)=>b.uploadedAt.localeCompare(a.uploadedAt)||b.id.localeCompare(a.id));
         const cursor=new URL(request.url,'http://localhost').searchParams.get('cursor')||'0';if(!/^[0-9]+$/.test(cursor))return send(400,{message:'Invalid page cursor.'});const offset=Number(cursor);
         return send(200,{games:games.slice(offset,offset+10),cursor:games.length>offset+10?String(offset+10):null});
       }
       const reportId=pathname.match(/^\/api\/library\/([^/]+)\/report$/)?.[1];
       if(request.method==='GET'&&validRecordId(reportId||'')){
-        const prefix='games/'+reportId+'/',metadata=JSON.parse(await store.get(prefix+'metadata.json'));
+        const prefix=gamePrefix(reportId)+'/',metadata=JSON.parse(await store.get(prefix+'metadata.json'));
         if(metadata.analysis.status!=='ready'||metadata.analysis.available==='quick')return send(409,{message:'The report will be available when deep analysis finishes.'});
         const source=await store.get(prefix+'original.sgf'),analysis=JSON.parse(await store.get(prefix+'analysis.json'));
         return send(200,buildAiReport(source,analysis,metadata));
       }
       if(request.method==='GET'&&validRecordId(id)){
-        const prefix='games/'+id+'/',metadata=JSON.parse(await store.get(prefix+'metadata.json')),sgf=await store.get(prefix+'original.sgf');
+        const prefix=gamePrefix(id)+'/',metadata=JSON.parse(await store.get(prefix+'metadata.json')),sgf=await store.get(prefix+'original.sgf');
         const analysis=metadata.analysis.status==='ready'||metadata.analysis.available?JSON.parse(await store.get(prefix+(metadata.analysis.available==='quick'?'analysis-quick.json':'analysis.json'))):null;
         return send(200,{metadata,sgf,analysis});
       }

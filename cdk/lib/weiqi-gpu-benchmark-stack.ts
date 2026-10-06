@@ -1,5 +1,6 @@
 import * as path from 'path';
 import * as fs from 'fs';
+import {createHash} from 'node:crypto';
 import {Construct} from 'constructs';
 import {Stack,StackProps,Duration,CfnOutput,RemovalPolicy,aws_s3 as s3,aws_ec2 as ec2,aws_iam as iam,aws_batch as batch,aws_ecr as ecr,aws_codebuild as codebuild,aws_logs as logs,aws_lambda as lambda,aws_sqs as sqs,aws_lambda_event_sources as sources,aws_events as events,aws_events_targets as targets} from 'aws-cdk-lib';
 
@@ -7,6 +8,7 @@ export class WeiqiGpuBenchmarkStack extends Stack {
  constructor(scope:Construct,id:string,props:StackProps & {libraryBucket:string;production?:boolean;dispatchEnabled?:boolean;analysisQueueArn?:string;cpuQuickQueue?:string;cpuDeepQueue?:string;cpuJobDefinition?:string}) {
   super(scope,id,props);
   const root=path.join(__dirname,'../..');
+  const workerTag='worker-'+createHash('sha256').update(fs.readFileSync(path.join(root,'cloud/worker/worker.py'))).digest('hex').slice(0,12);
   const bucket=s3.Bucket.fromBucketName(this,'Library',props.libraryBucket);
   const repository=new ecr.Repository(this,'Image',{removalPolicy:RemovalPolicy.DESTROY,emptyOnDelete:true,lifecycleRules:[{maxImageCount:2}]});
   const vpc=new ec2.Vpc(this,'Network',{maxAzs:2,natGateways:0,subnetConfiguration:[{name:'Public',subnetType:ec2.SubnetType.PUBLIC}]});
@@ -41,8 +43,8 @@ export class WeiqiGpuBenchmarkStack extends Stack {
   const jobRole=new iam.Role(this,'JobRole',{assumedBy:new iam.ServicePrincipal('ecs-tasks.amazonaws.com')});bucket.grantReadWrite(jobRole,'benchmarks/*');
   if(props.production){bucket.grantReadWrite(jobRole,'games/*');bucket.grantReadWrite(jobRole,'jobs/*');}
   const log=new logs.LogGroup(this,'Logs',{retention:logs.RetentionDays.ONE_WEEK,removalPolicy:RemovalPolicy.DESTROY});
-  const job=new batch.CfnJobDefinition(this,'Job',{type:'container',platformCapabilities:['EC2'],retryStrategy:{attempts:1},timeout:{attemptDurationSeconds:props.production?7200:3600},containerProperties:{image:repository.repositoryUri+':benchmark',jobRoleArn:jobRole.roleArn,resourceRequirements:[{type:'VCPU',value:'4'},{type:'MEMORY',value:'10000'},{type:'GPU',value:'1'}],environment:[{name:'LIBRARY_BUCKET',value:bucket.bucketName},{name:'ANALYSIS_TIMEOUT_SECONDS',value:props.production?'7100':'3500'}],logConfiguration:{logDriver:'awslogs',options:{'awslogs-group':log.logGroupName,'awslogs-region':this.region,'awslogs-stream-prefix':'benchmark'}}}});
-  const build=new codebuild.Project(this,'Build',{source:codebuild.Source.s3({bucket,path:'build/gpu-source.zip'}),environment:{buildImage:codebuild.LinuxBuildImage.STANDARD_7_0,privileged:true,computeType:codebuild.ComputeType.SMALL},timeout:Duration.minutes(20),environmentVariables:{REPOSITORY_URI:{value:repository.repositoryUri}},buildSpec:codebuild.BuildSpec.fromObject({version:'0.2',phases:{pre_build:{commands:['aws ecr get-login-password --region "$AWS_DEFAULT_REGION" | docker login --username AWS --password-stdin "$REPOSITORY_URI"']},build:{commands:['docker build -f gpu/Dockerfile -t "$REPOSITORY_URI:benchmark" .']},post_build:{commands:['docker push "$REPOSITORY_URI:benchmark"']}}})});repository.grantPullPush(build);bucket.grantRead(build,'build/*');
+  const job=new batch.CfnJobDefinition(this,'Job',{type:'container',platformCapabilities:['EC2'],retryStrategy:{attempts:1},timeout:{attemptDurationSeconds:props.production?7200:3600},containerProperties:{image:repository.repositoryUri+':'+workerTag,jobRoleArn:jobRole.roleArn,resourceRequirements:[{type:'VCPU',value:'4'},{type:'MEMORY',value:'10000'},{type:'GPU',value:'1'}],environment:[{name:'LIBRARY_BUCKET',value:bucket.bucketName},{name:'ANALYSIS_TIMEOUT_SECONDS',value:props.production?'7100':'3500'}],logConfiguration:{logDriver:'awslogs',options:{'awslogs-group':log.logGroupName,'awslogs-region':this.region,'awslogs-stream-prefix':'benchmark'}}}});
+  const build=new codebuild.Project(this,'Build',{source:codebuild.Source.s3({bucket,path:'build/gpu-source.zip'}),environment:{buildImage:codebuild.LinuxBuildImage.STANDARD_7_0,privileged:true,computeType:codebuild.ComputeType.SMALL},timeout:Duration.minutes(20),environmentVariables:{REPOSITORY_URI:{value:repository.repositoryUri},IMAGE_TAG:{value:workerTag}},buildSpec:codebuild.BuildSpec.fromObject({version:'0.2',phases:{pre_build:{commands:['aws ecr get-login-password --region "$AWS_DEFAULT_REGION" | docker login --username AWS --password-stdin "$REPOSITORY_URI"']},build:{commands:['docker build -f gpu/Dockerfile -t "$REPOSITORY_URI:$IMAGE_TAG" .']},post_build:{commands:['docker push "$REPOSITORY_URI:$IMAGE_TAG"']}}})});repository.grantPullPush(build);bucket.grantRead(build,'build/*');
   if(props.production){
    const uploads=new sqs.Queue(this,'ProductionUploads',{visibilityTimeout:Duration.minutes(3),retentionPeriod:Duration.days(14)});
    const dead=new sqs.Queue(this,'FallbackDeadLetters',{retentionPeriod:Duration.days(7)});

@@ -1,3 +1,4 @@
+import {gamePrefix} from '../backend/library-service.js';
 import {readFile,writeFile} from 'node:fs/promises';
 import {execFile} from 'node:child_process';
 import {promisify} from 'node:util';
@@ -20,15 +21,15 @@ for(const r of summary.results){
  }catch{ /* In-progress jobs have no complete output yet. */ }
  if(r.recordId&&!r.archived){
   const metaFile=outdir+'/'+r.recordId+'-metadata.json';
-  await execute('aws',['s3','cp','s3://'+summary.bucket+'/games/'+r.recordId+'/metadata.json',metaFile,'--region','eu-west-1','--only-show-errors']);
+  await execute('aws',['s3','cp','s3://'+summary.bucket+'/'+gamePrefix(r.recordId)+'/metadata.json',metaFile,'--region','eu-west-1','--only-show-errors']);
   const meta=JSON.parse(await readFile(metaFile,'utf8'));
   if(r.positions){
    const a=JSON.parse(await readFile(outdir+'/'+(r.label||r.cpu)+'-analysis.json','utf8'));a.id=r.recordId;
    const file=outdir+'/'+r.recordId+'-analysis.json';await writeFile(file,JSON.stringify(a));
-   await execute('aws',['s3','cp',file,'s3://'+summary.bucket+'/games/'+r.recordId+'/analysis.json','--content-type','application/json','--region','eu-west-1','--only-show-errors']);
+   await execute('aws',['s3','cp',file,'s3://'+summary.bucket+'/'+gamePrefix(r.recordId)+'/analysis.json','--content-type','application/json','--region','eu-west-1','--only-show-errors']);
    meta.analysis={...meta.analysis,status:'ready',completedAt:a.completedAt};
   }else meta.analysis={...meta.analysis,status:job.status==='FAILED'?'failed':job.status==='RUNNING'?'running':'queued',...(job.startedAt?{startedAt:new Date(job.startedAt).toISOString()}:{}),message:job.statusReason};
-  await writeFile(metaFile,JSON.stringify(meta));await execute('aws',['s3','cp',metaFile,'s3://'+summary.bucket+'/games/'+r.recordId+'/metadata.json','--content-type','application/json','--region','eu-west-1','--only-show-errors']);
+  await writeFile(metaFile,JSON.stringify(meta));await execute('aws',['s3','cp',metaFile,'s3://'+summary.bucket+'/'+gamePrefix(r.recordId)+'/metadata.json','--content-type','application/json','--region','eu-west-1','--only-show-errors']);
  }
  if(job.container?.taskArn){
   const parts=job.container.taskArn.split('/'),data=await aws(['ecs','describe-tasks','--cluster',parts.at(-2),'--tasks',parts.at(-1)]),task=data.tasks[0];

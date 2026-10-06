@@ -1,3 +1,4 @@
+import {gamePrefix} from '../backend/library-service.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import vm from 'node:vm';
@@ -5,7 +6,7 @@ import {readFileSync} from 'node:fs';
 
 function fallback({status='RUNNABLE',race=false,lostSubmit=false,delayedCancel=false,phase='quick',ageSeconds}={}){
  const files=new Map(),submitted=[],checks=[];let cancelled=0,current=status,cancelPolls=0;
- const id='2026100601',jobId='gpu-job',key='games/'+id+'/metadata.json';
+ const id='2026100601',jobId='gpu-job',key=gamePrefix(id)+'/metadata.json';
  const metadata={analysis:{enqueuedAt:'2026-10-06T00:00:00Z',status:'queued',model:{key:'models/latest.bin.gz',url:'https://media.katagotraining.org/latest.bin.gz'},quick:{status:'queued',jobId},deep:{status:'queued',jobId:'gpu-deep'}}};
  if(ageSeconds!==undefined)metadata.analysis.enqueuedAt=new Date(Date.now()-ageSeconds*1000).toISOString();
  metadata.analysis[phase].jobId=jobId;
@@ -25,7 +26,7 @@ function fallback({status='RUNNABLE',race=false,lostSubmit=false,delayedCancel=f
   if(c instanceof ListJobsCommand)return {jobSummaryList:submitted.map(s=>({jobId:'cpu-job',createdAt:s.time,status:'RUNNING'}))};
   submitted.push({input:c.input,time:Date.now()});if(lostSubmit)throw Error('Response lost');return {jobId:'cpu-job'};
  }}
- const exports={};vm.runInNewContext(readFileSync(new URL('../backend/gpu-fallback.cjs',import.meta.url),'utf8'),{exports,require:name=>name.includes('client-s3')?{S3Client,GetObjectCommand,PutObjectCommand}:name.includes('client-sqs')?{SQSClient,SendMessageCommand}:{BatchClient,DescribeJobsCommand,ListJobsCommand,CancelJobCommand,SubmitJobCommand},process:{env:{LIBRARY_BUCKET:'test',CPU_QUICK_QUEUE:'cpu-quick',CPU_DEEP_QUEUE:'cpu-deep',CPU_JOB_DEFINITION:'cpu-definition',FALLBACK_QUEUE:'fallback-checks'}},setTimeout:callback=>callback(),console:{error(){}}});
+ const exports={};vm.runInNewContext(readFileSync(new URL('../backend/gpu-fallback.cjs',import.meta.url),'utf8'),{exports,gamePrefix,require:name=>name.includes('client-s3')?{S3Client,GetObjectCommand,PutObjectCommand}:name.includes('client-sqs')?{SQSClient,SendMessageCommand}:{BatchClient,DescribeJobsCommand,ListJobsCommand,CancelJobCommand,SubmitJobCommand},process:{env:{LIBRARY_BUCKET:'test',CPU_QUICK_QUEUE:'cpu-quick',CPU_DEEP_QUEUE:'cpu-deep',CPU_JOB_DEFINITION:'cpu-definition',FALLBACK_QUEUE:'fallback-checks'}},setTimeout:callback=>callback(),console:{error(){}}});
  const call=count=>exports.handler({Records:[{messageId:'message',body:JSON.stringify({id,phase,jobId}),attributes:{ApproximateReceiveCount:String(count||1)}}]});
  return {call,files,submitted,checks,metadata:()=>JSON.parse(files.get(key)),cancelled:()=>cancelled};
 }
