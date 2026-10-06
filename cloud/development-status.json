@@ -1,7 +1,7 @@
 {
-  "updatedAt": "2026-10-06T02:46:19.874590+00:00",
+  "updatedAt": "2026-10-06T02:52:21.681863+00:00",
   "awsDevelopmentDebugBudgetUSD": 30,
-  "noFurtherPaidBenchmarksPlanned": true,
+  "noFurtherPaidBenchmarksPlanned": false,
   "smallServiceAllowanceUSD": 2,
   "billingIsEstimate": true,
   "selectedWorker": {
@@ -33,7 +33,8 @@
     "cdk": 13
   },
   "pending": [
-    "Ireland Fargate 128-vCPU and G/VT 8-vCPU quota requests remain pending; production is deployed with current capacity."
+    "Validate two simultaneous cold full-game workflows under the approved Ireland GPU quota.",
+    "Fargate 128-vCPU request is awaiting support details; effective quota remains 64."
   ],
   "finalProductPerGameCostTargetUSD": 1,
   "quickTargetSeconds": 300,
@@ -62,5 +63,11 @@
   "conservativeDevelopmentTotalIncludingAllowanceUSD": 8.169936666666667,
   "selectedCpuFallbackMeasuredTotalSeconds": 2331.479,
   "measuredConcurrentUploads": 2,
-  "timingClockOrigin": "Original SQS enqueue; shared by quick and deep, including capacity waits, setup and result saving."
+  "timingClockOrigin": "Original SQS enqueue; shared by quick and deep, including capacity waits, setup and result saving.",
+  "approvedIrelandQuotas": {
+    "gVtVcpu": 8,
+    "pVcpu": 8,
+    "fargateVcpu": 64
+  },
+  "productionGpuMaximumVcpu": 8
 }
