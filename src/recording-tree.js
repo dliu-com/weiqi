@@ -54,7 +54,8 @@ export function populateRecordingDetails(record,now=new Date()){
 export function recordingSgf(record,mainOnly=false){
  const escape=value=>String(value).replace(/\\/g,'\\\\').replace(/\]/g,'\\]').replace(/\r\n?/g,'\n');
  const coord=i=>String.fromCharCode(97+i%19,97+Math.floor(i/19));
- const props={...record.rootProperties,GM:['1'],FF:['4'],CA:['UTF-8'],SZ:['19'],KM:[String(record.komi)],RU:[record.rules||'Japanese'],GN:[record.name||'Recorded game'],PB:[record.players.black],PW:[record.players.white],DT:[record.date],PC:[record.venue??record.rootProperties.PC?.[0]??''],RE:[record.result||'0'],PL:[record.initialPlayer]};
+ const props={...record.rootProperties,GM:['1'],FF:['4'],CA:['UTF-8'],SZ:['19'],KM:[String(record.komi)],RU:[record.rules||'Japanese'],GN:[record.name||'Recorded game'],PB:[record.players.black],PW:[record.players.white],BR:[record.playerRanks?.black??record.rootProperties.BR?.[0]??''],WR:[record.playerRanks?.white??record.rootProperties.WR?.[0]??''],DT:[record.date],PC:[record.venue??record.rootProperties.PC?.[0]??''],RE:[record.result||'0'],PL:[record.initialPlayer]};
+ if(record.timeControl!==undefined){props.TM=record.timeControl?[String(record.timeControl.mainSeconds)]:[];props.OT=record.timeControl?.overtime?[record.timeControl.overtime]:[];}
  for(const [key,side]of [['AB','B'],['AW','W']]){props[key]=[...record.nodes[0].board].flatMap((v,i)=>v===side?[coord(i)]:[]);}delete props.AE;
  const properties=Object.entries(props).filter(([,values])=>values?.length&&values.some(v=>v!==''&&v!==undefined)).map(([key,values])=>key+values.map(v=>'['+escape(v)+']').join('')).join('');
  const nodeText=n=>';'+n.move.side+'['+(n.move.index===null?'':coord(n.move.index))+']'+(n.comment?'C['+escape(n.comment)+']':'');
@@ -104,9 +105,9 @@ export function setRecordingHandicap(record,count){
  if(record.nodes.length!==1)throw Error('Handicap can be changed only before recording moves.');
  if(!Number.isInteger(count)||count<0||count>9)throw Error('Choose 0–9 handicap stones.');
  const next=structuredClone(record),points=[[15,3],[3,15],[15,15],[3,3],[3,9],[15,9],[9,3],[9,15]],board=Array(361).fill('.');
- const placed=count===1?[[9,9]]:count===5?points.slice(0,4).concat([[9,9]]):count===7?points.slice(0,6).concat([[9,9]]):count===9?points.concat([[9,9]]):points.slice(0,count);
+ const placed=count===1?[]:count===5?points.slice(0,4).concat([[9,9]]):count===7?points.slice(0,6).concat([[9,9]]):count===9?points.concat([[9,9]]):points.slice(0,count);
  for(const [x,y]of placed)board[y*19+x]='B';
- next.nodes[0].board=board.join('');next.initialPlayer=count>0?'W':'B';next.nodes[0].turn=next.initialPlayer;
+ next.nodes[0].board=board.join('');next.initialPlayer=count>1?'W':'B';next.nodes[0].turn=next.initialPlayer;
  next.rootProperties.HA=[String(count)];
  if(count!==Number(record.rootProperties.HA?.[0]||0))next.komi=defaultRecordingKomi(record.rules,count);
  return next;

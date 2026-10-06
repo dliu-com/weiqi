@@ -40,11 +40,16 @@ export function parseSgf(source) {
   const parsed = tree(); space(); if (at !== text.length) fail('Upload one game per file, without trailing text.');
   return parsed;
 }
+export function readSgfPlayerRanks(source) {
+ const root=parseSgf(source).nodes[0],clean=value=>(value||'').replace(/\s+/g,' ').trim().slice(0,200);
+ return {black:clean(root.BR?.[0]),white:clean(root.WR?.[0])};
+}
 export function readSgf(source) {
   const parsed = parseSgf(source), root = parsed.nodes[0];
   const one = (props,key) => { if (props[key]?.length > 1) fail('Invalid SGF property: ' + key); return props[key]?.[0]; };
   if ((one(root,'GM') || '1') !== '1') fail('Only Go records are supported.');
   if (root.CA && !/^(UTF-?8|ASCII)$/i.test(one(root,'CA'))) fail('Please convert this SGF file to UTF-8.');
+  const mainSeconds=Number(one(root,'TM')||0);if(!Number.isFinite(mainSeconds)||mainSeconds<0||mainSeconds>864000)fail('Invalid main time.');
   const size = Number(one(root,'SZ') || 19); if (size !== 19) fail('Only 19 × 19 SGF records are supported.');
   const komi = Number(one(root,'KM') ?? 0); if (!Number.isFinite(komi) || Math.abs(komi) > 400) fail('Invalid komi.');
   const point = value => {
@@ -81,7 +86,7 @@ export function readSgf(source) {
   }
   visit(parsed,0,true);
   const clean = text => (text || '').replace(/\s+/g,' ').trim().slice(0,200);
-  return {size,komi,rules:clean(one(root,'RU')),date:clean(one(root,'DT')),venue:clean(one(root,'PC')),result:clean(one(root,'RE')),name:clean(one(root,'GN')),players:{black:clean(one(root,'PB')),white:clean(one(root,'PW'))},initialPlayer,nodes,mainLine};
+  return {size,komi,rules:clean(one(root,'RU')),date:clean(one(root,'DT')),venue:clean(one(root,'PC')),result:clean(one(root,'RE')),name:clean(one(root,'GN')),players:{black:clean(one(root,'PB')),white:clean(one(root,'PW'))},playerRanks:{black:clean(one(root,'BR')),white:clean(one(root,'WR'))},timeControl:root.TM||root.OT?{mainSeconds,overtime:clean(one(root,'OT'))}:null,initialPlayer,nodes,mainLine};
 }
 export function kataQuery(record, id, visits = 1000) {
   const rules = record.rules.toLowerCase(); let normalized;

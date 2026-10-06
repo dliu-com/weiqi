@@ -3,27 +3,32 @@ const key='weiqi.stone-volume',controls=[];
 let context=null,volume=35;
 try{const saved=localStorage.getItem(key);if(saved!==null&&Number.isFinite(Number(saved)))volume=Math.max(0,Math.min(100,Number(saved)));}catch{}
 
-// Unlock audio during the board's user gesture, before a live game's network
-// request. No downloaded audio, cloud calls or autoplay on page load.
+// A short recorded stone click, shared by Record, Play and game replay. See the adjacent
+// stone-placement-LICENSE.txt for the original sample and MIT attribution.
+const sampleBytes=fetch(new URL('./stone-placement.mp3',import.meta.url)).then(response=>response.ok?response.arrayBuffer():null).catch(()=>null);
+let decodedSample=null;
 export function prepareStoneSound(){
  if(!volume)return;
- try{const Audio=window.AudioContext||window.webkitAudioContext;if(!Audio)return;context??=new Audio();if(context.state==='suspended')void context.resume().catch(()=>{});}catch{}
+ try{
+  const Audio=window.AudioContext||window.webkitAudioContext;if(!Audio)return;
+  context??=new Audio();
+  if(context.state==='suspended')void context.resume().catch(()=>{});
+  decodedSample??=sampleBytes.then(bytes=>bytes?context.decodeAudioData(bytes):null).catch(()=>null);
+ }catch{}
 }
 export function playStoneSound(){
- if(!volume||!context)return;
- try{
-  const sound=()=>{
-   if(!volume||context.state!=='running')return;
-   const now=context.currentTime,gain=context.createGain(),tone=context.createOscillator(),noise=context.createBufferSource(),filter=context.createBiquadFilter();
-   // A short ceramic click with a lower wooden-board resonance.
-   gain.gain.setValueAtTime(volume/100*.28,now);gain.gain.exponentialRampToValueAtTime(.0001,now+.13);gain.connect(context.destination);
-   tone.type='sine';tone.frequency.setValueAtTime(760,now);tone.frequency.exponentialRampToValueAtTime(240,now+.09);tone.connect(gain);tone.start(now);tone.stop(now+.14);
-   const buffer=context.createBuffer(1,Math.ceil(context.sampleRate*.045),context.sampleRate),samples=buffer.getChannelData(0);for(let i=0;i<samples.length;i++)samples[i]=(Math.random()*2-1)*Math.exp(-i/(context.sampleRate*.006))*.7;
-   noise.buffer=buffer;filter.type='lowpass';filter.frequency.value=2600;noise.connect(filter);filter.connect(gain);noise.start(now);noise.stop(now+.05);
-   tone.onended=()=>{tone.disconnect();noise.disconnect();filter.disconnect();gain.disconnect();};
-  };
-  if(context.state==='suspended')void context.resume().then(sound).catch(()=>{});else sound();
- }catch{} // Sound must never prevent a move from being recorded.
+ if(!volume||!context||!decodedSample)return;
+ // Decode once; each placement starts one non-looping click at the selected
+ // volume. A failed audio load must never prevent a move being recorded.
+ void decodedSample.then(async buffer=>{
+  if(!volume||!buffer)return;
+  if(context.state==='suspended')await context.resume();
+  if(!volume||context.state!=='running')return;
+  const source=context.createBufferSource(),gain=context.createGain();
+  source.buffer=buffer;source.loop=false;gain.gain.value=volume/100;
+  source.connect(gain);gain.connect(context.destination);
+  source.onended=()=>{source.disconnect();gain.disconnect();};source.start();
+ }).catch(()=>{});
 }
 export function mountStoneSound(container){
  const label=document.createElement('label'),text=document.createElement('span'),slider=document.createElement('input'),value=document.createElement('output');

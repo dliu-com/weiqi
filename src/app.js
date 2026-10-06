@@ -1,4 +1,5 @@
 import './site-shell.js';
+import {mountTimeControl} from './time-control.js';
 import {BoardView} from './board-view.js';
 import {mountStoneSound,prepareStoneSound,playStoneSound} from './stone-sound.js';
 import {localTimestamp} from './site-time.js';
@@ -6,6 +7,7 @@ import { t, language, setLanguage, translateError } from './i18n.js';
 import { play, opposite, score, gameTree, reviewPosition, gameClock, sgf } from './engine.js';
 const $ = id => document.getElementById(id);
 mountStoneSound($('play-sound'));
+const timeControl=mountTimeControl($('edit-form'),t);
 const names = { get black() { return t('黑方','Black'); }, get white() { return t('白方','White'); } };
 const archiveId = new URLSearchParams(location.search).get('game');
 const apiPath = archiveId ? '/api/games/' + encodeURIComponent(archiveId) : '/api/game';
@@ -97,8 +99,9 @@ function render() {
   if (!state) return;
   $('game-name').textContent = gameTitle(state);
   $('player-names').textContent = names.black + (state.players?.black ? ': ' + state.players.black : '') + ' · ' + names.white + (state.players?.white ? ': ' + state.players.white : '');
+  timeControl.render();
   $('edit-game').textContent=t('编辑棋局信息','Edit game info');
-  for(const [id,zh,en] of [['live-date-label','日期','Date'],['live-rules-label','规则','Rules'],['live-komi-label','贴目','Komi']])$(id).textContent=t(zh,en);
+  for(const [id,zh,en] of [['live-black-rank-label','黑方段级位','Black rank'],['live-white-rank-label','白方段级位','White rank'],['live-date-label','日期','Date'],['live-rules-label','规则','Rules'],['live-komi-label','贴目','Komi']])$(id).textContent=t(zh,en);
   for(const option of document.querySelectorAll('#live-rules option'))option.textContent=option.value==='Chinese'?t('中国规则','Chinese rules'):t('日本规则','Japanese rules');
   $('edit-game').disabled = busy || state.phase==='ended';
   const review = reviewing === null ? null : reviewPosition(state, reviewing);
@@ -262,7 +265,9 @@ $('edit-game').onclick = () => {
   $('name-input').value = gameTitle(state);
   $('black-input').value = state.players?.black || '';
   $('white-input').value = state.players?.white || '';
+  $('black-rank-input').value=state.playerRanks?.black||'';$('white-rank-input').value=state.playerRanks?.white||'';
   $('live-date').value=state.date||state.createdAt?.slice(0,10)||'';$('live-rules').value=state.rules||'Chinese';$('live-komi').value=state.komi;
+  timeControl.fill(state.timeControl);
   $('edit-error').textContent = '';
   $('edit-dialog').showModal();
 };
@@ -272,8 +277,9 @@ $('edit-form').onsubmit = async event => {
   if (busy) return;
   if (editRevision !== state.revision) { $('edit-error').textContent = t('棋局已更新，请关闭后重新编辑。','The game changed. Close and reopen this editor.'); return; }
   const name = $('name-input').value.trim(), players = { black:$('black-input').value.trim(), white:$('white-input').value.trim() };
-  await action({type:'metadata', name, players, date:$('live-date').value,rules:$('live-rules').value,komi:Number($('live-komi').value)});
-  if (state.gameName === name && state.players?.black === players.black && state.players?.white === players.white) $('edit-dialog').close();
+  const playerRanks={black:$('black-rank-input').value.trim(),white:$('white-rank-input').value.trim()};
+  await action({type:'metadata', name, players, playerRanks, timeControl:timeControl.value(), date:$('live-date').value,rules:$('live-rules').value,komi:Number($('live-komi').value)});
+  if (state.gameName === name && state.players?.black === players.black && state.players?.white === players.white && state.playerRanks?.black===playerRanks.black && state.playerRanks?.white===playerRanks.white) $('edit-dialog').close();
   else $('edit-error').textContent = t('保存失败，请关闭后重试。','Not saved. Close and try again.');
 };
 

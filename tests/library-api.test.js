@@ -124,3 +124,15 @@ test('a different game cannot reuse an upload ID, mutate saved files or enqueue 
  assert.deepEqual([...files].filter(([key])=>key.startsWith('daily-analysis/')),slots);
  assert.equal(messages.length,1);assert.equal((await call('/api/library/'+saved.id)).sgf,sgf);
 });
+
+test('library exposes imported ranks for new and legacy immutable games without writes or new jobs',async()=>{
+ const h=api(),source='(;SZ[19]PB[Alice]PW[Bob]BR[3d]WR[1k];B[dd])';
+ const saved=await h.call('/api/library',{id,sgf:source,filename:'ranked.sgf'});
+ assert.equal(saved.status,200);const key=gamePrefix(saved.id)+'/metadata.json';
+ const listed=await h.call('/api/library');assert.equal(listed.games[0].playerRanks.black,'3d');assert.equal(listed.games[0].playerRanks.white,'1k');
+ const old=JSON.parse(h.files.get(key));delete old.playerRanks;h.files.set(key,JSON.stringify(old));
+ const before=new Map(h.files),jobs=h.messages.length;
+ const legacyList=await h.call('/api/library'),legacyGame=await h.call('/api/library/'+saved.id);
+ assert.equal(legacyList.games[0].playerRanks.black,'3d');assert.equal(legacyGame.metadata.playerRanks.white,'1k');
+ assert.deepEqual(h.files,before);assert.equal(h.messages.length,jobs);
+});

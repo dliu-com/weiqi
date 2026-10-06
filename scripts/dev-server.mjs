@@ -18,7 +18,7 @@ const routeContext={};vm.runInNewContext(await readFile(path.join(root,'routes.c
 async function persist(){await writeFile(path.join(directory,'live.json'),JSON.stringify(state));await writeFile(path.join(directory,'draft.json'),JSON.stringify(draft));}
 async function publishLive(next){if(next.phase!=='ended')return next;let libraryId=next.libraryId;if(!libraryId){const hash=createHash('sha256').update('live|'+next.createdAt+'|'+(next.generation||0)).digest('hex'),id=hash.slice(0,8)+'-'+hash.slice(8,12)+'-'+hash.slice(12,16)+'-'+hash.slice(16,20)+'-'+hash.slice(20,32);libraryId=(await library.save(mainRecordingSgf(sgf(next)),'live-game.sgf',id)).id;}return freshLiveGame(next,libraryId);}
 const archives = new Map();
-const types = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.svg': 'image/svg+xml', '.json':'application/json', '.pdf':'application/pdf', '.otf':'font/otf' };
+const types = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.svg': 'image/svg+xml', '.json':'application/json', '.pdf':'application/pdf', '.mp3':'audio/mpeg', '.txt':'text/plain; charset=utf-8', '.otf':'font/otf' };
 const server = http.createServer(async (request, response) => {
   const pathname = new URL(request.url, 'http://localhost').pathname;
   if(pathname==='/api/draft'){

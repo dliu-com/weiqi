@@ -30,6 +30,12 @@ async function completedAnalysisReport(job) {
   if(process.env.REPORT_QUEUE){await libraryQueue.send(new SendMessageCommand({QueueUrl:process.env.REPORT_QUEUE,MessageGroupId:'reports',MessageDeduplicationId:reportHash('sha256').update(saved.key+'|'+job.jobId).digest('hex'),MessageBody:JSON.stringify({id,reportKey:saved.key,jobId:job.jobId})}));}
   return {id,reportDataReady:true,reportFilesScheduled:Boolean(process.env.REPORT_QUEUE)};
 }
+async function attachPlayerRanks(metadata,source) {
+ if(metadata.playerRanks)return metadata;
+ try{metadata.playerRanks=readSgfPlayerRanks(source??await libraryStore.get(gamePrefix(metadata.id)+'/original.sgf'));}
+ catch(e){if(e.name!=='NoSuchKey')throw e;}
+ return metadata;
+}
 async function libraryHandler(event) {
   const method=event.requestContext?.http?.method, path=event.rawPath, id=path.slice('/api/library/'.length);
   try {
@@ -38,7 +44,7 @@ async function libraryHandler(event) {
       const cursor=event.queryStringParameters?.cursor;
       if (cursor && cursor.length>2048) return response(400,{message:'Invalid page cursor.'});
       const list=await libraryS3.send(new ListObjectsV2Command({Bucket:process.env.LIBRARY_BUCKET,Prefix:'library-index/',MaxKeys:10,...(cursor?{ContinuationToken:cursor}:{})}));
-      const games=await Promise.all((list.Contents || []).map(async p=>{try{const entry=JSON.parse(await libraryStore.get(p.Key));if(!validRecordId(entry.id))return null;return JSON.parse(await libraryStore.get(gamePrefix(entry.id)+'/metadata.json'));}catch(e){if(e.name==='NoSuchKey')return null;throw e;}}));
+      const games=await Promise.all((list.Contents || []).map(async p=>{try{const entry=JSON.parse(await libraryStore.get(p.Key));if(!validRecordId(entry.id))return null;return attachPlayerRanks(JSON.parse(await libraryStore.get(gamePrefix(entry.id)+'/metadata.json')));}catch(e){if(e.name==='NoSuchKey')return null;throw e;}}));
       const paused=await libraryStore.analysisPaused();
       if(paused)for(const g of games.filter(Boolean))if(!['ready','limited'].includes(g.analysis?.status))g.analysis={...g.analysis,status:'paused',reason:'monthly_budget'};
       return response(200,{games:games.filter(Boolean),cursor:list.NextContinuationToken || null});
@@ -49,7 +55,7 @@ async function libraryHandler(event) {
     }
     if (method==='GET' && validRecordId(id)) {
       const prefix=gamePrefix(id)+'/', metadata=JSON.parse(await libraryStore.get(prefix+'metadata.json'));
-      const sgf=await libraryStore.get(prefix+'original.sgf'); let analysis=null;
+      const sgf=await libraryStore.get(prefix+'original.sgf');await attachPlayerRanks(metadata,sgf); let analysis=null;
       if(metadata.analysis.status==='ready'||metadata.analysis.available) analysis=JSON.parse(await libraryStore.get(prefix+(metadata.analysis.available==='quick'?'analysis-quick.json':'analysis.json')));
       await attachQueueStatus(metadata);
       if(!['ready','limited','paused'].includes(metadata.analysis.status)&&await libraryStore.analysisPaused())metadata.analysis={...metadata.analysis,status:'paused',reason:'monthly_budget',quick:metadata.analysis.quick?.status==='ready'?metadata.analysis.quick:undefined,deep:undefined};
