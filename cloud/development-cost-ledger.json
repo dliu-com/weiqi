@@ -1,11 +1,11 @@
 {
-  "asOf": "2026-10-06T02:23:55.597305+00:00",
+  "asOf": "2026-10-06T02:45:27.728688+00:00",
   "developmentBudgetUSD": 30,
-  "cpuComputeIpEstimateUSD": 4.6496,
+  "cpuComputeIpEstimateUSD": 5.148,
   "gpuComputeIpStorageEstimateUSD": 1.0219366666666667,
   "smallServicesAllowanceUSD": 2,
-  "conservativeTotalEstimateUSD": 7.671536666666667,
-  "maximumAdditionalActiveCpuJobUSD": 6.0176,
+  "conservativeTotalEstimateUSD": 8.169936666666667,
+  "maximumAdditionalActiveCpuJobUSD": 0,
   "note": "Includes failed/stopped development workers, conservative setup and idle allocation, and a small-service allowance. Not a final AWS invoice.",
   "gpuInstances": [
     {

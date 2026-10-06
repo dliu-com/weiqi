@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-10-06T02:19:21.445Z",
+  "updatedAt": "2026-10-06T02:45:40.495Z",
   "region": "eu-west-1",
   "quality": {
     "model": "kata1-tf3-b11c768-s12252M-d6398M.bin.gz",
@@ -768,13 +768,29 @@
       "cpu": 32,
       "memoryGB": 60,
       "moves": 321,
+      "positions": 322,
+      "model": "kata1-tf3-b11c768-s12252M-d6398M.bin.gz",
+      "engineVersion": "KataGo v1.18.1",
       "visits": 96,
-      "status": "RUNNING",
+      "analysisThreads": 32,
+      "maxBatchSize": 1,
+      "status": "SUCCEEDED",
+      "statusReason": "Essential container in task exited",
       "createdAt": "2026-10-06T02:12:05.779Z",
+      "completedAt": "2026-10-06T02:40:53.667048+00:00",
       "recordUrl": "https://weiqi.dliu.com/record/2026100612",
       "archived": false,
-      "triggerSeconds": 603.717,
-      "modelDownloadSeconds": null
+      "totalIncludingQueueSeconds": 2331.605,
+      "queueWaitSeconds": 610.809,
+      "startupSeconds": 24.074,
+      "imagePullSeconds": 3.617,
+      "setupSeconds": 4.3,
+      "modelDownloadSeconds": 0.504,
+      "engineSeconds": 1691.694,
+      "saveSeconds": 0.529,
+      "totalSeconds": 1720.796,
+      "costUSD": 0.750530763461111,
+      "peakMemoryMB": 2516.5
     }
   ]
 }

@@ -17,6 +17,8 @@ test('production uses T4 across three zones, delayed fallback messages and bound
  prod.resourceCountIs('AWS::Batch::ComputeEnvironment',1);
  prod.hasResourceProperties('AWS::Batch::ComputeEnvironment',{ComputeResources:Match.objectLike({MinvCpus:0,InstanceTypes:['g4dn.xlarge'],Subnets:Match.arrayWith([{Ref:'CapacitySubnet'}])})});
  prod.resourceCountIs('AWS::Lambda::EventSourceMapping',2);
+ prod.hasResourceProperties('AWS::Lambda::Function',{Environment:{Variables:Match.objectLike({CPU_JOB_DEFINITION:'arn:aws:batch:eu-west-1:123456789012:job-definition/cpu'})}});
+ prod.hasResourceProperties('AWS::IAM::Policy',{PolicyDocument:{Statement:Match.arrayWith([Match.objectLike({Action:'batch:SubmitJob',Resource:Match.arrayWith(['arn:aws:batch:eu-west-1:123456789012:job-definition/cpu:*'])})])}});
  prod.hasResourceProperties('AWS::Batch::JobDefinition',{Timeout:{AttemptDurationSeconds:14400}});
  const rules=Object.values(prod.findResources('AWS::Events::Rule'));for(const rule of rules)expect(rule.Properties.ScheduleExpression).toBeUndefined();
  prod.resourceCountIs('AWS::EC2::NatGateway',0);
