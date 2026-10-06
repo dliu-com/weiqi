@@ -17,6 +17,7 @@ async function readGame(key = 'current') {
   return createState();
 }
 exports.handler = async event => {
+  if(event.source==='aws.batch'&&event['detail-type']==='Batch Job State Change')return completedAnalysisReport(event.detail||{});
   const method = event.requestContext?.http?.method;
   const requestPath = event.rawPath;
   if (requestPath === '/api/library' || requestPath.startsWith('/api/library/')) return libraryHandler(event);

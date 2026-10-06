@@ -4,6 +4,14 @@
   "type": "module",
   "scripts": {
     "start": "node scripts/dev-server.mjs",
-    "test": "node --test tests/*.test.js"
+    "test": "node --test tests/*.test.js",
+    "build:report-pdf": "node scripts/build-report-pdf.mjs"
+  },
+  "dependencies": {
+    "html2canvas": "1.4.1",
+    "jspdf": "4.2.1"
+  },
+  "devDependencies": {
+    "esbuild": "0.28.2"
   }
 }

@@ -3,7 +3,7 @@ import {boardDiagram} from './board-diagram.js';
 import {chartGeometry} from './evaluation-chart.js';
 import {gameResult} from './game-result.js';
 const $=id=>document.getElementById(id),id=location.pathname.match(/^\/record\/([^/]+)\/report\/?$/)?.[1]||new URLSearchParams(location.search).get('game');
-let report=null,reportLanguage='en';
+let report=null,reportLanguage=new URLSearchParams(location.search).get('lang')==='zh'?'zh':'en',saving=false;
 const t=(zh,en)=>reportLanguage==='zh'?zh:en;
 const locale=()=>reportLanguage==='zh'?'zh-CN':'en-GB';
 const timestamp=value=>{const parts=new Intl.DateTimeFormat(locale(),{dateStyle:'short',timeStyle:'medium'}).format(new Date(value)),zone=new Intl.DateTimeFormat(locale(),{timeZoneName:'longOffset'}).formatToParts(new Date(value)).find(p=>p.type==='timeZoneName')?.value;return parts+' · '+zone+' · '+Intl.DateTimeFormat().resolvedOptions().timeZone;};
@@ -82,12 +82,24 @@ function renderLanguage(value){
  return fragment;
 }
 function render(){
- document.title='AI game report / AI 棋局报告 · DL';document.documentElement.lang='en';
- $('back-record').textContent='Return to game / 返回棋局';$('back-record').href='/record/'+id;$('print-report').textContent='Print / Save PDF · 打印 / 保存 PDF';
+ document.title=t('AI 棋局报告','AI game report')+' · DL';document.documentElement.lang=reportLanguage==='zh'?'zh-CN':'en';
+ $('back-record').textContent=t('返回棋局','Return to game');$('back-record').href='/record/'+id;
+ $('save-report').textContent=saving?t('正在保存…','Saving…'):t('保存 PDF','Save PDF');
+ for(const value of ['en','zh'])$(`report-${value}`).setAttribute('aria-pressed',String(reportLanguage===value));
  if(!report)return;
- const fragment=document.createDocumentFragment();
- for(const value of ['en','zh'])fragment.append(renderLanguage(value));
- $('report-content').replaceChildren(fragment);$('print-report').disabled=false;$('report-status').textContent='';
+ $('report-content').replaceChildren(renderLanguage(reportLanguage));$('save-report').disabled=saving;$('report-status').textContent='';
 }
-$('print-report').onclick=()=>window.print();render();
+for(const value of ['en','zh'])$(`report-${value}`).onclick=()=>{if(saving)return;reportLanguage=value;const url=new URL(location.href);url.searchParams.set('lang',value);history.replaceState(null,'',url);render();};
+$('save-report').onclick=async()=>{
+ if(!report||saving)return;
+ saving=true;$('save-report').disabled=true;$('save-report').textContent=t('正在准备 PDF…','Preparing PDF…');
+ for(const value of ['en','zh'])$(`report-${value}`).disabled=true;
+ try{
+  const {saveReportPdf}=await import('./report-pdf.js');
+  await saveReportPdf(Array.from(document.querySelectorAll('.report-sheet')),id,reportLanguage,(done,total)=>{$('report-status').textContent=t('正在准备 PDF：','Preparing PDF: ')+done+' / '+total;});
+  $('report-status').textContent=t('PDF 已准备好并开始下载。','PDF prepared; download started.');
+ }catch(e){console.error('Report PDF failed',e);$('report-status').textContent=t('无法保存 PDF，请重试。','Unable to save PDF. Please try again.');}
+ finally{saving=false;$('save-report').disabled=false;$('save-report').textContent=t('保存 PDF','Save PDF');for(const value of ['en','zh'])$(`report-${value}`).disabled=false;}
+};
+render();
 try{if(!id)throw Error('Missing game ID.');report=await libraryRequest('/api/library/'+encodeURIComponent(id)+'/report');render();}catch(e){$('report-status').textContent=e.message;}

@@ -2,7 +2,7 @@ import {readSgf} from './sgf.js';
 import {reviewMove,recommendedLine,moveCoordinate} from './ai-review.js';
 
 // Shared by the report API and local preview. Metrics reuse the replay ratings.
-export const REPORT_SCHEMA_VERSION=4;
+export const REPORT_SCHEMA_VERSION=5;
 const badRatings=new Set(['inaccuracy','mistake','blunder']);
 const average=values=>values.length?values.reduce((a,b)=>a+b,0)/values.length:null;
 const percentile=(values,fraction)=>{if(!values.length)return null;const sorted=[...values].sort((a,b)=>a-b),position=(sorted.length-1)*fraction,lower=Math.floor(position);return sorted[lower]+(sorted[Math.ceil(position)]-sorted[lower])*(position-lower);};
@@ -34,5 +34,5 @@ export function buildAiReport(source,analysis,metadata,now=new Date()) {
  });
  const full=record.nodes[record.mainLine.at(-1)],numbers=[];
  for(const id of record.mainLine.slice(1)){const n=record.nodes[id];if(n.move.index!==null&&full.board[n.move.index]===n.move.side)numbers.push({index:n.move.index,side:n.move.side,label:String(n.depth)});}
- return {schemaVersion:REPORT_SCHEMA_VERSION,id:metadata.id,name:metadata.name,generatedAt:now.toISOString(),game:{players:record.players,result:record.result,date:record.date,rules:analysis.rules,komi:record.komi,moves:record.mainLine.length-1},provenance:{model:analysis.model,modelSha256:analysis.modelSha256,engine:analysis.engineVersion,visits:analysis.visits,compute:analysis.compute,completedAt:analysis.completedAt,endToEndMs:analysis.endToEndMs},players,chart:analysis.positions.map(({nodeId,move,blackLead,blackWinrate})=>({nodeId,move,blackLead,blackWinrate})),overview:{board:full.board,numbers},reviews:reviews.map(({best,alternatives,...m})=>m),problems};
+ return {schemaVersion:REPORT_SCHEMA_VERSION,availableLanguages:['en','zh'],id:metadata.id,name:metadata.name,generatedAt:now.toISOString(),game:{players:record.players,result:record.result,date:record.date,rules:analysis.rules,komi:record.komi,moves:record.mainLine.length-1},provenance:{model:analysis.model,modelSha256:analysis.modelSha256,engine:analysis.engineVersion,visits:analysis.visits,compute:analysis.compute,completedAt:analysis.completedAt,endToEndMs:analysis.endToEndMs},players,chart:analysis.positions.map(({nodeId,move,blackLead,blackWinrate})=>({nodeId,move,blackLead,blackWinrate})),overview:{board:full.board,numbers},reviews:reviews.map(({best,alternatives,...m})=>m),problems};
 }

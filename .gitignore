@@ -18,3 +18,7 @@ cloud/benchmark-results/
 __pycache__/
 
 /cdk/cdk.out-*/
+
+# Rebuilt from pinned npm dependencies before publishing.
+/src/report-pdf.js
+/src/report-pdf.js.LEGAL.txt

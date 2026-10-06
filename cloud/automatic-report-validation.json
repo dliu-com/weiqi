@@ -1,0 +1,38 @@
+{
+  "verifiedAt": "2026-10-06T11:23:42.162729+00:00",
+  "region": "eu-west-1",
+  "provisioning": "CloudFormation only",
+  "storageStackUnchanged": "WeiqiStorage",
+  "reportUrl": "https://weiqi.dliu.com/record/2026100620/report",
+  "schemaVersion": 5,
+  "completionVerification": {
+    "method": "Replay of previously completed Batch job event to deployed Lambda; no new GPU job",
+    "jobId": "a6bbaa61-3e2d-4f0a-8fd7-bd6a51150fbe",
+    "preparedInS3BeforeFirstView": true,
+    "reportGeneratedAt": "2026-10-06T11:21:58.420Z",
+    "duplicateEventReusedIdenticalReport": true,
+    "objectKey": "games/2026100620/reports/68befe650acbd41e42b39e638af2b32233aa51fd1bc2acd02cbcfd656656dc61.json"
+  },
+  "browserValidation": {
+    "languages": [
+      "en",
+      "zh"
+    ],
+    "identicalNumericStatisticsAcross64TableRows": true,
+    "sheetsPerLanguage": 16,
+    "badMovesPerSide": 5,
+    "savePdfControlEnabled": true,
+    "configurationInputs": 0,
+    "desktop": true,
+    "mobileWidth": 390,
+    "mobileDocumentWidth": 375,
+    "horizontalOverflow": false,
+    "screenshot": "/private/tmp/weiqi-automatic-report-production.png"
+  },
+  "tests": {
+    "node": 101,
+    "cdk": 14
+  },
+  "pdfExportTest": "Deferred at user request; Save PDF not clicked, no PDF artifact generated",
+  "newPaidAnalysisJobs": 0
+}

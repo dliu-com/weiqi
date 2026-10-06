@@ -5,6 +5,7 @@ STACK_NAME := WeiqiSite
 .PHONY: install serve test synth diff deploy-infra publish deploy
 
 install:
+	npm ci
 	cd cdk && npm ci
 
 serve:

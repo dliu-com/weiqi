@@ -99,3 +99,8 @@ test('legacy upload queue can be removed after the selected route is validated',
  final.resourceCountIs('AWS::SQS::Queue',0);
  expect(()=>makeSite('Invalid',{keepLegacyAnalysisQueue:false})).toThrow('queue');
 });
+
+test('completed GPU jobs prepare cached reports through an event, without another paid worker',()=>{
+ template.hasResourceProperties('AWS::Events::Rule',{EventPattern:{source:['aws.batch'],'detail-type':['Batch Job State Change'],detail:{status:['SUCCEEDED'],jobName:[{prefix:'weiqi-'}]}},Targets:Match.arrayWith([Match.objectLike({RetryPolicy:{MaximumRetryAttempts:2,MaximumEventAgeInSeconds:3600}})])});
+ template.hasResourceProperties('AWS::Lambda::Permission',{Principal:'events.amazonaws.com',Action:'lambda:InvokeFunction'});
+});

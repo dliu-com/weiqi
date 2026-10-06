@@ -6,6 +6,8 @@ import {
   aws_cloudfront as cloudfront,
   aws_cloudfront_origins as origins,
   aws_dynamodb as dynamodb,
+  aws_events as events,
+  aws_events_targets as eventTargets,
   aws_iam as iam,
   aws_lambda as lambda,
   aws_logs as logs,
@@ -89,6 +91,10 @@ export class WeiqiSiteStack extends Stack {
       logGroup: new logs.LogGroup(this, 'GameLogs', { retention: logs.RetentionDays.ONE_WEEK, removalPolicy: RemovalPolicy.DESTROY }),
       environment: { LIBRARY_BUCKET:libraryBucket.bucketName, ANALYSIS_QUEUE:analysisQueue.queueUrl, TABLE_NAME: gameTable.tableName, SITE_ORIGIN: Fn.join('', ['https://', domainName]) },
       code: lambda.Code.fromInline([engineSource, serviceSource, sharedLibrarySource, libraryHandlerSource, handlerSource].join('\n')),
+    });
+    new events.Rule(this,'CompletedGameReport',{
+      eventPattern:{source:['aws.batch'],detailType:['Batch Job State Change'],detail:{status:['SUCCEEDED'],jobName:[{prefix:'weiqi-'}]}},
+      targets:[new eventTargets.LambdaFunction(gameHandler,{retryAttempts:2,maxEventAge:Duration.hours(1)})],
     });
     libraryBucket.grantReadWrite(gameHandler);
     analysisQueue.grantSendMessages(gameHandler);
