@@ -1,0 +1,14 @@
+{
+  "fargate": "true",
+  "gpuBenchmark": "true",
+  "gpuProduction": "true",
+  "gpuDispatch": "true",
+  "cpuDispatch": "false",
+  "libraryBucket": "weiqisite-recordlibrary34c28f86-bfnqhy6739na",
+  "analysisQueueArn": "arn:aws:sqs:eu-west-1:215103618564:WeiqiGpuBenchmark-ProductionUploads7A5169A4-qnArg73Mau1c",
+  "analysisQueueArnOverride": "arn:aws:sqs:eu-west-1:215103618564:WeiqiGpuBenchmark-ProductionUploads7A5169A4-qnArg73Mau1c",
+  "keepLegacyAnalysisQueue": "false",
+  "cpuQuickQueue": "arn:aws:batch:eu-west-1:215103618564:job-queue/Queue-iL6htJV0YA45LMXK",
+  "cpuDeepQueue": "arn:aws:batch:eu-west-1:215103618564:job-queue/DeepQueue-AfrHKPMBjaCGinZe",
+  "cpuJobDefinition": "arn:aws:batch:eu-west-1:215103618564:job-definition/Job-W0YCk1sx1oEtRNSH:5"
+}

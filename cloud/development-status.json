@@ -1,30 +1,42 @@
 {
-  "updatedAt": "2026-10-06T01:42:57.256568+00:00",
+  "updatedAt": "2026-10-06T02:05:00Z",
   "awsDevelopmentDebugBudgetUSD": 30,
   "noFurtherPaidBenchmarksPlanned": false,
-  "lastAuditedComputeAndIpEstimateUSD": 4.1408,
+  "lastAuditedComputeAndIpEstimateUSD": 4.299,
   "smallServiceAllowanceUSD": 2,
   "billingIsEstimate": true,
   "selectedWorker": {
-    "vCPU": 32,
-    "memoryGB": 60,
-    "quickVisits": 10,
-    "deepVisits": 128
+    "quick": {
+      "backend": "fargate-cpu",
+      "vCPU": 32,
+      "memoryGB": 60,
+      "visits": 8
+    },
+    "deep": {
+      "backend": "gpu",
+      "instanceType": "g4dn.xlarge",
+      "gpu": "NVIDIA T4",
+      "visits": 1000,
+      "analysisThreads": 16,
+      "nnMaxBatchSize": 32
+    },
+    "capacityFallback": {
+      "backend": "fargate-cpu",
+      "vCPU": 32,
+      "memoryGB": 60,
+      "visits": 96,
+      "afterQueuedSeconds": 600
+    }
   },
   "verifiedTests": {
     "node": 71,
     "python": 6,
-    "cdk": 10
+    "cdk": 13
   },
   "pending": [
-    "Finish T4 32-thread/batch-64 deep comparison and validate a lower quick depth against total five-minute waiting time.",
-    "Choose and deploy settings meeting five-minute quick, one-hour deep, below USD1 total per game goals.",
-    "Update About technical architecture and timing estimates to the final selected worker.",
-    "Verify GPU workers terminate and remove unused approaches.",
-    "Audit total development/debugging AWS charges below USD30, including builds and idle instance time.",
-    "Assess T4 launch availability across Ireland zones and alternate instance pools; benchmark samples do not establish 95% availability.",
-    "Production GPU dispatcher and CPU capacity fallback are staged in CloudFormation, with GPU upload dispatch disabled pending end-to-end validation.",
-    "Ireland Fargate 128-vCPU quota request fd65e7d85c5b40cab799a3b9364747faddH9YHnR is pending."
+    "Complete the full-game GPU deep workflow and overlapping-upload CPU fallback validation.",
+    "Finalize measured whole-game timings and cost estimates; confirm unused GPU capacity scales to zero.",
+    "Ireland Fargate 128-vCPU and G/VT 8-vCPU quota requests remain pending."
   ],
   "finalProductPerGameCostTargetUSD": 1,
   "quickTargetSeconds": 300,
@@ -35,5 +47,7 @@
   "productionAvailabilityTarget": 0.95,
   "existingDevelopmentRecordsDisposable": true,
   "timingIncludesQueueAndCapacity": true,
-  "deepMaximumExpectationSeconds": 7200
+  "deepMaximumExpectationSeconds": 7200,
+  "deployment": "Hybrid upload route enabled and public upload verified; legacy queue and consumer being removed through CloudFormation.",
+  "selectedQuickMeasuredTotalSeconds": 218.904
 }

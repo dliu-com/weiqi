@@ -80,3 +80,19 @@ test('record library uses a separate retained private bucket and a queue without
  template.resourceCountIs('AWS::Lambda::EventSourceMapping',0);
  template.hasResourceProperties('AWS::Lambda::Function',{Environment:{Variables:Match.objectLike({LIBRARY_BUCKET:Match.anyValue(),ANALYSIS_QUEUE:Match.anyValue()})}});
 });
+
+test('validated upload queue can be selected while retaining the old queue for draining',()=>{
+ const selected='arn:aws:sqs:eu-west-1:123456789012:validated-uploads';
+ const cutover=Template.fromStack(new WeiqiSiteStack(new App(),'Cutover',{analysisQueueArnOverride:selected,env:{account:'123456789012',region:'eu-west-1'}}));
+ cutover.resourceCountIs('AWS::SQS::Queue',1);
+ const functions=Object.values(cutover.findResources('AWS::Lambda::Function'));
+ const game=functions.find(f=>f.Properties.Environment?.Variables?.ANALYSIS_QUEUE);
+ expect(JSON.stringify(game?.Properties.Environment.Variables.ANALYSIS_QUEUE)).toContain('validated-uploads');
+ cutover.hasResourceProperties('AWS::IAM::Policy',{PolicyDocument:{Statement:Match.arrayWith([Match.objectLike({Action:Match.arrayWith(['sqs:SendMessage']),Resource:selected})])}});
+});
+
+test('legacy upload queue can be removed after the selected route is validated',()=>{
+ const final=Template.fromStack(new WeiqiSiteStack(new App(),'Final',{analysisQueueArnOverride:'arn:aws:sqs:eu-west-1:123456789012:validated-uploads',keepLegacyAnalysisQueue:false,env:{account:'123456789012',region:'eu-west-1'}}));
+ final.resourceCountIs('AWS::SQS::Queue',0);
+ expect(()=>new WeiqiSiteStack(new App(),'Invalid',{keepLegacyAnalysisQueue:false})).toThrow('queue');
+});

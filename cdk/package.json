@@ -9,7 +9,7 @@
   "scripts": {
     "synth": "cdk synth",
     "diff": "cdk diff",
-    "deploy": "cdk deploy --ci --require-approval never",
+    "deploy": "cdk deploy --all --ci --require-approval never",
     "test": "jest"
   },
   "devDependencies": {
