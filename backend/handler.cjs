@@ -19,7 +19,10 @@ async function readGame(key = 'current') {
 exports.handler = async event => {
   if(event.source==='aws.batch'&&event['detail-type']==='Batch Job State Change')return completedAnalysisReport(event.detail||{});
   const method = event.requestContext?.http?.method;
-  const requestPath = event.rawPath;
+  const requestPath = event.rawPath || '';
+  if(method==='POST'){const headers=event.headers||{};if(headers.origin&&headers.origin!==process.env.SITE_ORIGIN)return response(403,{message:'Invalid request origin.'});if(!headers['content-type']?.toLowerCase().startsWith('application/json'))return response(415,{message:'Use JSON.'});}
+  if(method==='POST'&&!event._retry){try{if(!(await mutationAllowance()))return response(429,{message:'Too many edits. Please wait one minute and retry.'});}catch{return response(503,{message:'The service is busy. Please retry.'});}}
+  if(requestPath==='/api/draft')return draftHandler(event);
   if (requestPath === '/api/library' || requestPath.startsWith('/api/library/')) return libraryHandler(event);
   const archiveId = requestPath.startsWith('/api/games/') ? requestPath.slice('/api/games/'.length) : null;
   const key = archiveId ? 'archive#' + archiveId : 'current';
@@ -37,7 +40,7 @@ exports.handler = async event => {
         id: i.gameId.S.slice(8), gameName: i.gameName?.S || null, createdAt: i.createdAt?.S, updatedAt: i.updatedAt?.S
       })), cursor: data.LastEvaluatedKey?.gameId.S || null });
     }
-    if (method === 'GET') return response(200, { state: await readGame(key) });
+    if (method === 'GET') {let state=await readGame(key);if(!archiveId&&state.phase==='ended')state=await publishLiveGame(state);return response(200,{state});}
     if (requestPath === '/api/games') return response(405, { message: '不支持此请求方法。' });
     if (method !== 'POST') return response(405, { message: '不支持此请求方法。' });
     const headers = event.headers || {};
@@ -47,7 +50,7 @@ exports.handler = async event => {
     if (Buffer.byteLength(raw) > 2048) return response(413, { message: '请求过大。' });
     let request;
     try { request = JSON.parse(raw); } catch { return response(400, { message: '请求格式无效。' }); }
-    if (archiveId && !['rename','players','metadata'].includes(request.action?.type)) throw new GameError('当前棋局不能执行此操作。');
+    if (archiveId) throw new GameError('当前棋局不能执行此操作。');
     const current = await readGame(key);
     if (request.action?.type === 'heartbeat' && (current.phase !== 'play' || current.clock?.paused || current.clock?.since === null)) return response(200, { state: current });
     const next = transition(current, request);
@@ -62,14 +65,8 @@ exports.handler = async event => {
       ExpressionAttributeNames: { '#revision': 'revision', '#clockVersion': 'clockVersion' },
       ExpressionAttributeValues: { ':expected': { N: String(current.revision) }, ':clockVersion': { N: String(current.clockVersion || 0) } },
     };
-    if (request.action.type === 'new') {
-      const archived = { ...current, clock: { ...gameClock(current), paused: true, since: null }, createdAt: current.createdAt || current.updatedAt || next.updatedAt, tree: gameTree(current) };
-      await db.send(new TransactWriteItemsCommand({ TransactItems: [
-        { Put: save },
-        { Put: { TableName: process.env.TABLE_NAME, Item: item('archive#' + current.revision + '-' + Date.now(), archived), ConditionExpression: 'attribute_not_exists(gameId)' } },
-      ] }));
-    } else await db.send(new PutItemCommand(save));
-    return response(200, { state: next });
+    await db.send(new PutItemCommand(save));
+    return response(200, { state: next.phase==='ended'&&!archiveId?await publishLiveGame(next):next });
   } catch (error) {
     if (error.name === 'ConditionalCheckFailedException' || error.name === 'TransactionCanceledException' || error.statusCode === 409) {
       if (error.statusCode !== 409 && (event._retry || 0) < 3) return exports.handler({ ...event, _retry: (event._retry || 0) + 1 });
@@ -80,3 +77,44 @@ exports.handler = async event => {
     return response(500, { message: '棋局暂时无法同步，请稍后重试。' });
   }
 };
+
+// Save completed live games through the same idempotent library pipeline as uploads.
+async function publishLiveGame(state){
+ if(state.libraryId)return state;
+ const hash=reportHash('sha256').update('live|'+state.createdAt+'|'+(state.generation||0)).digest('hex');
+ const uploadId=hash.slice(0,8)+'-'+hash.slice(8,12)+'-'+hash.slice(12,16)+'-'+hash.slice(16,20)+'-'+hash.slice(20,32);
+ const source=mainRecordingSgf(sgf(state)),metadata=await uploadRecord(libraryStore,source,'live-game.sgf',uploadId);
+ await enqueueSavedRecord(metadata);state={...state,libraryId:metadata.id};
+ try{await db.send(new PutItemCommand({TableName:process.env.TABLE_NAME,Item:{gameId:{S:'current'},revision:{N:String(state.revision)},clockVersion:{N:String(state.clockVersion||0)},state:{S:JSON.stringify(state)}},ConditionExpression:'#r = :r AND #c = :c',ExpressionAttributeNames:{'#r':'revision','#c':'clockVersion'},ExpressionAttributeValues:{':r':{N:String(state.revision)},':c':{N:String(state.clockVersion||0)}}}));}catch(e){if(e.name!=='ConditionalCheckFailedException')throw e;}
+ return state;
+}
+async function readDraft(){const obj=await db.send(new GetItemCommand({TableName:process.env.TABLE_NAME,Key:{gameId:{S:'record-draft'}},ConsistentRead:true}));return obj.Item?JSON.parse(obj.Item.state.S):createDraft();}
+async function writeDraft(next,expected){await db.send(new PutItemCommand({TableName:process.env.TABLE_NAME,Item:{gameId:{S:'record-draft'},revision:{N:String(next.revision)},state:{S:JSON.stringify(next)}},ConditionExpression:'attribute_not_exists(#r) OR #r = :r',ExpressionAttributeNames:{'#r':'revision'},ExpressionAttributeValues:{':r':{N:String(expected)}}}));}
+async function draftHandler(event){
+ try{
+  const method=event.requestContext?.http?.method;if(method==='GET')return response(200,{draft:await readDraft()});if(method!=='POST')return response(405,{message:'Method not allowed.'});
+  const headers=event.headers||{};if(headers.origin&&headers.origin!==process.env.SITE_ORIGIN)return response(403,{message:'Invalid request origin.'});if(!headers['content-type']?.toLowerCase().startsWith('application/json'))return response(415,{message:'Use JSON.'});
+  const raw=event.isBase64Encoded?Buffer.from(event.body||'','base64').toString('utf8'):event.body||'';if(Buffer.byteLength(raw)>1600000)return response(413,{message:'Draft too large.'});let request;try{request=JSON.parse(raw);}catch{return response(400,{message:'Invalid draft request.'});}
+  const current=await readDraft();
+  if(request.action==='save'){
+   let pending;
+   if(current.publication?.id===request.id)pending=current;
+   else {if(current.publication?.status==='pending')return response(409,{message:'Another save is still in progress. Reload the draft.'});pending=draftPublication(current,request);await writeDraft(pending,current.revision);}
+   if(pending.publication.status==='ready')return response(200,{draft:pending,id:pending.publication.gameId});
+   const metadata=await uploadRecord(libraryStore,pending.sgf,'recorded-game.sgf',pending.publication.id);await enqueueSavedRecord(metadata);
+   const finished={...pending,publication:{...pending.publication,status:'ready',gameId:metadata.id}};await writeDraft(finished,pending.revision);return response(200,{draft:finished,id:metadata.id});
+  }
+  if(request.action!=='update')return response(400,{message:'Invalid draft action.'});
+  const next=draftTransition(current,request);await writeDraft(next,current.revision);return response(200,{draft:next});
+ }catch(e){if(e.name==='ConditionalCheckFailedException'||e.statusCode===409)return response(409,{message:'The public draft changed on another device. Reload it before editing.',draft:await readDraft()});if(e.statusCode)return response(e.statusCode,{message:e.message});console.error('Draft request failed',{name:e.name});return response(500,{message:'Unable to save the public draft. Please retry.'});}
+}
+
+// A single bounded row avoids creating an unbounded per-IP database of rate limits.
+async function mutationAllowance(){
+ const minute=Math.floor(Date.now()/60000);
+ for(let attempt=0;attempt<3;attempt++){
+  const data=await db.send(new GetItemCommand({TableName:process.env.TABLE_NAME,Key:{gameId:{S:'mutation-budget'}},ConsistentRead:true})),old=data.Item;
+  const oldMinute=Number(old?.minute?.N||0),oldCount=Number(old?.count?.N||0),count=oldMinute===minute?oldCount:0;if(count>=120)return false;
+  try{await db.send(new PutItemCommand({TableName:process.env.TABLE_NAME,Item:{gameId:{S:'mutation-budget'},minute:{N:String(minute)},count:{N:String(count+1)}},ConditionExpression:'attribute_not_exists(gameId) OR (#m = :m AND #n = :n)',ExpressionAttributeNames:{'#m':'minute','#n':'count'},ExpressionAttributeValues:{':m':{N:String(oldMinute)},':n':{N:String(oldCount)}}}));return true;}catch(e){if(e.name!=='ConditionalCheckFailedException')throw e;}
+ }return false;
+}

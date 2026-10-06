@@ -6,12 +6,13 @@ import {gameTree,gameClock} from '../src/engine.js';
 import {createState,transition,GameError} from '../backend/game-service.js';
 
 test('simultaneous requests commit once and return the latest game to the loser',async()=>{
- let stored=null;
+ let stored=null,budget=null;
  class GetItemCommand {constructor(input){this.input=input;}}
  class PutItemCommand {constructor(input){this.input=input;}}
  class DynamoDBClient {
   async send(command) {
-   if(command instanceof GetItemCommand) return {Item:stored ? structuredClone(stored):undefined};
+   if(command instanceof GetItemCommand){const row=command.input.Key.gameId.S==='mutation-budget'?budget:stored;return {Item:row?structuredClone(row):undefined};}
+   if(command.input.Item.gameId.S==='mutation-budget'){budget=structuredClone(command.input.Item);return {};}
    const expected=Number(command.input.ExpressionAttributeValues[':expected'].N);
    if(stored && Number(stored.revision.N)!==expected) {const e=new Error();e.name='ConditionalCheckFailedException';throw e;}
    stored=structuredClone(command.input.Item);return {};

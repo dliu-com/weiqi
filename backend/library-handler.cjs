@@ -58,6 +58,16 @@ async function libraryHandler(event) {
     if(Buffer.byteLength(raw)>1600000)return response(413,{message:'Upload too large.'});
     let request;try{request=JSON.parse(raw);}catch{return response(400,{message:'Invalid upload request.'});}
     const metadata=await uploadRecord(libraryStore,request.sgf,request.filename,request.id);
+    await enqueueSavedRecord(metadata);
+    return response(200,{id:metadata.id});
+  } catch(e) {
+    if(e.name==='NoSuchKey')return response(404,{message:'Record not found.'});
+    if(e.statusCode)return response(e.statusCode,{message:e.message});
+    console.error('Library request failed',{name:e.name});return response(500,{message:'The library is unavailable. Please retry.'});
+  }
+}
+
+async function enqueueSavedRecord(metadata) {
     // Only eligible uploads enqueue the quick and deep cloud analyses.
     // Duplicate deliveries are safe: workers reuse complete results and claim jobs.
     if(process.env.ANALYSIS_QUEUE && metadata.analysis.status==='queued') {
@@ -70,10 +80,4 @@ async function libraryHandler(event) {
       }
       await libraryQueue.send(new SendMessageCommand({QueueUrl:process.env.ANALYSIS_QUEUE,MessageBody:JSON.stringify({id:metadata.id})}));
     }
-    return response(200,{id:metadata.id});
-  } catch(e) {
-    if(e.name==='NoSuchKey')return response(404,{message:'Record not found.'});
-    if(e.statusCode)return response(e.statusCode,{message:e.message});
-    console.error('Library request failed',{name:e.name});return response(500,{message:'The library is unavailable. Please retry.'});
-  }
 }

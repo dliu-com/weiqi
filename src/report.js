@@ -1,12 +1,13 @@
+import {appShell} from './site-shell.js';
 import {language as preferredLanguage,setLanguage} from './i18n.js';
 // Interaction retrieves files already prepared after deep analysis. No report/PDF generation.
-const $=id=>document.getElementById(id),id=location.pathname.match(/^\/record\/([^/]+)\/report\/?$/)?.[1];
+const $=id=>document.getElementById(id),id=location.pathname.match(/^\/(?:record|game)\/([^/]+)\/report\/?$/)?.[1];
 const requestedLanguage=new URLSearchParams(location.search).get('lang');
 let language=['zh','en'].includes(requestedLanguage)?requestedLanguage:preferredLanguage,manifest=null;
 const t=(zh,en)=>language==='zh'?zh:en;
 const cache=new Map();
 function labels(){
- setLanguage(language);
+ setLanguage(language);appShell.render();
  document.title=t('AI 棋局报告','AI game report')+' · DL';
  $('save-report').textContent=t('保存 PDF','Save PDF');
  for(const value of ['en','zh'])$('report-'+value).setAttribute('aria-pressed',String(language===value));
@@ -29,7 +30,7 @@ async function show(){
   $('save-report').href=assetPath(files.pdf);$('save-report').download='weiqi-'+id+'-'+selected+'.pdf';$('save-report').setAttribute('aria-disabled','false');$('report-status').textContent='';
  }catch(e){console.error(e);$('report-status').textContent=t('无法打开已生成的报告，请刷新重试。','Unable to open the prepared report. Refresh to try again.');}
 }
-for(const value of ['en','zh'])$('report-'+value).onclick=()=>{language=value;const url=new URL(location.href);url.searchParams.set('lang',value);history.replaceState(null,'',url);show();};
+window.addEventListener('site-language-change',e=>{language=e.detail;const url=new URL(location.href);url.searchParams.set('lang',language);history.replaceState(null,'',url);void show();});
 $('save-report').onclick=e=>{if($('save-report').getAttribute('aria-disabled')==='true')e.preventDefault();};
 labels();
 try{

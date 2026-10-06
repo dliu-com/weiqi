@@ -1,3 +1,5 @@
+import './site-shell.js';
+import {localTimestamp} from './site-time.js';
 import {t,setLanguage} from './i18n.js';
 let data=null,filter='all';
 const $=id=>document.getElementById(id);
@@ -14,7 +16,7 @@ function render(){
  $('benchmark-quality').textContent=q?t('快速分析与深度参考的差异：在同一棋谱的 '+q.positions+' 个局面及同一模型上，'+q.quickVisits+' 次访问与 '+q.referenceVisits+' 次访问相比，平均点数差 '+q.meanAbsolutePointDifference.toFixed(2)+' 点，平均胜率差 '+q.meanAbsoluteWinratePercentagePointDifference.toFixed(2)+' 个百分点，最大胜率差 '+q.maxAbsoluteWinratePercentagePointDifference.toFixed(1)+' 个百分点。这是结果一致性比较，不是独立的准确度验证。','Quick/reference agreement: over '+q.positions+' positions in the same game and model, '+q.quickVisits+' versus '+q.referenceVisits+' visits differed by '+q.meanAbsolutePointDifference.toFixed(2)+' points and '+q.meanAbsoluteWinratePercentagePointDifference.toFixed(2)+' win-rate percentage points on average; the maximum win-rate difference was '+q.maxAbsoluteWinratePercentagePointDifference.toFixed(1)+' points. This measures agreement, not independently verified accuracy.'):'';
  const concurrency=data.concurrency;
  $('benchmark-workflow').textContent=concurrency?t('两个同时上传的完整棋谱（各 '+concurrency.gameMoves+' 手）：快速结果 '+concurrency.records.map(r=>duration(r.quickTotalSeconds)).join(' / ')+'；深度结果 '+concurrency.records.map(r=>duration(r.deepTotalSeconds)).join(' / ')+'。均从 SQS 入队计时，包含容量等待和准备。每盘两次分析合计估算费用 '+concurrency.records.map(r=>'$'+r.estimatedWholeGameComputeIpStorageUSD.toFixed(2)).join(' / ')+'，包含 GPU 自动释放前的整段分配时间；小额 API、存储及日志费用另计。','Two simultaneous full-game uploads ('+concurrency.gameMoves+' moves each): quick '+concurrency.records.map(r=>duration(r.quickTotalSeconds)).join(' / ')+'; deep '+concurrency.records.map(r=>duration(r.deepTotalSeconds)).join(' / ')+'. All totals start at SQS enqueue and include capacity waits and setup. Estimated paired cost per game '+concurrency.records.map(r=>'$'+r.estimatedWholeGameComputeIpStorageUSD.toFixed(2)).join(' / ')+', including complete GPU allocation through automatic retirement; small API/storage/log usage is additional.'):'';
- $('benchmark-updated').textContent=t('更新于：','Updated: ')+new Date(data.updatedAt).toLocaleString(document.documentElement.lang==='zh-CN'?'zh-CN':'en-GB',{dateStyle:'medium',timeStyle:'long'})+' · '+Intl.DateTimeFormat().resolvedOptions().timeZone+' · '+t('区域：爱尔兰','Region: Ireland');
+ $('benchmark-updated').textContent=t('更新于：','Updated: ')+localTimestamp(data.updatedAt,document.documentElement.lang==='zh-CN'?'zh':'en')+' · '+t('区域：爱尔兰','Region: Ireland');
  const list=data.experiments.filter(r=>!['FAILED','STOPPED','CANCELLED','CANCELED','TERMINATED'].includes((r.status||'').toUpperCase())).filter(r=>filter==='all'||status(r)===filter).sort((a,b)=>Date.parse(b.createdAt)-Date.parse(a.createdAt));
  $('benchmark-count').textContent=list.length+t(' 项实验',' experiments');const fragment=document.createDocumentFragment();
  for(const r of list){
@@ -28,7 +30,7 @@ function render(){
   const timings=document.createElement('dl');timings.className='benchmark-stages';
   for(const [label,value] of [[t('排队 / 等待容量（计入总时间）','Queue / capacity wait (included in total)'),r.queueWaitSeconds],[t('调用 / 提交','Trigger / submit'),r.triggerSeconds],[t('实例启动','Instance startup'),r.instanceStartupSeconds],[t('容器启动（含镜像下载）','Container startup (includes image pull)'),r.startupSeconds],[t('其中：镜像下载','Of which: image pull'),r.imagePullSeconds],[t('准备（含模型下载）','Setup (includes model download)'),r.setupSeconds],[t('其中：模型下载','Of which: model download'),r.modelDownloadSeconds],[t('引擎加载及分析','Engine load and analysis'),r.engineSeconds],[t('结果信息及保存','Provenance and save'),r.saveSeconds]]){const dt=document.createElement('dt'),dd=document.createElement('dd');dt.textContent=label;dd.textContent=duration(value);timings.append(dt,dd);}details.append(timings);
   const model=document.createElement('p');model.textContent=t('模型：','Model: ')+r.model;details.append(model);
-  if(r.completedAt){const stamp=document.createElement('p');stamp.textContent=t('完成于：','Completed: ')+new Date(r.completedAt).toLocaleString(undefined,{dateStyle:'medium',timeStyle:'long'});details.append(stamp);}
+  if(r.completedAt){const stamp=document.createElement('p');stamp.textContent=t('完成于：','Completed: ')+localTimestamp(r.completedAt,document.documentElement.lang==='zh-CN'?'zh':'en');details.append(stamp);}
   if(status(r)==='failed'){const reason=document.createElement('p');reason.textContent=r.statusReason||t('实验未生成完整结果。','The experiment did not produce complete results.');details.append(reason);}
   if(r.archived){const note=document.createElement('p');note.textContent=t('测试棋谱已从公开棋谱库归档，实验统计仍保留。','The test record is archived from the public library; its statistics remain here.');details.append(note);}
   if(r.recordUrl){const link=document.createElement('a');link.href=r.recordUrl;link.textContent=t('查看测试棋谱','Open test game');article.append(link);}
@@ -37,5 +39,5 @@ function render(){
  $('benchmark-results').replaceChildren(fragment);
 }
 for(const b of document.querySelectorAll('[data-filter]'))b.onclick=()=>{filter=b.dataset.filter;render();};
-document.querySelectorAll('[data-language]').forEach(b=>b.onclick=()=>{setLanguage(b.dataset.language);render();});render();
+window.addEventListener('site-language-change',render);render();
 try{const response=await fetch('benchmarks-data.json',{cache:'no-cache'});if(!response.ok)throw Error('Unable to load benchmarks.');data=await response.json();render();}catch(error){$('benchmark-count').textContent=error.message;}
