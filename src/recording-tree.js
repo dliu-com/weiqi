@@ -1,13 +1,22 @@
 import {readSgf,parseSgf} from './sgf.js';
 import {play} from './engine.js';
 export function recordingTree(source){const record=readSgf(source);record.rootProperties=structuredClone(parseSgf(source).nodes[0]);delete record.rootProperties.B;delete record.rootProperties.W;return record;}
+export function defaultRecordingKomi(rules,handicap=0){
+ if(Number(handicap)>0)return 0.5;
+ return /chinese|中国|中國|aga/i.test(rules||'')?7.5:6.5;
+}
+export function setRecordingRules(record,rules){
+ const next=structuredClone(record),handicap=Number(record.rootProperties.HA?.[0]||0);
+ if(record.komi===defaultRecordingKomi(record.rules,handicap))next.komi=defaultRecordingKomi(rules,handicap);
+ next.rules=rules;return next;
+}
 export function populateRecordingDetails(record,now=new Date()){
  let changed=false;
  const fill=(object,key,value)=>{if(!String(object[key]??'').trim()){object[key]=value;changed=true;}};
  fill(record,'name','Recorded game');fill(record.players,'black','Unnamed black player');fill(record.players,'white','Unnamed white player');
  fill(record,'date',String(now.getFullYear()).padStart(4,'0')+'-'+String(now.getMonth()+1).padStart(2,'0')+'-'+String(now.getDate()).padStart(2,'0'));
  fill(record,'rules','Japanese');fill(record,'result','0');
- if(!record.rootProperties.KM){record.komi=Number(record.rootProperties.HA?.[0])>0?0.5:6.5;changed=true;}
+ if(!record.rootProperties.KM){record.komi=defaultRecordingKomi(record.rules,record.rootProperties.HA?.[0]);changed=true;}
  return changed;
 }
 export function recordingSgf(record,mainOnly=false){
@@ -67,7 +76,7 @@ export function setRecordingHandicap(record,count){
  for(const [x,y]of placed)board[y*19+x]='B';
  next.nodes[0].board=board.join('');next.initialPlayer=count>0?'W':'B';next.nodes[0].turn=next.initialPlayer;
  next.rootProperties.HA=[String(count)];
- if(count>0&&next.komi===6.5)next.komi=0.5;else if(count===0&&next.komi===0.5)next.komi=6.5;
+ if(next.komi===defaultRecordingKomi(record.rules,record.rootProperties.HA?.[0]))next.komi=defaultRecordingKomi(record.rules,count);
  return next;
 }
 export function newRecordingSgf(){return '(;GM[1]FF[4]CA[UTF-8]SZ[19]RU[Japanese]KM[6.5]GN[Recorded game]RE[0])';}
