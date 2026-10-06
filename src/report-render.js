@@ -18,15 +18,15 @@ function diagram(board,caption,labels=[],single=false){const f=node('figure',und
 const sideName=side=>side==='B'?t('黑方','Black'):t('白方','White');
 function reportPlot(label,series,{xMax=report.game.moves,yMax=1,stems=false,percent=false}={}){
  const wrap=node('div',undefined,'report-chart'),ns='http://www.w3.org/2000/svg',svg=document.createElementNS(ns,'svg');
- svg.setAttribute('viewBox','0 0 760 190');svg.setAttribute('role','img');svg.setAttribute('aria-label',label);svg.setAttribute('class','report-plot');
+ svg.setAttribute('viewBox','0 0 760 300');svg.setAttribute('role','img');svg.setAttribute('aria-label',label);svg.setAttribute('class','report-plot');
  const add=(tag,attrs,text)=>{const e=document.createElementNS(ns,tag);for(const [key,value] of Object.entries(attrs))e.setAttribute(key,value);if(text!==undefined)e.textContent=text;svg.append(e);return e;};
- const left=48,right=14,top=16,max=Math.max(1,yMax),x=v=>left+v/Math.max(1,xMax)*(760-left-right),y=v=>160-v/max*(160-top);
- for(const value of [0,max/2,max]){add('line',{x1:left,y1:y(value),x2:746,y2:y(value),stroke:value===0?reportChartColours.axis:reportChartColours.grid,'stroke-width':value===0?1:.7});add('text',{x:left-7,y:y(value)+3,'text-anchor':'end','font-size':10,fill:reportChartColours.ink},number(value)+(percent?'%':''));}
- for(const value of [0,Math.round(xMax/4),Math.round(xMax/2),Math.round(xMax*3/4),xMax])add('text',{x:x(value),y:183,'text-anchor':'middle','font-size':10,fill:reportChartColours.ink},value);
+ const left=58,right=20,top=100,max=Math.max(1,yMax),x=v=>left+v/Math.max(1,xMax)*(760-left-right),y=v=>252-v/max*(252-top);
+ for(const value of [0,max/2,max]){add('line',{x1:left,y1:y(value),x2:740,y2:y(value),stroke:value===0?reportChartColours.axis:reportChartColours.grid,'stroke-width':value===0?1:.7});add('text',{x:left-7,y:y(value)+3,'text-anchor':'end','font-size':10,fill:reportChartColours.ink},number(value)+(percent?'%':''));}
+ for(const value of [0,Math.round(xMax/4),Math.round(xMax/2),Math.round(xMax*3/4),xMax])add('text',{x:x(value),y:274,'text-anchor':'middle','font-size':10,fill:reportChartColours.ink},value);
  for(const entry of series){
   const colour=entry.side==='B'?reportChartColours.black:reportChartColours.white;
   if(stems)for(const point of entry.points){
-   const stem={x1:x(point.x),x2:x(point.x),y1:160,y2:y(point.y)};
+   const stem={x1:x(point.x),x2:x(point.x),y1:252,y2:y(point.y)};
    if(entry.side==='W')add('line',{...stem,stroke:reportChartColours.line,'stroke-width':2.8});
    add('line',{...stem,stroke:colour,'stroke-width':1.4});
    const dot=add('circle',{cx:x(point.x),cy:y(point.y),r:report.problems.some(m=>m.move===point.x)?3.5:1.5,fill:colour,stroke:reportChartColours.line,'stroke-width':.7});
@@ -34,7 +34,15 @@ function reportPlot(label,series,{xMax=report.game.moves,yMax=1,stems=false,perc
   }
   else add('path',{d:entry.points.map((p,i)=>(i?'L':'M')+x(p.x)+','+y(p.y)).join(' '),fill:'none',stroke:colour,'stroke-width':1.8});
  }
- wrap.append(svg,chartLegend(sideName('B'),sideName('W')),node('p',t('横轴：实战手数','Horizontal axis: recorded move number'),'report-note'));return wrap;
+ add('text',{x:left,y:22,'font-size':14,'font-weight':600,fill:reportChartColours.ink},t('损失点数 · 越低越好','Points lost · lower is better'));
+ const labelled=[...report.problems].sort((a,b)=>b.pointLoss-a.pointLoss).slice(0,3).sort((a,b)=>a.move-b.move),labelEnds=[-Infinity,-Infinity,-Infinity];
+ for(const move of labelled){const pointX=x(move.move),labelX=Math.max(104,Math.min(688,pointX)),row=Math.max(0,labelEnds.findIndex(end=>labelX-48>end+8)),labelY=36+row*24;labelEnds[row]=labelX+48;
+  add('line',{x1:pointX,x2:labelX,y1:y(move.pointLoss)-6,y2:labelY+6,stroke:reportChartColours.line,'stroke-width':.8,'stroke-dasharray':'3 3'});
+  add('rect',{x:labelX-48,y:labelY-16,width:96,height:23,rx:3,fill:move.side==='B'?reportChartColours.black:reportChartColours.white,stroke:reportChartColours.line,'stroke-width':.7});
+  add('text',{x:labelX,y:labelY,'text-anchor':'middle','font-size':12,fill:move.side==='B'?'white':reportChartColours.ink},sideName(move.side)+' · '+move.move);
+ }
+ add('text',{x:400,y:295,'text-anchor':'middle','font-size':13,fill:reportChartColours.ink},t('实战手数 →','Recorded move →'));
+ wrap.append(svg,chartLegend(sideName('B'),sideName('W')));return wrap;
 }
 function chartLegend(black,white){
  const legend=node('div',undefined,'report-chart-legend');
@@ -42,8 +50,8 @@ function chartLegend(black,white){
  return legend;
 }
 function contextChart(mode){
- const ns='http://www.w3.org/2000/svg',wrap=node('div',undefined,'report-chart'),g=chartGeometry(report.chart,760,210,mode,{left:54,right:20}),svg=document.createElementNS(ns,'svg');
- svg.setAttribute('viewBox','0 0 760 210');svg.setAttribute('role','img');svg.setAttribute('class','report-plot');svg.setAttribute('data-chart-mode',mode);svg.setAttribute('aria-label',mode==='win'?t('黑方胜率走势','Black win probability'):t('黑方点数优势','Black point advantage'));
+ const ns='http://www.w3.org/2000/svg',wrap=node('div',undefined,'report-chart'),base=chartGeometry(report.chart,760,260,mode,{left:108,right:20}),g={...base,height:320,top:base.top+32,baseline:base.baseline+32,y:v=>base.y(v)+32,points:base.points.map(p=>({...p,y:p.y+32}))},svg=document.createElementNS(ns,'svg');
+ svg.setAttribute('viewBox','0 0 760 320');svg.setAttribute('role','img');svg.setAttribute('class','report-plot');svg.setAttribute('data-chart-mode',mode);svg.setAttribute('aria-label',mode==='win'?t('黑方胜率走势','Black win probability'):t('黑方点数优势','Black point advantage'));
  const add=(tag,attrs,text)=>{const e=document.createElementNS(ns,tag);for(const [key,value] of Object.entries(attrs))e.setAttribute(key,value);if(text!==undefined)e.textContent=text;svg.append(e);return e;};
  for(const value of [-g.extent,0,g.extent]){add('line',{x1:g.left,y1:g.y(value),x2:g.width-g.right,y2:g.y(value),stroke:reportChartColours.grid,'stroke-width':.7});add('text',{x:g.left-6,y:g.y(value)+3,'text-anchor':'end','font-size':10,fill:reportChartColours.ink},mode==='win'?(value+50)+'%':(value>0?'+':'')+value);}
  const path=g.points.map((p,i)=>(i?'L':'M')+p.x+','+p.y).join(' ');
@@ -52,7 +60,7 @@ function contextChart(mode){
   for(const side of ['black','white']){
    const clip=document.createElementNS(ns,'clipPath');clip.setAttribute('id','report-clip-'+mode+'-'+side);
    const rect=document.createElementNS(ns,'rect');
-   for(const [key,value] of Object.entries({x:g.left,y:side==='black'?g.top:g.baseline,width:g.width-g.left-g.right,height:side==='black'?g.baseline-g.top:g.height-g.bottom-g.baseline}))rect.setAttribute(key,value);
+   for(const [key,value] of Object.entries({x:g.left,y:side==='black'?g.top:g.baseline,width:g.width-g.left-g.right,height:side==='black'?g.baseline-g.top:base.height-base.bottom+32-g.baseline}))rect.setAttribute(key,value);
    clip.append(rect);defs.append(clip);
   }
   svg.append(defs);
@@ -60,59 +68,68 @@ function contextChart(mode){
   for(const side of ['black','white'])add('path',{d:area,fill:reportChartColours[side],'clip-path':'url(#report-clip-'+mode+'-'+side+')','data-leader':side});
  }
  add('line',{x1:g.left,y1:g.baseline,x2:g.width-g.right,y2:g.baseline,stroke:reportChartColours.axis,'stroke-width':1});add('path',{d:path,fill:'none',stroke:reportChartColours.line,'stroke-width':1.2});
- for(const value of [...new Set([0,Math.round(g.last/4),Math.round(g.last/2),Math.round(g.last*3/4),g.last])])add('text',{x:g.x(value),y:g.height-8,'text-anchor':'middle','font-size':10,fill:reportChartColours.ink},value);
+ for(const value of [...new Set([0,Math.round(g.last/4),Math.round(g.last/2),Math.round(g.last*3/4),g.last])])add('text',{x:g.x(value),y:296,'text-anchor':'middle','font-size':13,fill:reportChartColours.ink},value);
  for(const move of report.problems){const point=g.points.find(p=>p.nodeId===move.nodeId);if(point)add('circle',{cx:point.x,cy:point.y,r:3.5,fill:move.side==='B'?reportChartColours.black:reportChartColours.white,stroke:move.side==='B'?reportChartColours.white:reportChartColours.line,'stroke-width':1});}
- wrap.append(svg,mode==='win'?chartLegend(t('黑方获胜机会 > 50%','Black winning chance > 50%'),t('白方获胜机会 > 50%','White winning chance > 50%')):chartLegend(t('黑方领先','Black ahead'),t('白方领先','White ahead')));return wrap;
+ add('text',{x:g.left,y:23,'font-size':14,'font-weight':600,fill:reportChartColours.ink},mode==='win'?t('黑方获胜机会 (%)','Black winning chance (%)'):t('预计领先点数','Estimated point lead'));
+ for(const [side,y] of [['B',88],['W',220]]){
+  add('rect',{x:6,y:y-22,width:92,height:42,rx:4,fill:side==='B'?reportChartColours.black:reportChartColours.white,stroke:reportChartColours.line,'stroke-width':.8});
+  add('text',{x:52,y:y-5,'text-anchor':'middle','font-size':14,'font-weight':600,fill:side==='B'?'white':reportChartColours.ink},sideName(side));
+  add('text',{x:52,y:y+12,'text-anchor':'middle','font-size':12,fill:side==='B'?'white':reportChartColours.ink},mode==='win'?t('胜算更高','favoured'):t('领先','ahead'));
+ }
+ add('rect',{x:614,y:g.baseline-10,width:124,height:20,rx:3,fill:'#cbd2d6','fill-opacity':.95});
+ add('text',{x:676,y:g.baseline+4,'text-anchor':'middle','font-size':12,fill:reportChartColours.ink},mode==='win'?t('机会均等 · 50%','Equal chances · 50%'):t('持平 · 0 点','Even · 0 points'));
+ add('text',{x:424,y:315,'text-anchor':'middle','font-size':13,fill:reportChartColours.ink},t('实战手数 →','Recorded move →'));
+ wrap.append(svg,chartLegend(t('黑方失误 · 后文详解','Black error · reviewed later'),t('白方失误 · 后文详解','White error · reviewed later')));return wrap;
 }
-function graphReading(title){
+function graphTakeaway(title){
  const guides=[
-  ['各类着法占比','Share of each move quality','每条横条是一方的全部已评定着法，合计为 100%。深绿色是 AI 首选，浅绿色是损失很小的好棋；黄色、橙色和红色表示越来越大的损失。下方小表保留各类的确切手数。\n\n想改善稳定性，先看橙色和红色的比例，再结合后面的失误表复盘。绿色多表示更多决策接近 AI 推荐，但不代表这个棋手必然更强：局面简单、对手较弱或已经大幅领先，都可能让正确选点更容易。','Each bar represents all rated moves by that player and adds up to 100%. Dark green is the AI’s first choice; light green means a move gave up very little. Yellow, orange and red show increasingly costly decisions. The small table keeps the exact counts.\n\nTo improve consistency, first look at orange and red, then find those decisions in the error tables. More green means more decisions stayed close to the AI recommendation. It is easier to find good moves in simple positions, so this chart alone does not measure playing strength.'],
-  ['典型损失与较大失误','Typical loss and bigger errors','点损失比较同一局面下的实战选点与 AI 首选。例如，对本方来说，首选预计领先 5 点，而实战选点预计领先 2 点，这手损失约 3 点。它不是棋盘上立即被提走了三颗棋子，也不是相邻两手领先数的简单差值。\n\n“平均损失”概括全部已评定着法，容易被少数大失误拉高。“中间一手”表示一半着法损失不超过该值。“90% 界线”表示九成着法在此值以内，另外一成损失更大。平均值较高但中位数很低时，可先复盘最大的失误；这通常比逐手追求零损失更有针对性。','Point loss compares your played move with the AI’s preferred move from the same starting position. For example, if the preferred move leaves your side 5 points ahead and your move leaves it 2 points ahead, the estimated loss is 3 points. It is not necessarily three captured stones, and it is not simply the change between consecutive positions.\n\nAverage includes every rated move and can rise because of a few large errors. Middle move means half the moves lost no more than that value. The 90% cutoff means nine out of ten moves stayed below it; the remaining tenth lost more. If the average is high but the middle value is low, studying the largest errors is a useful starting point.'],
-  ['各区间的平均点损失','Average point loss in each range','每一组比较双方在同一手数区间内的平均点损失，条形越长，平均损失越大。1–60、61–180、181 手以后是固定区间，并不一定等于这一局真实的布局、中盘、官子分界。\n\n找出自己最长的一条，再去关键时刻表中找属于那个区间的失误。它提示“哪段决策值得多复盘”，不能单凭这个数字断定你不擅长某个阶段；不同区间的局面复杂程度和着法数量不同。','Each pair compares the players’ average point loss over the same move range. A longer bar means more advantage was given up per rated move. The ranges 1–60, 61–180 and 181 onward are fixed; they do not necessarily match this game’s actual opening, middle game and endgame.\n\nFind your longest bar, then locate errors from that range in Key moments. This shows where to focus your review. It does not prove a weakness in a particular phase, because the difficulty and number of decisions vary across ranges.'],
-  ['每手损失在哪里发生？','Where did each move lose points?','横轴是实战手数，尖峰高度是这一手相比 AI 首选损失的点数。深色为黑方，白色描边为白方；一局中可以有很多小损失，却只有少数明显的大尖峰。大圆点标出后面有详细棋盘复盘的三手黑方与三手白方失误。\n\n下方分别按点损失列出双方前五个失误；其中前三个提供详细棋盘页，第四、第五个可通过手数链接回到棋局查看。点损失和胜率损失回答不同问题：已经明显输赢时，几目的损失可能只改变很小的获胜概率。','The horizontal axis is the recorded move number. Each spike shows the points given up compared with the AI’s preferred move: dark for Black and outlined white for White. A game can contain many small losses and only a few large spikes. Larger dots mark the three errors per side reviewed on detailed board pages.\n\nThe tables list each side’s five worst moves by point loss. The first three receive detailed board reviews; the fourth and fifth can be opened in the game through their move links. Point loss and win-probability loss answer different questions: several points may barely change the winning chance when the result is already very likely.'],
-  ['黑方胜率','Black win probability','横轴是手数，纵轴是 AI 对黑方获胜机会的估计。50% 线上方的深色面积表示黑方更有机会获胜，下方的白色面积表示白方更有机会获胜。50% 附近表示双方机会接近；80% 表示模型更看好黑方，并不表示黑方领先 80 点，白方仍有约 20% 的获胜机会。\n\n用这张图找到局势变得悬殊或重新接近的时刻，再结合点数图和失误表定位决策。接近 0% 或 100% 后，曲线可能几乎不动，即使点数仍在变化。相邻局面的胜率变化也不能全部归因于刚下的一手，因为 AI 评估本身会波动。','Read left to right by move number. The height is the AI’s estimated chance that Black wins. Dark fill above 50% favours Black; white fill below 50% favours White. Around 50% means similar chances. At 80%, the model favours Black and gives White about 20%; it does not mean Black leads by 80 points.\n\nUse this to find when the game became one-sided or returned to a close contest, then compare the point-lead graph and error tables. Near 0% or 100%, the curve can barely move while the point advantage still changes. A change between neighbouring positions is not an exact measure of the last move’s quality, because AI estimates also vary.'],
-  ['点数优势：正为黑，负为白','Point advantage: positive Black, negative White','横轴是手数，零线表示预计点数接近。零线上方的深色面积表示黑方领先，下方的白色面积表示白方领先。曲线在 +5 时，AI 预计黑方领先约 5 点；在 −5 时，预计白方领先约 5 点。穿过零线表示预计领先方改变。最后记录的比赛结果仍以棋谱为准。\n\n先找明显转折，再看对应的失误表与棋盘变化。深色和白色圆点分别标出后面详细复盘的黑方和白方失误。曲线显示“局面发生了什么”，后面的点损失统计才比较“同一局面还有什么更好的选择”。','Read left to right by move number. Zero means the estimated score is close. Dark fill above zero shows Black ahead; white fill below zero shows White ahead. At +5 the AI expects Black to lead by about 5 points; at −5 it expects White to lead by about 5. Crossing zero means the estimated leading side changed. The recorded game result remains the official result of this game.\n\nLook for large changes, then use the error tables and board diagrams to investigate the decisions around them. Dark and outlined white dots identify Black and White errors reviewed later. This graph tells the game’s story; point-loss statistics compare the played move with a better choice from the same position.']
+  ['各类着法占比','Share of each move quality','先看橙色和红色：这些失误最值得复盘。','Start with orange and red: these decisions deserve review.'],
+  ['典型损失与较大失误','Typical loss and bigger errors','条形越短，损失越小。平均值明显高于中位数时，优先复盘大失误。','Shorter bars mean less loss. A high average beside a low median points to a few costly mistakes.'],
+  ['各区间的平均点损失','Average point loss in each range','最长的条形提示最值得复盘的手数区间。','Your longest bar identifies the move range to review first.'],
+  ['每手损失在哪里发生？','Where did each move lose points?','尖峰越高，损失越大。标出的手数可在后文棋盘详解中复盘。','Taller spikes mean bigger losses. The labelled moves have detailed board reviews later.'],
+  ['黑方胜率','Black win probability','50% 表示机会均等；例如黑方 80% = 白方 20%。胜率不是领先点数。','50% means equal chances. Black 80% = White 20%; this is probability, not a point lead.'],
+  ['点数优势：正为黑，负为白','Point advantage: positive Black, negative White','穿过零线表示预计领先方改变；圆点标出后文详解的失误。','Crossing zero changes the estimated leader. Dots mark errors reviewed on the later board pages.']
  ];
- const reading=guides.find(g=>g[0]===title||g[1]===title);return reading?t(reading[2],reading[3]):'';
+ const entry=guides.find(g=>g[0]===title||g[1]===title);return entry?t(entry[2],entry[3]):'';
 }
 function statisticGraph(title,visual,formula,zh,en){
  const figure=node('figure',undefined,'report-stat-card'),caption=node('figcaption',undefined,'report-graph-maths');
- figure.append(node('h3',title),visual);for(const text of graphReading(title).split('\n\n'))caption.append(node('p',text,'report-graph-reading'));caption.append(node('h4',t('计算细节 · 供技术读者参考','Calculation details · for technical readers')),node('p',formula,'report-formula'),node('p',t(zh,en),'report-note'));figure.append(caption);return figure;
+ figure.append(node('h3',title),visual);caption.append(node('p',graphTakeaway(title),'report-graph-reading'),node('h4',t('计算细节','Calculation details')),node('p',formula,'report-formula'),node('p',t(zh,en),'report-note'));figure.append(caption);return figure;
 }
 function addStatistics(sheet){
  const keys=['best','good','inaccuracy','mistake','blunder'],names={best:t('AI 首选','AI first choice'),good:t('好棋','Good'),...qualities()},sides={B:sideName('B'),W:sideName('W')};
  const rows=definitions=>definitions.map(([key,zh,en])=>({key,label:t(zh,en),values:['B','W'].map(side=>report.players[side][key])}));
- const compare=(title,definitions,options={})=>comparisonChart(title,rows(definitions),{names:sides,...options});
+ const compare=(title,definitions,options={})=>comparisonChart(title,rows(definitions),{names:sides,axisLabel:t('损失点数 · 越低越好 →','Points lost · lower is better →'),...options});
  const graph=(parent,title,svg,formula,zh,en)=>parent.append(statisticGraph(title,svg,formula,zh,en));
  const context=sheet(t('全局走势：谁在领先？','Game-wide point advantage'));
  graph(context,t('点数优势：正为黑，负为白','Point advantage: positive Black, negative White'),contextChart('score'),'Displayed point advantage = S(position), from Black’s perspective',
- 'S>0 表示黑方领先，S<0 表示白方领先；这是该模型与访问量下的预估优势，不是最终结算目数。黑方标记为深色、白方标记为白色并加深色描边。',
- 'S>0 means Black leads and S<0 means White leads. This is the estimated advantage under this model and visit setting, not the final scored margin. Dark markers represent Black and outlined white markers White.');
+ 'S 为 AI 预计黑方领先点数，不是最终结算结果。',
+ 'S is the AI’s estimated Black lead, not the final scored result.');
  const winning=sheet(t('全局走势：获胜机会怎样变化？','Game-wide winning chances'));
  graph(winning,t('黑方胜率','Black win probability'),contextChart('win'),'Displayed Black win % = 100 × P(position)',
- 'P 为当前实战局面中黑方的引擎胜率，白方胜率为 100% 减去该值。标记为报告列出的失误。相邻局面的变化不是单手损失，单手损失比较同一决策点的首选与实战。',
- 'P is the engine’s Black win probability at that recorded position; White’s is 100% minus this value. Markers identify listed errors. Adjacent position changes are not move loss, which compares best and played choices at one decision point.');
+ 'P 为 AI 预计黑方获胜概率；相邻局面的变化不等于单手损失。',
+ 'P is the estimated Black win probability. Changes between positions are not the loss of one move.');
  const quality=sheet(t('着法质量：一眼看清双方表现','Move quality: compare the whole game'));
  graph(quality,t('各类着法占比','Share of each move quality'),compositionChart(t('着法质量占比','Move-quality composition'),['B','W','all'].map(side=>({label:side==='all'?t('全局','Whole game'):sideName(side),counts:(side==='all'?report.overall:report.players[side]).counts})),{keys,names,emptyLabel:t('无已评定着法','No rated moves')}),'Share = 100 × category count / N',
- 'N 是该行已评定着法数。AI 首选按坐标匹配优先归类；其他着法按点损失 L 分类：好棋 ≤0.5，不精确 >0.5 至 2，失误 >2 至 5，严重失误 >5。全局行合并双方着法，不平均双方百分比。首选匹配不表示客观完美。',
- 'N is the rated-move count for that row. A coordinate matching the AI first choice is classified first; other moves use point loss L: good ≤0.5, inaccuracy >0.5 to 2, mistake >2 to 5, blunder >5. Whole game pools the moves rather than averaging side percentages. A first-choice match does not establish objective perfection.');
- quality.querySelector('.report-stat-card').insertBefore(qualityLegend(names),quality.querySelector('.report-graph-maths'));
+ 'N 为已评定着法数；首选按坐标匹配，其余按损失分类。全局合并双方着法。',
+ 'N counts rated moves. AI first choice matches the coordinate; other categories use point loss. Whole game pools both sides.');
+ quality.querySelector('.report-stat-card').insertBefore(qualityLegend(names,{best:t('坐标匹配','coordinate match'),good:'≤ 0.5',inaccuracy:'0.5 < L ≤ 2',mistake:'2 < L ≤ 5',blunder:'> 5'}),quality.querySelector('.report-graph-maths'));
  quality.append(table([t('着法类别','Move quality'),sideName('B'),sideName('W')],keys.map(key=>[names[key],report.players.B.counts[key],report.players.W.counts[key]])));
  quality.append(node('p',t('统计包含所有已评定着法。没有评估的着法不计为零损失；估计评估会在具体着法页标明。','Statistics include every rated move. Missing evaluations are left out, not treated as zero loss; estimates are labelled on detailed move pages.'),'report-note'));
  const loss=sheet(t('点损失：典型表现与大失误','Point loss: typical play and large errors'));
- graph(loss,t('典型损失与较大失误','Typical loss and bigger errors'),compare(t('点损失分位比较','Point-loss comparison'),[['meanPointLoss','平均损失','Average'],['medianPointLoss','中间一手','Middle move'],['p90PointLoss','90% 界线','90% below']],{digits:2}),'Lᵢ = max(0, sᵢ(Sbest − Splayed)); μ = Σ Lᵢ / N; h = (N−1)q; Qq = x⌊h⌋ + (h−⌊h⌋)(x⌈h⌉−x⌊h⌋)',
- 'S 是黑方领先点数，黑方落子 s=+1、白方 s=−1；实战为 AI 首选时损失记为 0。均值包含所有已评定着法。分位数将损失从小到大排序为 x₀…xN−1 后线性插值；90 百分位刻画较大损失，越低越好。估计选点的 Splayed 来自下一实战局面。',
- 'S is Black’s point lead; s=+1 for Black and −1 for White. Playing the AI first choice records zero loss. The mean includes all rated moves. Quantiles linearly interpolate sorted losses x₀…xN−1; the 90th percentile describes bigger losses, with lower values better. Estimated Splayed comes from the next recorded position.');
+ graph(loss,t('典型损失与较大失误','Typical loss and bigger errors'),compare(t('点损失分位比较','Point-loss comparison'),[['meanPointLoss','平均损失','Average'],['medianPointLoss','一半着法不超过','Half of moves ≤'],['p90PointLoss','九成着法不超过','90% of moves ≤']],{digits:2}),'L_i = max(0, s_i * (S_best - S_played)); mean = sum(L_i) / N\nh = (N - 1) * q; Q(q) = x[floor(h)] + (h - floor(h)) * (x[ceil(h)] - x[floor(h)])',
+ 'S 为黑方领先点数；黑 s=+1，白 s=−1；x 为从小到大排序的损失，q=0.5 或 0.9。首选损失记为 0，估计值取下一实战局面。',
+ 'S is Black’s lead; s=+1 for Black, −1 for White. x sorts losses; q=0.5 or 0.9. First-choice loss is zero; estimates use the following position.');
  const ranges=report.players.B.segments.filter(s=>s.moves||report.players.W.segments.find(w=>w.from===s.from)?.moves);
  const rangeRows=metric=>ranges.map(range=>({key:metric+'-'+range.from,label:range.from+'–'+range.to,values:['B','W'].map(side=>report.players[side].segments.find(s=>s.from===range.from)[metric])}));
  const stages=sheet(t('不同手数区间的损失','Losses across move ranges'));
- graph(stages,t('各区间的平均点损失','Average point loss in each range'),comparisonChart(t('区间平均损失','Mean loss by range'),rangeRows('meanPointLoss'),{names:sides,digits:2}),'Range mean = Σ Lᵢ in range / rated moves in range',
- '区间固定为 1–60、61–180 和 181 手以后，不是自动识别的棋局阶段。条形均值使用本方在该区间的所有已评定着法，包括首选与好棋。',
- 'Ranges are fixed at 1–60, 61–180 and 181 onward, not automatically detected game phases. Each mean uses that side’s rated moves in the range, including first choices and good moves.');
+ graph(stages,t('各区间的平均点损失','Average point loss in each range'),comparisonChart(t('区间平均损失','Mean loss by range'),rangeRows('meanPointLoss'),{names:sides,digits:2,axisLabel:t('平均损失点数 · 越低越好 →','Average points lost · lower is better →')}),'Range mean = sum(L_i in range) / rated moves in range',
+ '固定手数区间，不是自动识别的棋局阶段；包括首选与好棋。',
+ 'Fixed move ranges, not detected game phases. All rated moves are included, even first choices and good moves.');
  const timeline=sheet(t('值得复盘的关键时刻','Key moments to review')),isRated=m=>keys.includes(m.quality)&&Number.isFinite(m.pointLoss),series=['B','W'].map(side=>({side,points:report.reviews.filter(m=>m.side===side&&isRated(m)).map(m=>({x:m.move,y:m.pointLoss}))}));
- graph(timeline,t('每手损失在哪里发生？','Where did each move lose points?'),reportPlot(t('逐手点损失','Point loss by move'),series,{stems:true,yMax:Math.max(1,...series.flatMap(s=>s.points.map(p=>p.y)))}),'Each stem = Lᵢ = max(0, sᵢ(Sbest−Splayed))',
- '横轴是实战手数，纵轴是该手点损失。零损失位于基线，未评定着法没有点。较大的圆点标出展示棋盘的三个黑方与三个白方失误。',
- 'The horizontal axis is the recorded move number; height is that move’s point loss. Zero losses lie on the baseline; unrated moves have no point. Larger dots identify the three Black and three White errors with board diagrams.');
+ graph(timeline,t('每手损失在哪里发生？','Where did each move lose points?'),reportPlot(t('逐手点损失','Point loss by move'),series,{stems:true,yMax:Math.max(1,...series.flatMap(s=>s.points.map(p=>p.y)))}),'Each stem = L_i = max(0, s_i * (S_best - S_played))',
+ '损失比较同一局面的首选与实战；无评估的着法不计入。',
+ 'Loss compares best and played choices from the same position. Unrated moves are excluded.');
  const keyTable=sheet(t('关键时刻：双方各五手失误','Key moments: five errors per side'));
  keyTable.append(node('p',t('这是优先复盘清单。双方分别选出点损失最大的五手，前三手在后文配有棋盘图；点击手数可回到棋局，点击页码可跳到详细复盘。','Use this as your review shortlist. Each side’s five largest point losses are listed. The first three have board diagrams later; select a move number to replay it, or a page link to jump to its detailed review.')));
  for(const side of ['B','W']){
@@ -165,7 +182,7 @@ function renderLanguage(value){
  cover.append(playerCards,node('p',result?t(result.zh,result.en):game.result||t('结果未记录','Result not recorded'),'report-cover-result'));
  const gameAddress='https://weiqi.dliu.com/record/'+id,gameLinkBox=node('p',undefined,'report-cover-link'),coverLink=node('a',gameAddress);coverLink.href=gameAddress;gameLinkBox.append(node('span',t('在线棋局','ONLINE GAME')),coverLink);cover.append(gameLinkBox);
  const metadata=entries=>{const grid=node('dl',undefined,'report-cover-data');for(const [label,value,wide] of entries){const entry=node('div',undefined,wide?'report-cover-data-wide':undefined);entry.append(node('dt',label),node('dd',value||'—'));grid.append(entry);}return grid;};
- cover.append(metadata([[t('棋局 ID','Game ID'),id],[t('棋局日期','Game date'),game.date],[t('规则','Rules'),rules],[t('棋盘','Board'),'19 × 19'],[t('贴目','Komi'),String(game.komi)],[t('实战手数','Recorded moves'),String(game.moves)]]));
+ const gameDetails=metadata([[t('棋局 ID','Game ID'),id],[t('棋局日期','Game date'),game.date],[t('规则','Rules'),rules],[t('棋盘','Board'),'19 × 19'],[t('贴目','Komi'),String(game.komi)],[t('实战手数','Recorded moves'),String(game.moves)]]);gameDetails.classList.add('report-cover-game-details');cover.append(gameDetails);
  const publication=node('div',undefined,'report-cover-analysis');
  publication.append(node('h3',t('分析与报告元数据','ANALYSIS AND REPORT METADATA')),metadata([[t('引擎','Engine'),p.engine],[t('每个局面的访问量','Visits per position'),p.visits.toLocaleString(locale())],[t('模型','Model'),p.model,true],[t('模型 SHA-256','Model SHA-256'),p.modelSha256,true],[t('计算资源','Compute'),[c.gpu,c.instanceType,c.vCpu?c.vCpu+' vCPUs':'',c.memoryGB?c.memoryGB+' GB RAM':''].filter(Boolean).join(' · '),true],[t('总分析时间（含排队与准备）','Analysis total including queue/setup'),duration],[t('报告语言','Report language'),t('中文','English')],[t('分析完成时间','Analysis completed'),timestamp(p.completedAt),true],[t('报告生成时间','Report prepared'),timestamp(report.generatedAt),true]]));
  cover.append(publication,node('p',t('先看全局走势 · 双方各五手失误统计 · 各三手棋盘详解','Game story first / Five errors per side / Three detailed board reviews each'),'report-cover-scope'));

@@ -92,6 +92,7 @@ export class WeiqiSiteStack extends Stack {
     const reportDeadLetters=new sqs.Queue(this,'ReportDeadLetters',{fifo:true,retentionPeriod:Duration.days(14)});
     const reportQueue=new sqs.Queue(this,'ReportQueue',{fifo:true,visibilityTimeout:Duration.minutes(6),retentionPeriod:Duration.days(1),deadLetterQueue:{queue:reportDeadLetters,maxReceiveCount:3}});
     const reportRenderer=new lambda.Function(this,'ReportRenderer',{
+      description:'Prepared bilingual Weiqi reports - renderer '+JSON.parse(fs.readFileSync(path.join(root,'backend/report-renderer/version.json'),'utf8')).version,
       runtime:lambda.Runtime.NODEJS_22_X,handler:'index.handler',memorySize:2048,
       timeout:Duration.minutes(5),ephemeralStorageSize:Size.gibibytes(1),
       logGroup:new logs.LogGroup(this,'ReportRendererLogs',{retention:logs.RetentionDays.ONE_WEEK,removalPolicy:RemovalPolicy.DESTROY}),

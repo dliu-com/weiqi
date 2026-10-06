@@ -1,0 +1,198 @@
+{
+  "verifiedAt": "2026-10-06T15:22:50.155346+00:00",
+  "rendererVersion": "e981fcea409211cd",
+  "liveReport": "https://weiqi.dliu.com/record/2026100621/report?lang=en",
+  "scope": "Report chart presentation and cover typography; existing analysis reused",
+  "changes": {
+    "removedAudienceSuffix": true,
+    "captions": "One takeaway plus compact calculation note",
+    "directGraphLabels": [
+      "Black/White leader zones",
+      "Even/50% reference line",
+      "Move and point units",
+      "Lower-is-better loss axes",
+      "Quality thresholds and rated counts",
+      "Three labelled reviewed error spikes"
+    ],
+    "coverFontPx": {
+      "gameName": 24,
+      "gameDetails": 16,
+      "analysisMetadata": 12
+    }
+  },
+  "validation": {
+    "existingChartLayoutTests": 2,
+    "syntaxChecks": true,
+    "renderedPdfVisualReview": "Cover and chart pages in English and Chinese; final cloud formula page verified after replacing unsupported glyphs",
+    "browserLanguages": [
+      "en",
+      "zh-CN"
+    ],
+    "apiReadChecks": {
+      "/api/game": 200,
+      "/api/library/2026100620/report": 200
+    },
+    "sourceReportJsonReused": true,
+    "newAnalysisJobs": 0,
+    "pdfs": {
+      "en": {
+        "pages": 15,
+        "sha256": "bd901c719343f1a746db0b655dca090a25b115c4084bf8876897625f0c4cf2cf",
+        "bytes": 1203536,
+        "sixCompactCalculationNotes": true,
+        "formulaNotation": "Font-compatible ordinary letters and floor/ceil"
+      },
+      "zh": {
+        "pages": 15,
+        "sha256": "433399a28f231af7e49e8644b36c6ddc829de919cb03cb7aa42443c52e39c59b",
+        "bytes": 1650309,
+        "sixCompactCalculationNotes": true,
+        "formulaNotation": "Font-compatible ordinary letters and floor/ceil"
+      },
+      "englishGraphCaptionWords": {
+        "before": 985,
+        "after": 276,
+        "perGraph": [
+          37,
+          43,
+          39,
+          76,
+          41,
+          40
+        ]
+      }
+    },
+    "savedReports": {
+      "reports": [
+        {
+          "id": "2026100620",
+          "status": "ready",
+          "version": "e981fcea409211cd",
+          "languages": [
+            "en",
+            "zh"
+          ],
+          "generatedAt": "2026-10-06T15:19:08.068Z"
+        },
+        {
+          "id": "2026100621",
+          "status": "ready",
+          "version": "e981fcea409211cd",
+          "languages": [
+            "en",
+            "zh"
+          ],
+          "generatedAt": "2026-10-06T15:19:17.161Z"
+        },
+        {
+          "id": "2026100601",
+          "status": "ready",
+          "version": "e981fcea409211cd",
+          "languages": [
+            "en",
+            "zh"
+          ],
+          "generatedAt": "2026-10-06T15:19:25.128Z"
+        },
+        {
+          "id": "2026100506",
+          "status": "ready",
+          "version": "e981fcea409211cd",
+          "languages": [
+            "en",
+            "zh"
+          ],
+          "generatedAt": "2026-10-06T15:19:32.051Z"
+        },
+        {
+          "id": "2026100611",
+          "status": "ready",
+          "version": "e981fcea409211cd",
+          "languages": [
+            "en",
+            "zh"
+          ],
+          "generatedAt": "2026-10-06T15:19:39.388Z"
+        },
+        {
+          "id": "2026100612",
+          "status": "ready",
+          "version": "e981fcea409211cd",
+          "languages": [
+            "en",
+            "zh"
+          ],
+          "generatedAt": "2026-10-06T15:19:46.890Z"
+        },
+        {
+          "id": "2026100615",
+          "status": "ready",
+          "version": "e981fcea409211cd",
+          "languages": [
+            "en",
+            "zh"
+          ],
+          "generatedAt": "2026-10-06T15:19:55.076Z"
+        },
+        {
+          "id": "2026100616",
+          "status": "ready",
+          "version": "e981fcea409211cd",
+          "languages": [
+            "en",
+            "zh"
+          ],
+          "generatedAt": "2026-10-06T15:20:03.293Z"
+        },
+        {
+          "id": "2026100617",
+          "status": "ready",
+          "version": "e981fcea409211cd",
+          "languages": [
+            "en",
+            "zh"
+          ],
+          "generatedAt": "2026-10-06T15:20:12.263Z"
+        },
+        {
+          "id": "2026100618",
+          "status": "ready",
+          "version": "e981fcea409211cd",
+          "languages": [
+            "en",
+            "zh"
+          ],
+          "generatedAt": "2026-10-06T15:20:21.210Z"
+        },
+        {
+          "id": "2026100619",
+          "status": "ready",
+          "version": "e981fcea409211cd",
+          "languages": [
+            "en",
+            "zh"
+          ],
+          "generatedAt": "2026-10-06T15:20:28.099Z"
+        }
+      ],
+      "queues": {
+        "WeiqiSite-ReportQueueEBFFFAE8-8rlZ2e5wSqGa.fifo": {
+          "ApproximateNumberOfMessages": "0",
+          "ApproximateNumberOfMessagesNotVisible": "0"
+        },
+        "WeiqiSite-ReportDeadLettersD1941892-50ECZBbXDJ7A.fifo": {
+          "ApproximateNumberOfMessages": "0",
+          "ApproximateNumberOfMessagesNotVisible": "0"
+        }
+      }
+    }
+  },
+  "deployment": {
+    "region": "eu-west-1",
+    "method": "Source-generated CDK/CloudFormation plus static publish",
+    "rendererDescriptionIncludesRevision": true,
+    "gameApiEncodingIssueCorrected": true,
+    "storageStackUntouched": true
+  },
+  "proofScreenshot": "/private/tmp/weiqi-report-cover-final-live.png"
+}

@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-10-06T14:09:02.799384+00:00",
+  "updatedAt": "2026-10-06T15:22:50.155346+00:00",
   "awsDevelopmentDebugBudgetUSD": 30,
   "noFurtherPaidBenchmarksPlanned": true,
   "smallServiceAllowanceUSD": 2,
@@ -165,7 +165,7 @@
     "pdfExportTest": "English and Chinese production downloads verified against stored PDF bytes",
     "validationRecord": "2026100620",
     "schemaVersion": 6,
-    "format": "Six graphs with examples and calculation details; five worst-move table rows and three detailed bad-move boards per side",
+    "format": "Six directly labelled graphs with one takeaway and compact calculation notes; five worst-move table rows and three detailed bad-move boards per side",
     "maximumMovesPerSide": 3,
     "userConfigControls": false,
     "goodMoveStatistics": true,
@@ -217,13 +217,15 @@
       "actualPdfExportTest": "English and Chinese production downloads verified against stored PDF bytes",
       "duplicateGameSummaryRemoved": true
     },
-    "statisticsPresentation": "Six graphs in learning order with expanded examples and technical maths; compact top-five error tables",
+    "statisticsPresentation": "Leader zones and neutral reference lines, explicit units, quality thresholds and labelled error spikes; compact top-five error tables",
     "interactionGeneration": false,
     "performanceRankEstimate": false,
     "firstContentPage": "Game-wide point advantage on page 3",
-    "renderVersion": "abed6cf5a21a9dc1",
+    "renderVersion": "e981fcea409211cd",
     "graphPalette": "Replay grey canvas; dark Black / outlined white White; filled score and win graphs; quality categories retain green/yellow/orange/red",
-    "viewerHeader": "App navigation and saved language preference; Save PDF is the only extra header action"
+    "viewerHeader": "App navigation and saved language preference; Save PDF is the only extra header action",
+    "coverTypography": "Larger game name, result, player names and game details; analysis metadata remains small",
+    "visualClarityValidation": "cloud/report-visual-clarity-validation.json"
   },
   "queueEstimate": {
     "deployed": true,
