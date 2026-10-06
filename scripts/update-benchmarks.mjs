@@ -21,14 +21,16 @@ export async function updateBenchmarks({publish=false}={}){
   if(job){r.status=job.status;r.statusReason=job.statusReason;r.createdAt=new Date(job.createdAt).toISOString();if(r.productionPrefix&&r.enqueuedAt&&!r.capacityFallback)r.triggerSeconds=Math.max(0,(job.createdAt-Date.parse(r.enqueuedAt))/1000);r.startedAt=job.startedAt?new Date(job.startedAt).toISOString():null;
    const res=Object.fromEntries((job.container.resourceRequirements||[]).map(x=>[x.type,Number(x.value)]));r.cpu=res.VCPU;r.memoryGB=r.backend==='gpu'?16:res.MEMORY/1024;
    if(r.productionPrefix&&!r.sourceVerified){const meta=await get(r.productionPrefix+'/metadata.json');if(meta){r.moves=meta.moves;r.enqueuedAt=meta.analysis.enqueuedAt;r.capacityFallback=!!meta.analysis[r.phase]?.fallback&&r.backend==='fargate-cpu';const requestKey=job.container.environment.find(e=>e.name==='BENCHMARK_REQUEST_KEY')?.value;const request=requestKey?await get(requestKey):null;if(request){if(!request.pipeline)r.phase=request.phase;r.visits=request.pipeline?request.phases[r.phase]?.visits:request.query.maxVisits;r.plannedPositions=request.query.analyzeTurns.length;}}r.sourceVerified=true;}
-   if(job.status==='SUCCEEDED'&&(!r.timings||!r.positions)){
+   if(['RUNNING','SUCCEEDED'].includes(job.status)&&(!r.timings||!r.positions)){
     const prefix=r.productionPrefix||r.prefix;
     const a=await get(prefix+(r.phase==='quick'?'/analysis-quick.json':'/analysis.json'));
     const timing=await get(r.productionPrefix?'jobs/'+r.recordId+(r.phase?'/'+r.phase+'-timings.json':'/timings.json'):prefix+'/timings.json');
     if(a){r.positions=a.positions.length;r.engineVersion=a.engineVersion;r.model=a.model;r.modelSha256=a.modelSha256;r.completedAt=a.completedAt;r.configuration=a.configuration;}
     if(timing){r.timings=timing.timings;r.completedAt=timing.completedAt;}
    }
-   if(job.container.taskArn&&['SUCCEEDED','FAILED'].includes(job.status)&&!r.timingVerified){
+   // Quick results are usable before their shared quick/deep Batch job ends.
+   if(job.status==='RUNNING'&&r.positions&&r.completedAt)r.status='SUCCEEDED';
+   if(job.container.taskArn&&['SUCCEEDED','FAILED'].includes(r.status)&&!r.timingVerified){
     const arn=job.container.taskArn,cluster=arn.split('/').at(-2),task=(await aws(['ecs','describe-tasks','--cluster',cluster,'--tasks',arn])).tasks[0];
     if(task){r.taskStartupSeconds=(Date.parse(task.startedAt)-Date.parse(task.createdAt))/1000;r.imagePullSeconds=(Date.parse(task.pullStoppedAt)-Date.parse(task.pullStartedAt))/1000;
      let begin=Date.parse(task.createdAt);
