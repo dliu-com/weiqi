@@ -78,7 +78,7 @@ export class WeiqiSiteStack extends Stack {
     const engineSource = fs.readFileSync(path.join(root, 'src/engine.js'), 'utf8').replace(/^export /gm, '');
     const serviceSource = fs.readFileSync(path.join(root, 'backend/game-service.js'), 'utf8')
       .replace(/^import .*;\n/gm, '').replace(/^export /gm, '');
-    const sharedLibrarySource = ['src/sgf.js','backend/library-service.js'].map(file => fs.readFileSync(path.join(root,file),'utf8').replace(/^import .*;\n/gm,'').replace(/^export /gm,'')).join('\n');
+    const sharedLibrarySource = ['src/sgf.js','src/ai-review.js','src/report-data.js','backend/library-service.js'].map(file => fs.readFileSync(path.join(root,file),'utf8').replace(/^import .*;\n/gm,'').replace(/^export /gm,'')).join('\n');
     const libraryHandlerSource = fs.readFileSync(path.join(root,'backend/library-handler.cjs'),'utf8');
     const handlerSource = fs.readFileSync(path.join(root, 'backend/handler.cjs'), 'utf8');
     const gameHandler = new lambda.Function(this, 'GameHandler', {
@@ -95,7 +95,7 @@ export class WeiqiSiteStack extends Stack {
     gameTable.grant(gameHandler, 'dynamodb:GetItem', 'dynamodb:PutItem', 'dynamodb:Scan');
     const functionUrl = gameHandler.addFunctionUrl({ authType: lambda.FunctionUrlAuthType.AWS_IAM });
 
-    const recordRoutes=new cloudfront.Function(this,'RecordRoutes',{code:cloudfront.FunctionCode.fromInline("function handler(event){var request=event.request;if(/^\\/(?:record|game)\\/(?:[0-9]{10,14}|[a-f0-9-]{36})\\/?$/.test(request.uri))request.uri='/record.html';return request;}")});
+    const recordRoutes=new cloudfront.Function(this,'RecordRoutes',{code:cloudfront.FunctionCode.fromInline("function handler(event){var request=event.request;if(/^\\/record\\/(?:[0-9]{10,14}|[a-f0-9-]{36})\\/report\\/?$/.test(request.uri))request.uri='/report.html';else if(/^\\/(?:record|game)\\/(?:[0-9]{10,14}|[a-f0-9-]{36})\\/?$/.test(request.uri))request.uri='/record.html';return request;}")});
     const distribution = new cloudfront.Distribution(this, 'SiteDistribution', {
       defaultBehavior: {
         functionAssociations:[{eventType:cloudfront.FunctionEventType.VIEWER_REQUEST,function:recordRoutes}],

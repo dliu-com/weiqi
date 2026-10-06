@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-10-06T04:47:24.002Z",
+  "updatedAt": "2026-10-06T10:07:28.376Z",
   "region": "eu-west-1",
   "quality": {
     "model": "kata1-tf3-b11c768-s12252M-d6398M.bin.gz",
@@ -1188,6 +1188,42 @@
       "costUSD": 0.17677314,
       "coldStart": true,
       "peakMemoryMB": 1617.4
+    },
+    {
+      "id": "a6bbaa61-3e2d-4f0a-8fd7-bd6a51150fbe-quick",
+      "backend": "gpu",
+      "scenario": "GPU-only production pipeline",
+      "cpu": 4,
+      "memoryGB": 16,
+      "gpu": "T4",
+      "instanceType": "g4dn.xlarge",
+      "moves": 321,
+      "model": "kata1-tf3-b11c768-s12252M-d6398M.bin.gz",
+      "visits": 32,
+      "status": "RUNNABLE",
+      "createdAt": "2026-10-06T10:06:41.198Z",
+      "recordUrl": "https://weiqi.dliu.com/record/2026100620",
+      "archived": false,
+      "triggerSeconds": 4.244,
+      "modelDownloadSeconds": null
+    },
+    {
+      "id": "a6bbaa61-3e2d-4f0a-8fd7-bd6a51150fbe-deep",
+      "backend": "gpu",
+      "scenario": "GPU-only production pipeline",
+      "cpu": 4,
+      "memoryGB": 16,
+      "gpu": "T4",
+      "instanceType": "g4dn.xlarge",
+      "moves": 321,
+      "model": "kata1-tf3-b11c768-s12252M-d6398M.bin.gz",
+      "visits": 3000,
+      "status": "RUNNABLE",
+      "createdAt": "2026-10-06T10:06:41.198Z",
+      "recordUrl": "https://weiqi.dliu.com/record/2026100620",
+      "archived": false,
+      "triggerSeconds": 4.244,
+      "modelDownloadSeconds": null
     }
   ]
 }
