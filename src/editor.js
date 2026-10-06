@@ -50,10 +50,10 @@ function render(refreshTree=true){
 }
 function renderSequenceEdit(){
  const active=Boolean(sequenceEdit);
- $('editor-edit-sequence').textContent=t('批量编辑棋步','Edit sequence');$('editor-edit-sequence').hidden=active;
+ $('editor-edit-sequence').textContent=t('编辑棋谱','Edit sequence');$('editor-edit-sequence').hidden=active;
  $('editor-edit-sequence').disabled=!record||dirty||writing||publishing||conflict||draft?.publication?.status==='pending';
  $('sequence-edit-panel').hidden=!active;
- $('sequence-edit-title').textContent=t('批量编辑棋步','Edit sequence');
+ $('sequence-edit-title').textContent=t('编辑棋谱','Edit sequence');
  $('sequence-edit-help').textContent=t('后续着法会保留。修改仅存在于此页面；刷新或取消会丢弃。应用修改后，云端检查完整棋谱，合法后才保存。','Later moves are kept. Edits stay on this page; refresh or Cancel discards them. Apply edits checks the complete sequence in the cloud before saving.');
  $('sequence-edit-apply').textContent=applyingSequence?t('云端正在检查…','Checking in cloud…'):t('应用修改','Apply edits');
  $('sequence-edit-cancel').textContent=t('取消修改','Cancel edits');
