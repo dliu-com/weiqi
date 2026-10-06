@@ -1,0 +1,13 @@
+{
+  "model": "kata1-tf3-b11c768-s12252M-d6398M.bin.gz",
+  "modelSha256": "ad279eb0e6aa4ddf52cf24b27241d220043b31f38064b3fc3a43d5a524e6b03d",
+  "positions": 322,
+  "quickVisits": 8,
+  "referenceVisits": 1000,
+  "meanAbsolutePointDifference": 0.37800609390093165,
+  "meanAbsoluteWinratePercentagePointDifference": 1.705443034646273,
+  "maxAbsolutePointDifference": 4.05800943,
+  "maxAbsoluteWinratePercentagePointDifference": 22.767430599999994,
+  "recordUrl": "https://weiqi.dliu.com/record/2026100611",
+  "note": "Paired same-game, same-model workflow agreement; not independent accuracy measurement."
+}

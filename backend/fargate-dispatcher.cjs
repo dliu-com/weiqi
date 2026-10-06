@@ -11,7 +11,7 @@ async function scheduleFallback(id,phase,jobId){
  const obj=await storage.send(new GetObjectCommand({Bucket:bucket,Key:key})),meta=JSON.parse(await obj.Body.transformToString());
  if(meta.analysis[phase]?.fallbackCheckSentAt||['ready','failed'].includes(meta.analysis[phase]?.status))return;
  const elapsed=Math.max(0,(Date.now()-Date.parse(meta.analysis.enqueuedAt))/1000);
- await fallbackQueue.send(new SendMessageCommand({QueueUrl:process.env.FALLBACK_QUEUE,DelaySeconds:Math.ceil(Math.max(0,(phase==='quick'?60:600)-elapsed)),MessageBody:JSON.stringify({id,phase,jobId})}));
+ await fallbackQueue.send(new SendMessageCommand({QueueUrl:process.env.FALLBACK_QUEUE,DelaySeconds:Math.ceil(Math.min(900,Math.max(0,Number(process.env.GPU_FALLBACK_WAIT_SECONDS||1200)-elapsed))),MessageBody:JSON.stringify({id,phase,jobId})}));
  for(let n=0;n<6;n++){
   const current=await storage.send(new GetObjectCommand({Bucket:bucket,Key:key})),value=JSON.parse(await current.Body.transformToString());
   if(value.analysis[phase]?.jobId!==jobId||value.analysis[phase].fallbackCheckSentAt)return;

@@ -1,6 +1,8 @@
 const {S3Client,GetObjectCommand,PutObjectCommand}=require('@aws-sdk/client-s3');
 const {BatchClient,DescribeJobsCommand,ListJobsCommand,CancelJobCommand,SubmitJobCommand}=require('@aws-sdk/client-batch');
+const {SQSClient,SendMessageCommand}=require('@aws-sdk/client-sqs');
 const storage=new S3Client({}),batch=new BatchClient({}),bucket=process.env.LIBRARY_BUCKET;
+const checks=new SQSClient({});
 const get=async key=>{const obj=await storage.send(new GetObjectCommand({Bucket:bucket,Key:key}));return {value:JSON.parse(await obj.Body.transformToString()),etag:obj.ETag};};
 const put=(key,value,etag)=>storage.send(new PutObjectCommand({Bucket:bucket,Key:key,Body:JSON.stringify(value),ContentType:'application/json',...(etag?{IfMatch:etag}:{})}));
 const describe=async id=>(await batch.send(new DescribeJobsCommand({jobs:[id]}))).jobs[0];
@@ -30,6 +32,13 @@ exports.handler=async event=>{
   if(['STARTING','RUNNING','SUCCEEDED'].includes(job.status)){
    if(target.jobId===marker)await replaceId(key,phase,marker,jobId,{fallback:null});
    continue;
+  }
+  if(phase==='deep'&&target.jobId===jobId){
+   const remaining=Number(process.env.GPU_FALLBACK_WAIT_SECONDS||1200)-(Date.now()-Date.parse(meta.analysis.enqueuedAt))/1000;
+   if(Number.isFinite(remaining)&&remaining>0){
+    await checks.send(new SendMessageCommand({QueueUrl:process.env.FALLBACK_QUEUE,DelaySeconds:Math.ceil(Math.min(900,remaining)),MessageBody:JSON.stringify({id,phase,jobId})}));
+    continue;
+   }
   }
   if(target.jobId===jobId){
    if(!['SUBMITTED','PENDING','RUNNABLE'].includes(job.status))continue;

@@ -18,9 +18,9 @@ export async function updateBenchmarks({publish=false}={}){
  const instances=(await aws(['ec2','describe-instances','--filters','Name=tag:service,Values=weiqi-gpu-benchmark'])).Reservations.flatMap(r=>r.Instances);
  for(const r of records){
   const job=jobs.get(r.jobId);
-  if(job){r.status=job.status;r.statusReason=job.statusReason;r.createdAt=new Date(job.createdAt).toISOString();r.startedAt=job.startedAt?new Date(job.startedAt).toISOString():null;
+  if(job){r.status=job.status;r.statusReason=job.statusReason;r.createdAt=new Date(job.createdAt).toISOString();if(r.productionPrefix&&r.enqueuedAt&&!r.capacityFallback)r.triggerSeconds=Math.max(0,(job.createdAt-Date.parse(r.enqueuedAt))/1000);r.startedAt=job.startedAt?new Date(job.startedAt).toISOString():null;
    const res=Object.fromEntries((job.container.resourceRequirements||[]).map(x=>[x.type,Number(x.value)]));r.cpu=res.VCPU;r.memoryGB=r.backend==='gpu'?16:res.MEMORY/1024;
-   if(r.productionPrefix&&!r.sourceVerified){const meta=await get(r.productionPrefix+'/metadata.json');if(meta){r.moves=meta.moves;r.enqueuedAt=meta.analysis.enqueuedAt;const requestKey=job.container.environment.find(e=>e.name==='BENCHMARK_REQUEST_KEY')?.value;const request=requestKey?await get(requestKey):null;if(request){r.phase=request.phase;r.visits=request.query.maxVisits;r.plannedPositions=request.query.analyzeTurns.length;}}r.sourceVerified=true;}
+   if(r.productionPrefix&&!r.sourceVerified){const meta=await get(r.productionPrefix+'/metadata.json');if(meta){r.moves=meta.moves;r.enqueuedAt=meta.analysis.enqueuedAt;r.capacityFallback=!!meta.analysis[r.phase]?.fallback&&r.backend==='fargate-cpu';const requestKey=job.container.environment.find(e=>e.name==='BENCHMARK_REQUEST_KEY')?.value;const request=requestKey?await get(requestKey):null;if(request){r.phase=request.phase;r.visits=request.query.maxVisits;r.plannedPositions=request.query.analyzeTurns.length;}}r.sourceVerified=true;}
    if(job.status==='SUCCEEDED'&&(!r.timings||!r.positions)){
     const prefix=r.productionPrefix||r.prefix;
     const a=await get(prefix+(r.phase==='quick'?'/analysis-quick.json':'/analysis.json'));
@@ -38,21 +38,31 @@ export async function updateBenchmarks({publish=false}={}){
       if(instance){r.instanceId=instance.InstanceId;const previous=records.some(other=>other!==r&&other.instanceId===r.instanceId&&Date.parse(other.completedAt)<Date.parse(r.completedAt));r.coldStart=!previous;r.instanceStartupSeconds=previous?0:(Date.parse(task.createdAt)-Date.parse(instance.LaunchTime))/1000;if(!previous)begin=Date.parse(instance.LaunchTime);}
      }
      r.queueWaitSeconds=Math.max(0,(begin-job.createdAt)/1000);
-     if(r.completedAt)r.totalExcludingQueueSeconds=(r.triggerSeconds||0)+(Date.parse(r.completedAt)-begin)/1000;
+     if(r.completedAt)r.totalExcludingQueueSeconds=(r.productionPrefix?0:r.triggerSeconds||0)+(Date.parse(r.completedAt)-begin)/1000;
      if(r.backend!=='gpu'&&task.stoppedAt){const seconds=Math.max(60,(Date.parse(task.stoppedAt)-Date.parse(task.pullStartedAt))/1000);r.estimatedComputeAndIpUSD=seconds/3600*(r.cpu*.04048+r.memoryGB*.004445+.005);}
      if(r.backend==='gpu'&&Number.isFinite(r.totalExcludingQueueSeconds))r.estimatedComputeUSD=r.totalExcludingQueueSeconds/3600*((r.instanceType==='g5.xlarge'?1.123:.587)+.005+.02);
      r.timingVerified=true;
     }
    }
   }
+  if(r.productionPrefix&&r.phase==='deep'&&r.backend==='fargate-cpu'&&r.visits===96)r.capacityFallback=true;
+  if(r.productionPrefix&&r.enqueuedAt&&r.createdAt&&r.completedAt&&Number.isFinite(r.queueWaitSeconds)){
+   const beforeSubmit=(Date.parse(r.createdAt)-Date.parse(r.enqueuedAt))/1000;
+   if(r.capacityFallback){
+    if(!r.fallbackQueueTimingVerified){r.queueWaitSeconds+=beforeSubmit;r.fallbackQueueTimingVerified=true;}
+    delete r.triggerSeconds;
+    r.totalExcludingQueueSeconds=(Date.parse(r.completedAt)-Date.parse(r.enqueuedAt))/1000-r.queueWaitSeconds;
+   }else{r.triggerSeconds=Math.max(0,beforeSubmit);r.totalExcludingQueueSeconds=(Date.parse(r.completedAt)-Date.parse(r.createdAt))/1000-r.queueWaitSeconds;}
+  }
   if(r.timings){r.analysisSeconds=r.timings.engineLoadAndAnalysisMs/1000;r.setupSeconds=((r.timings.containerTotalMs??r.timings.workerTotalMs)-r.timings.engineLoadAndAnalysisMs-r.timings.provenanceMs-r.timings.saveResultsAndStatusMs)/1000;r.saveSeconds=(r.timings.provenanceMs+r.timings.saveResultsAndStatusMs)/1000;}
  }
  await writeFile(catalogPath,JSON.stringify(records,null,2)+'\n');
- const publicRecords=records.filter(r=>!['FAILED','STOPPED','CANCELLED','CANCELED','TERMINATED'].includes((r.status||'').toUpperCase())).map(r=>({id:r.id,backend:r.backend,cpu:r.cpu,memoryGB:r.memoryGB,gpu:r.gpuType,instanceType:r.instanceType,moves:r.moves,positions:r.positions,model:r.model,engineVersion:r.engineVersion,visits:r.visits,analysisThreads:r.analysisThreads??r.configuration?.analysisThreads,maxBatchSize:r.maxBatchSize??r.configuration?.maxBatchSize,status:r.status,statusReason:r.statusReason,createdAt:(r.createdAt??r.runId).replace(/T(\d\d)-(\d\d)-(\d\d)-(\d\d\d)Z$/,'T$1:$2:$3.$4Z'),completedAt:r.completedAt,recordUrl:r.archived?undefined:r.recordUrl,archived:!!r.archived,totalIncludingQueueSeconds:r.completedAt&&(r.enqueuedAt||r.createdAt)?(Date.parse(r.completedAt)-Date.parse(r.enqueuedAt||r.createdAt))/1000+(r.productionPrefix?0:r.triggerSeconds||0):undefined,queueWaitSeconds:r.queueWaitSeconds,triggerSeconds:r.triggerSeconds,instanceStartupSeconds:r.instanceStartupSeconds,startupSeconds:r.taskStartupSeconds??r.startupSeconds,imagePullSeconds:r.imagePullSeconds,setupSeconds:r.setupSeconds,modelDownloadSeconds:r.timings?.downloadModelMs/1000,engineSeconds:r.analysisSeconds,saveSeconds:r.saveSeconds??r.finalizeAndSaveSeconds,totalSeconds:r.totalExcludingQueueSeconds??(r.backend==='lambda-cpu'?r.waitMs/1000:undefined),costUSD:r.estimatedComputeAndIpUSD??r.estimatedComputeUSD??r.costUSD,coldStart:r.coldStart,peakMemoryMB:r.timings?.containerPeakMemoryMB}));
+ const publicRecords=records.filter(r=>!['FAILED','STOPPED','CANCELLED','CANCELED','TERMINATED'].includes((r.status||'').toUpperCase())).map(r=>({id:r.id,backend:r.backend,capacityFallback:r.capacityFallback,cpu:r.cpu,memoryGB:r.memoryGB,gpu:r.gpuType,instanceType:r.instanceType,moves:r.moves,positions:r.positions,model:r.model,engineVersion:r.engineVersion,visits:r.visits,analysisThreads:r.analysisThreads??r.configuration?.analysisThreads,maxBatchSize:r.maxBatchSize??r.configuration?.maxBatchSize,status:r.status,statusReason:r.statusReason,createdAt:(r.createdAt??r.runId).replace(/T(\d\d)-(\d\d)-(\d\d)-(\d\d\d)Z$/,'T$1:$2:$3.$4Z'),completedAt:r.completedAt,recordUrl:r.archived?undefined:r.recordUrl,archived:!!r.archived,totalIncludingQueueSeconds:r.completedAt&&(r.enqueuedAt||r.createdAt)?(Date.parse(r.completedAt)-Date.parse(r.enqueuedAt||r.createdAt))/1000+(r.productionPrefix?0:r.triggerSeconds||0):undefined,queueWaitSeconds:r.queueWaitSeconds,triggerSeconds:r.triggerSeconds,instanceStartupSeconds:r.instanceStartupSeconds,startupSeconds:r.taskStartupSeconds??r.startupSeconds,imagePullSeconds:r.imagePullSeconds,setupSeconds:r.setupSeconds,modelDownloadSeconds:r.timings?.downloadModelMs/1000,engineSeconds:r.analysisSeconds,saveSeconds:r.saveSeconds??r.finalizeAndSaveSeconds,totalSeconds:r.totalExcludingQueueSeconds??(r.backend==='lambda-cpu'?r.waitMs/1000:undefined),costUSD:r.estimatedComputeAndIpUSD??r.estimatedComputeUSD??r.costUSD,coldStart:r.coldStart,peakMemoryMB:r.timings?.containerPeakMemoryMB}));
  const destination=root+'src/benchmarks-data.json';
  let previous;try{previous=JSON.parse(await readFile(destination,'utf8'));}catch{}
- const unchanged=JSON.stringify(previous?.experiments)===JSON.stringify(publicRecords);
- const data={updatedAt:unchanged?previous.updatedAt:new Date().toISOString(),region,experiments:publicRecords};
+ let quality;try{quality=JSON.parse(await readFile(root+'cloud/benchmark-quality.json','utf8'));}catch{}
+ const unchanged=JSON.stringify(previous?.experiments)===JSON.stringify(publicRecords)&&JSON.stringify(previous?.quality)===JSON.stringify(quality);
+ const data={updatedAt:unchanged?previous.updatedAt:new Date().toISOString(),region,quality,experiments:publicRecords};
  await writeFile(destination,JSON.stringify(data,null,2)+'\n');
  if(publish&&!unchanged){const stack=await aws(['cloudformation','describe-stacks','--stack-name','WeiqiSite']);const siteBucket=stack.Stacks[0].Outputs.find(o=>o.OutputKey==='SiteBucketName').OutputValue;await execute('aws',['s3','cp',destination,'s3://'+siteBucket+'/benchmarks-data.json','--region',region,'--content-type','application/json','--cache-control','public, max-age=0, must-revalidate','--only-show-errors']);}
  return data;

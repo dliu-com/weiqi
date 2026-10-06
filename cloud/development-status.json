@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-10-06T02:05:00Z",
+  "updatedAt": "2026-10-06T02:20:00Z",
   "awsDevelopmentDebugBudgetUSD": 30,
   "noFurtherPaidBenchmarksPlanned": false,
   "lastAuditedComputeAndIpEstimateUSD": 4.299,
@@ -25,17 +25,16 @@
       "vCPU": 32,
       "memoryGB": 60,
       "visits": 96,
-      "afterQueuedSeconds": 600
+      "afterQueuedSeconds": 1200
     }
   },
   "verifiedTests": {
-    "node": 71,
+    "node": 73,
     "python": 6,
     "cdk": 13
   },
   "pending": [
-    "Complete the full-game GPU deep workflow and overlapping-upload CPU fallback validation.",
-    "Finalize measured whole-game timings and cost estimates; confirm unused GPU capacity scales to zero.",
+    "Finish the overlapping-upload CPU fallback benchmark and audit whole-game cost including GPU automatic retirement.",
     "Ireland Fargate 128-vCPU and G/VT 8-vCPU quota requests remain pending."
   ],
   "finalProductPerGameCostTargetUSD": 1,
@@ -48,6 +47,7 @@
   "existingDevelopmentRecordsDisposable": true,
   "timingIncludesQueueAndCapacity": true,
   "deepMaximumExpectationSeconds": 7200,
-  "deployment": "Hybrid upload route enabled and public upload verified; legacy queue and consumer being removed through CloudFormation.",
-  "selectedQuickMeasuredTotalSeconds": 218.904
+  "deployment": "Hybrid public upload route validated and deployed; legacy consumer and queue removed through CloudFormation.",
+  "selectedQuickMeasuredTotalSeconds": 218.904,
+  "selectedDeepMeasuredTotalSeconds": 1120.284
 }
