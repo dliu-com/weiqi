@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-10-06T12:10:33.914063+00:00",
+  "updatedAt": "2026-10-06T12:14:22.159445+00:00",
   "awsDevelopmentDebugBudgetUSD": 30,
   "noFurtherPaidBenchmarksPlanned": true,
   "smallServiceAllowanceUSD": 2,
@@ -35,7 +35,7 @@
     }
   },
   "verifiedTests": {
-    "node": 108,
+    "node": 110,
     "python": 10,
     "cdk": 14
   },
@@ -136,14 +136,14 @@
     "pdfExportTest": "Deferred at user request",
     "validationRecord": "2026100620",
     "schemaVersion": 6,
-    "format": "Nine visual statistics with nontechnical reading guides and separate calculation details; five bad-move boards per side",
-    "maximumMovesPerSide": 5,
+    "format": "Nine visual statistics with nontechnical reading guides and separate calculation details; three bad-move boards per side",
+    "maximumMovesPerSide": 3,
     "userConfigControls": false,
     "goodMoveStatistics": true,
     "statistics": [
       "Move-quality proportions and exact counts",
       "Average, median and 90th-percentile point and win-rate loss",
-      "Five worst moves share of total point loss",
+      "Three worst bad moves share of total point loss",
       "Average point loss in fixed move ranges",
       "Zero-inclusive point-loss distribution",
       "Per-move error timeline, Black win probability and point advantage",
@@ -155,14 +155,14 @@
     ],
     "languageFormat": "English / Chinese switcher; selected language displayed and saved",
     "bilingualBrowserValidation": {
-      "verifiedAt": "2026-10-06T12:10:33.914063+00:00",
+      "verifiedAt": "2026-10-06T12:14:22.159445+00:00",
       "recordUrl": "https://weiqi.dliu.com/record/2026100620",
       "languages": [
         "en",
         "zh-CN"
       ],
-      "sheetsPerLanguage": 21,
-      "badMovesPerSidePerLanguage": 5,
+      "sheetsPerLanguage": 17,
+      "badMovesPerSidePerLanguage": 3,
       "chartsPerLanguage": 9,
       "identicalTableNumbers": true,
       "desktop": true,
