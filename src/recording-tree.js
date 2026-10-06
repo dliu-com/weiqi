@@ -1,6 +1,15 @@
 import {readSgf,parseSgf} from './sgf.js';
 import {play} from './engine.js';
 export function recordingTree(source){const record=readSgf(source);record.rootProperties=structuredClone(parseSgf(source).nodes[0]);delete record.rootProperties.B;delete record.rootProperties.W;return record;}
+export function populateRecordingDetails(record,now=new Date()){
+ let changed=false;
+ const fill=(object,key,value)=>{if(!String(object[key]??'').trim()){object[key]=value;changed=true;}};
+ fill(record,'name','Recorded game');fill(record.players,'black','Unnamed black player');fill(record.players,'white','Unnamed white player');
+ fill(record,'date',String(now.getFullYear()).padStart(4,'0')+'-'+String(now.getMonth()+1).padStart(2,'0')+'-'+String(now.getDate()).padStart(2,'0'));
+ fill(record,'rules','Japanese');fill(record,'result','0');
+ if(!record.rootProperties.KM){record.komi=Number(record.rootProperties.HA?.[0])>0?0.5:6.5;changed=true;}
+ return changed;
+}
 export function recordingSgf(record,mainOnly=false){
  const escape=value=>String(value).replace(/\\/g,'\\\\').replace(/\]/g,'\\]').replace(/\r\n?/g,'\n');
  const coord=i=>String.fromCharCode(97+i%19,97+Math.floor(i/19));
@@ -23,8 +32,46 @@ export function addRecordingMove(record,parent,index){
 export function updateMainLine(record){record.mainLine=[0];let n=0;while(record.nodes[n].children.length){n=record.nodes[n].children[0];record.mainLine.push(n);}return record;}
 export function promoteRecordingBranch(record,id){if(!record.nodes[id])throw Error('Invalid move.');for(let n=id;record.nodes[n].parent!==null;n=record.nodes[n].parent){const parent=record.nodes[record.nodes[n].parent];parent.children=[n,...parent.children.filter(c=>c!==n)];}return updateMainLine(record);}
 export function deleteRecordingBranch(record,id){if(!id||!record.nodes[id])throw Error('Select a move to delete.');const parent=record.nodes[id].parent;record.nodes[parent].children=record.nodes[parent].children.filter(c=>c!==id);const next=recordingTree(recordingSgf(record));const path=[];for(let n=parent;n!==0;n=record.nodes[n].parent)path.unshift(record.nodes[record.nodes[n].parent].children.indexOf(n));let selected=0;for(const child of path)selected=next.nodes[selected].children[child];return {record:next,selected};}
+// Replay the entire edited tree before adopting it. A correction must never
+// silently discard a continuation or leave a cached board out of date.
+function replayEdit(next,selected){
+ const index=recordingNodeIndex(next,selected);
+ try{return {record:recordingTree(recordingSgf(next)),selected:index};}
+ catch{throw Error('This edit would make a later move illegal. Edit or delete that continuation first.');}
+}
+export function deleteRecordingMove(record,id){
+ if(!id||!record.nodes[id])throw Error('Select a move to delete.');
+ const next=structuredClone(record),node=next.nodes[id],parent=next.nodes[node.parent];
+ parent.children.splice(parent.children.indexOf(id),1,...node.children);
+ for(const child of node.children)next.nodes[child].parent=node.parent;
+ return replayEdit(next,node.parent);
+}
+export function insertRecordingMove(record,parent,index){
+ if(!record.nodes[parent])throw Error('Invalid move.');
+ if(record.nodes.length>=2000)throw Error('The draft may contain at most 2,000 positions.');
+ const next=structuredClone(record),node=next.nodes[parent],id=next.nodes.length;
+ next.nodes.push({parent,move:{side:node.turn,index},children:node.children.slice(),comment:''});
+ for(const child of node.children)next.nodes[child].parent=id;
+ node.children=[id];return replayEdit(next,id);
+}
+export function repositionRecordingMove(record,id,index){
+ if(!id||!record.nodes[id])throw Error('Select a move to reposition.');
+ const next=structuredClone(record);next.nodes[id].move.index=index;
+ return replayEdit(next,id);
+}
+export function setRecordingHandicap(record,count){
+ if(record.nodes.length!==1)throw Error('Handicap can be changed only before recording moves.');
+ if(!Number.isInteger(count)||count<0||count>9)throw Error('Choose 0–9 handicap stones.');
+ const next=structuredClone(record),points=[[15,3],[3,15],[15,15],[3,3],[3,9],[15,9],[9,3],[9,15]],board=Array(361).fill('.');
+ const placed=count===1?[[9,9]]:count===5?points.slice(0,4).concat([[9,9]]):count===7?points.slice(0,6).concat([[9,9]]):count===9?points.concat([[9,9]]):points.slice(0,count);
+ for(const [x,y]of placed)board[y*19+x]='B';
+ next.nodes[0].board=board.join('');next.initialPlayer=count>0?'W':'B';next.nodes[0].turn=next.initialPlayer;
+ next.rootProperties.HA=[String(count)];
+ if(count>0&&next.komi===6.5)next.komi=0.5;else if(count===0&&next.komi===0.5)next.komi=6.5;
+ return next;
+}
 export function newRecordingSgf(){return '(;GM[1]FF[4]CA[UTF-8]SZ[19]RU[Japanese]KM[6.5]GN[Recorded game]RE[0])';}
-export function mainRecordingSgf(source){return recordingSgf(recordingTree(source),true);}
+export function mainRecordingSgf(source){const record=recordingTree(source);populateRecordingDetails(record);return recordingSgf(record,true);}
 
 // SGF serialization follows child order, which can change after promotion.
 // Store the selected node's serialized index rather than its in-memory ID.

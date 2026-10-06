@@ -3,6 +3,7 @@ const {SQSClient,SendMessageCommand} = require('@aws-sdk/client-sqs');
 const {createHash:reportHash}=require('node:crypto');
 const libraryS3 = new S3Client({}), libraryQueue = new SQSClient({});
 const libraryStore = {
+  async analysisPaused() {if(!process.env.AI_CONTROL_KEY)return false;try{return JSON.parse(await this.get(process.env.AI_CONTROL_KEY)).paused===true;}catch(e){if(e.name==='NoSuchKey')return false;throw e;}},
   async get(key) {const value=await libraryS3.send(new GetObjectCommand({Bucket:process.env.LIBRARY_BUCKET,Key:key}));return value.Body.transformToString();},
   async create(key,body,type) {try {await libraryS3.send(new PutObjectCommand({Bucket:process.env.LIBRARY_BUCKET,Key:key,Body:body,ContentType:type,IfNoneMatch:'*'}));return true;}catch(e){if(e.$metadata?.httpStatusCode===412)return false;throw e;}}
 };
@@ -38,6 +39,8 @@ async function libraryHandler(event) {
       if (cursor && cursor.length>2048) return response(400,{message:'Invalid page cursor.'});
       const list=await libraryS3.send(new ListObjectsV2Command({Bucket:process.env.LIBRARY_BUCKET,Prefix:'library-index/',MaxKeys:10,...(cursor?{ContinuationToken:cursor}:{})}));
       const games=await Promise.all((list.Contents || []).map(async p=>{try{const entry=JSON.parse(await libraryStore.get(p.Key));if(!validRecordId(entry.id))return null;return JSON.parse(await libraryStore.get(gamePrefix(entry.id)+'/metadata.json'));}catch(e){if(e.name==='NoSuchKey')return null;throw e;}}));
+      const paused=await libraryStore.analysisPaused();
+      if(paused)for(const g of games.filter(Boolean))if(!['ready','limited'].includes(g.analysis?.status))g.analysis={...g.analysis,status:'paused',reason:'monthly_budget'};
       return response(200,{games:games.filter(Boolean),cursor:list.NextContinuationToken || null});
     }
     const reportId=path.match(/^\/api\/library\/([^/]+)\/report$/)?.[1];
@@ -49,6 +52,7 @@ async function libraryHandler(event) {
       const sgf=await libraryStore.get(prefix+'original.sgf'); let analysis=null;
       if(metadata.analysis.status==='ready'||metadata.analysis.available) analysis=JSON.parse(await libraryStore.get(prefix+(metadata.analysis.available==='quick'?'analysis-quick.json':'analysis.json')));
       await attachQueueStatus(metadata);
+      if(!['ready','limited','paused'].includes(metadata.analysis.status)&&await libraryStore.analysisPaused())metadata.analysis={...metadata.analysis,status:'paused',reason:'monthly_budget',quick:metadata.analysis.quick?.status==='ready'?metadata.analysis.quick:undefined,deep:undefined};
       return response(200,{metadata,sgf,analysis});
     }
     if (method!=='POST' || path!=='/api/library') return response(404,{message:'Record not found.'});
@@ -68,6 +72,7 @@ async function libraryHandler(event) {
 }
 
 async function enqueueSavedRecord(metadata) {
+    if(await libraryStore.analysisPaused())return;
     // Only eligible uploads enqueue the quick and deep cloud analyses.
     // Duplicate deliveries are safe: workers reuse complete results and claim jobs.
     if(process.env.ANALYSIS_QUEUE && metadata.analysis.status==='queued') {

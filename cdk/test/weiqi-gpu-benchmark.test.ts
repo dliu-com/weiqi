@@ -9,7 +9,9 @@ test('GPU comparison isolates two instance types with zero idle capacity and no 
  template.hasResourceProperties('AWS::EC2::VPCCidrBlock',{CidrBlock:'10.1.0.0/16'});
  template.hasResourceProperties('AWS::EC2::Subnet',{CidrBlock:'10.1.0.0/24',MapPublicIpOnLaunch:true});
  template.hasResourceProperties('AWS::Batch::JobDefinition',{RetryStrategy:{Attempts:1},Timeout:{AttemptDurationSeconds:3600},ContainerProperties:Match.objectLike({ResourceRequirements:Match.arrayWith([{Type:'GPU',Value:'1'}])})});
- template.resourceCountIs('AWS::Lambda::Function',0);
+ // One private CloudFormation provider tags Batch resources without replacement.
+ template.resourceCountIs('AWS::Lambda::Function',1);
+ template.resourceCountIs('AWS::Lambda::Url',0);
 });
 
 test('production uses T4 across three zones, delayed fallback messages and bounded jobs without idle polling',()=>{

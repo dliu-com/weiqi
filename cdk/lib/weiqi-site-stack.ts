@@ -1,3 +1,4 @@
+import {projectConfig} from './project-config';
 import * as fs from 'fs';
 import * as path from 'path';
 import {execFileSync} from 'child_process';
@@ -109,7 +110,7 @@ export class WeiqiSiteStack extends Stack {
       timeout: Duration.seconds(20),
       memorySize: 256,
       logGroup: new logs.LogGroup(this, 'GameLogs', { retention: logs.RetentionDays.ONE_WEEK, removalPolicy: RemovalPolicy.DESTROY }),
-      environment: { LIBRARY_BUCKET:libraryBucket.bucketName, ANALYSIS_QUEUE:analysisQueue.queueUrl, TABLE_NAME: gameTable.tableName, REPORT_QUEUE:reportQueue.queueUrl, SITE_ORIGIN: Fn.join('', ['https://', domainName]) },
+      environment: { DAILY_ANALYSIS_CAP:String(projectConfig.analysis.dailyGameLimit), AI_CONTROL_KEY:'control/ai-spending.json', LIBRARY_BUCKET:libraryBucket.bucketName, ANALYSIS_QUEUE:analysisQueue.queueUrl, TABLE_NAME: gameTable.tableName, REPORT_QUEUE:reportQueue.queueUrl, SITE_ORIGIN: Fn.join('', ['https://', domainName]) },
       code: lambda.Code.fromInline([engineSource, serviceSource, sharedLibrarySource, queueEstimateSource, libraryHandlerSource, queueStatusSource, handlerSource].join('\n')),
     });
     reportQueue.grantSendMessages(gameHandler);

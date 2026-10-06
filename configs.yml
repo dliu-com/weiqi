@@ -1,0 +1,15 @@
+# Deploy after changing these settings; this is not a live website control panel.
+aws:
+  region: eu-west-1
+project:
+  tagKey: Project
+  tagValue: Weiqi
+budget:
+  monthlyUsd: 50
+  # AI stays paused until an administrator deliberately resumes it.
+analysis:
+  dailyGameLimit: 10
+  quickVisits: 32
+  deepVisits: 3000
+  capacityFallbackSeconds: 180
+  jobTimeoutSeconds: 7200
