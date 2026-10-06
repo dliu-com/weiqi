@@ -17,6 +17,7 @@ function showSyncWarning(failed) {
   $('sync-warning').textContent = t('同步中断：无法连接服务器，棋盘可能不是最新状态。请检查网络；连接恢复后会自动更新。','Sync interrupted: the server could not be reached. This board may be out of date. Check your connection; syncing resumes when the connection returns.');
 }
 let moveStatus = null;
+let viewSavedGame = false, pendingSavedGeneration = null;
 let reviewing = null, treeRenderKey = '', trialMoves = [];
 function previewMove(index) {
   if (reviewing === null || busy || !state) return;
@@ -53,6 +54,9 @@ function adopt(next) {
   if (reviewing !== null && reviewing >= gameTree(next).nodes.length) reviewing = null;
   const freshGame=state&&(state.generation||0)!==(next.generation||0);
   state = next; render();
+  if (pendingSavedGeneration !== null && next.lastSavedGame?.generation === pendingSavedGeneration) {
+    pendingSavedGeneration = null; location.assign('/game/' + encodeURIComponent(next.lastSavedGame.id));
+  }
   if(freshGame)notice(t('棋局已保存到棋谱库，新一局已准备好。','Game saved to the library. A new game is ready.'));
 }
 async function sync(manual = false) {
@@ -135,7 +139,7 @@ function render() {
   }
   $('turn').className = 'turn-label' + (!review && (state.phase === 'play' || state.result?.winner) ? ' turn-' + (moveStatus?.side || state.result?.winner || state.turn) : '');
   $('new').textContent=t('新一局','New game');$('end-game-cancel').textContent=t('取消','Cancel');
-  $('result-label').textContent=t('保存本局，开始新一局','Save this game and start a new one');
+  $('result-label').textContent=viewSavedGame?t('保存本局，查看棋谱','Save this game and view it'):t('保存本局，开始新一局','Save this game and start a new one');
   const counted=totals||score(state.board,state.size,state.dead,state.komi);
   $('result-count-summary').textContent=t(`自动数子：黑 ${counted.black} 目 · 白 ${counted.white} + ${state.komi} 目 → ${counted.winner ? names[counted.winner] + '胜 ' + counted.margin + ' 目' : '和棋'}`,`Automatic count: Black ${counted.black} · White ${counted.white} + ${state.komi} → ${counted.winner ? names[counted.winner] + ' wins by ' + counted.margin + ' points' : 'Draw'}`);
   $('result-counted').textContent=t('采用数子结果','Use counted result');$('result-counted').disabled=busy||ended||reviewing!==null;for(const [key,zh,en] of [['black','黑方获胜','Black wins'],['white','白方获胜','White wins'],['draw','和棋 / 未完成','Draw / unfinished']]){$('result-'+key).textContent=t(zh,en);$('result-'+key).disabled=busy||ended||reviewing!==null;}
@@ -227,17 +231,16 @@ const boardView=new BoardView($('board'),{onPoint:i=>{if(busy||!state)return;if(
 const points=boardView.points;
 function confirmAction(title,text,operation,acceptLabel=t('确认','Confirm')) { $('accept-confirm').textContent=acceptLabel; $('confirm-title').className=''; const revision = state.revision; pendingConfirmation = () => { if (state.revision !== revision) { notice(t('棋局已更新，请重新确认。','The game has changed. Please confirm again.')); return; } operation(); }; $('confirm-title').textContent=title; $('confirm-text').textContent=text; $('confirm-dialog').showModal(); }
 $('cancel-confirm').onclick=()=>$('confirm-dialog').close(); $('accept-confirm').onclick=()=>{ $('confirm-dialog').close(); pendingConfirmation?.(); };
-function chooseGameResult(){if(!state||busy||archiveId||reviewing!==null)return;if(state.phase==='ended')sync(true);else $('end-game-dialog').showModal();}
-$('new').onclick=chooseGameResult;
+function chooseGameResult(openSaved = false){if(!state||busy||archiveId||reviewing!==null)return;viewSavedGame=openSaved;if(state.phase==='ended')sync(true);else {render();$('end-game-dialog').showModal();}}
+function finishGame(result){pendingSavedGeneration=viewSavedGame?(state.generation||0):null;return action(result);}
+$('new').onclick=()=>chooseGameResult(false);
 $('end-game-cancel').onclick=()=>$('end-game-dialog').close();
-for(const winner of ['black','white','draw'])$('result-'+winner).onclick=()=>{$('end-game-dialog').close();confirmAction(t('确认结果并保存？','Confirm result and save?'),t('本局结束并自动保存到公共棋谱库。','The game will finish and save automatically to the public library.'),()=>action({type:'result',winner}));};
+for(const winner of ['black','white','draw'])$('result-'+winner).onclick=()=>{$('end-game-dialog').close();confirmAction(t('确认结果并保存？','Confirm result and save?'),t('本局结束并自动保存到公共棋谱库。','The game will finish and save automatically to the public library.'),()=>finishGame({type:'result',winner}));};
 $('undo').onclick=()=>confirmAction(t('撤回' + names[state.history.at(-1)?.side] + '的上一手？','Undo ' + names[state.history.at(-1)?.side] + '’s last move?'),t("永久删除最近一手，不保留分支；双方设备都会更新。请先征得对方同意。","Permanently remove the last move on all devices; no variation is saved. Please agree with your opponent first."),()=>action({type:'undo'}));
 for (const side of ['black','white']) $('resign-' + side).onclick=()=>{ confirmAction(names[side]+t("认输？"," resigns?"),t("确认后本局结束。","Confirm to end this game."),()=>action({type:'resign',side})); };
 $('pass').onclick=()=>action({type:'pass'}); $('resume').onclick=()=>action({type:'resume'});
-$('confirm-score').onclick=chooseGameResult;
-$('result-counted').onclick=()=>{$('end-game-dialog').close();confirmAction(t('确认数子结果并保存？','Confirm counted result and save?'),$('result-count-summary').textContent,()=>action({type:'finish'}));};
-function focusBoard(on) { document.body.classList.toggle('focus',on); $('focus').textContent=on?t("退出专注 ↙","Exit focus ↙"):t("专注棋盘 ↗","Focus board ↗"); $('focus').setAttribute('aria-pressed',String(on)); }
-$('focus').onclick=()=>focusBoard(!document.body.classList.contains('focus')); document.addEventListener('keydown',e=>{if(e.key==='Escape')focusBoard(false);});
+$('confirm-score').onclick=()=>chooseGameResult(true);
+$('result-counted').onclick=()=>{$('end-game-dialog').close();confirmAction(t('确认数子结果并保存？','Confirm counted result and save?'),$('result-count-summary').textContent,()=>finishGame({type:'finish'}));};
 $('auto').onchange=()=>{automatic=$('auto').checked; if(automatic){lastActivity=Date.now();sync(true);}};
 setInterval(()=>{ if(!automatic)return; if(Date.now()-lastActivity>=10*60*1000){automatic=false;$('auto').checked=false;$('sync').textContent=t("10 分钟无落子，已暂停自动同步","Auto-sync paused after 10 minutes without a move");return;} if(document.visibilityState==='visible')sync(); },5000);
 window.addEventListener('focus',()=>{if(automatic)sync();}); window.addEventListener('online',()=>{if(automatic)sync();}); document.addEventListener('visibilitychange',()=>{if(automatic&&document.visibilityState==='visible')sync();});
@@ -268,4 +271,4 @@ $('edit-form').onsubmit = async event => {
   else $('edit-error').textContent = t('保存失败，请关闭后重试。','Not saved. Close and try again.');
 };
 
-window.addEventListener('site-language-change',()=>{ showSyncWarning(syncFailed); focusBoard(document.body.classList.contains('focus')); $('notice').hidden=true; $('sync').textContent=t('语言已切换','Language updated'); render();});
+window.addEventListener('site-language-change',()=>{ showSyncWarning(syncFailed); $('notice').hidden=true; $('sync').textContent=t('语言已切换','Language updated'); render();});

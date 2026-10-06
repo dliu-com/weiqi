@@ -6,8 +6,8 @@ export function createState() {
   const size = 19;
   return { createdAt: new Date().toISOString(), gameName: null, players: { black: '', white: '' }, revision: 0, size, board: '.'.repeat(size * size), turn: 'black', history: [], captures: { black: 0, white: 0 }, passes: 0, phase: 'play', dead: [], agreed: [], komi: 7.5, result: null, updatedAt: null };
 }
-export function freshLiveGame(completed){
- const next=createState();next.revision=completed.revision+1;next.generation=next.revision;next.updatedAt=new Date().toISOString();return next;
+export function freshLiveGame(completed,libraryId){
+ const next=createState();next.revision=completed.revision+1;next.generation=next.revision;next.updatedAt=new Date().toISOString();if(libraryId)next.lastSavedGame={id:libraryId,generation:completed.generation||0};return next;
 }
 export function transition(current, request) {
   const heartbeat = request?.action?.type === 'heartbeat';
