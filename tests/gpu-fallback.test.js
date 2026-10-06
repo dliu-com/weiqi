@@ -3,11 +3,15 @@ import assert from 'node:assert/strict';
 import vm from 'node:vm';
 import {readFileSync} from 'node:fs';
 
-function fallback({status='RUNNABLE',race=false,lostSubmit=false,delayedCancel=false}={}){
- const files=new Map(),submitted=[];let cancelled=0,current=status,cancelPolls=0;
- const id='2026100601',phase='quick',jobId='gpu-job',key='games/'+id+'/metadata.json';
+function fallback({status='RUNNABLE',race=false,lostSubmit=false,delayedCancel=false,phase='quick',ageSeconds}={}){
+ const files=new Map(),submitted=[],checks=[];let cancelled=0,current=status,cancelPolls=0;
+ const id='2026100601',jobId='gpu-job',key='games/'+id+'/metadata.json';
  const metadata={analysis:{enqueuedAt:'2026-10-06T00:00:00Z',status:'queued',model:{key:'models/latest.bin.gz',url:'https://media.katagotraining.org/latest.bin.gz'},quick:{status:'queued',jobId},deep:{status:'queued',jobId:'gpu-deep'}}};
- files.set(key,JSON.stringify(metadata));files.set('jobs/'+id+'/quick-request.json',JSON.stringify({id,phase,enqueuedAt:metadata.analysis.enqueuedAt,nodeIds:[0,1,2],query:{maxVisits:64}}));
+ if(ageSeconds!==undefined)metadata.analysis.enqueuedAt=new Date(Date.now()-ageSeconds*1000).toISOString();
+ metadata.analysis[phase].jobId=jobId;
+ files.set(key,JSON.stringify(metadata));files.set('jobs/'+id+'/'+phase+'-request.json',JSON.stringify({id,phase,enqueuedAt:metadata.analysis.enqueuedAt,nodeIds:[0,1,2],query:{maxVisits:64}}));
+ class SendMessageCommand{constructor(input){this.input=input;}}
+ class SQSClient{async send(c){checks.push(c.input);return {};}}
  class GetObjectCommand{constructor(input){this.input=input;}}
  class PutObjectCommand{constructor(input){this.input=input;}}
  class DescribeJobsCommand{constructor(input){this.input=input;}}
@@ -21,9 +25,9 @@ function fallback({status='RUNNABLE',race=false,lostSubmit=false,delayedCancel=f
   if(c instanceof ListJobsCommand)return {jobSummaryList:submitted.map(s=>({jobId:'cpu-job',createdAt:s.time,status:'RUNNING'}))};
   submitted.push({input:c.input,time:Date.now()});if(lostSubmit)throw Error('Response lost');return {jobId:'cpu-job'};
  }}
- const exports={};vm.runInNewContext(readFileSync(new URL('../backend/gpu-fallback.cjs',import.meta.url),'utf8'),{exports,require:name=>name.includes('client-s3')?{S3Client,GetObjectCommand,PutObjectCommand}:{BatchClient,DescribeJobsCommand,ListJobsCommand,CancelJobCommand,SubmitJobCommand},process:{env:{LIBRARY_BUCKET:'test',CPU_QUICK_QUEUE:'cpu-quick',CPU_DEEP_QUEUE:'cpu-deep',CPU_JOB_DEFINITION:'cpu-definition'}},setTimeout:callback=>callback(),console:{error(){}}});
+ const exports={};vm.runInNewContext(readFileSync(new URL('../backend/gpu-fallback.cjs',import.meta.url),'utf8'),{exports,require:name=>name.includes('client-s3')?{S3Client,GetObjectCommand,PutObjectCommand}:name.includes('client-sqs')?{SQSClient,SendMessageCommand}:{BatchClient,DescribeJobsCommand,ListJobsCommand,CancelJobCommand,SubmitJobCommand},process:{env:{LIBRARY_BUCKET:'test',CPU_QUICK_QUEUE:'cpu-quick',CPU_DEEP_QUEUE:'cpu-deep',CPU_JOB_DEFINITION:'cpu-definition',FALLBACK_QUEUE:'fallback-checks'}},setTimeout:callback=>callback(),console:{error(){}}});
  const call=count=>exports.handler({Records:[{messageId:'message',body:JSON.stringify({id,phase,jobId}),attributes:{ApproximateReceiveCount:String(count||1)}}]});
- return {call,files,submitted,metadata:()=>JSON.parse(files.get(key)),cancelled:()=>cancelled};
+ return {call,files,submitted,checks,metadata:()=>JSON.parse(files.get(key)),cancelled:()=>cancelled};
 }
 test('capacity fallback confirms GPU cancellation, keeps original enqueue/model and submits paid CPU work only once',async()=>{
  const f=fallback();await f.call();await f.call();assert.equal(f.cancelled(),1);assert.equal(f.submitted.length,1);
@@ -45,4 +49,17 @@ test('lost CPU submit response is recovered by job lookup without submitting ano
 
 test('asynchronous GPU cancellation is confirmed before CPU analysis is submitted',async()=>{
  const f=fallback({delayedCancel:true});await f.call();assert.equal(f.cancelled(),1);assert.equal(f.submitted.length,1);assert.equal(f.metadata().analysis.quick.jobId,'cpu-job');
+});
+
+test('deep work receives a delayed recheck before twenty minutes without cancelling or starting CPU work',async()=>{
+ const f=fallback({phase:'deep',ageSeconds:600});await f.call();
+ assert.equal(f.cancelled(),0);assert.equal(f.submitted.length,0);assert.equal(f.checks.length,1);
+ assert.ok(f.checks[0].DelaySeconds<=600&&f.checks[0].DelaySeconds>590);
+ assert.equal(f.metadata().analysis.deep.jobId,'gpu-job');
+});
+test('queued deep work falls back at twenty minutes with the original clock and 96 visits',async()=>{
+ const f=fallback({phase:'deep',ageSeconds:1201});const origin=f.metadata().analysis.enqueuedAt;await f.call();
+ assert.equal(f.cancelled(),1);assert.equal(f.submitted.length,1);assert.equal(f.checks.length,0);
+ const request=JSON.parse(f.files.get('jobs/2026100601/deep-request.json'));
+ assert.equal(request.query.maxVisits,96);assert.equal(request.enqueuedAt,origin);
 });

@@ -1,0 +1,72 @@
+{
+  "recordUrl": "https://weiqi.dliu.com/record/2026100611",
+  "gameMoves": 321,
+  "region": "eu-west-1",
+  "clockOrigin": "SQS enqueue, shared by both phases",
+  "phases": {
+    "quick": {
+      "backend": "fargate-cpu",
+      "cpu": 32,
+      "memoryGB": 60,
+      "visits": 8,
+      "enqueuedAt": "2026-10-06T01:55:45.318Z",
+      "createdAt": "2026-10-06T01:55:49.600Z",
+      "completedAt": "2026-10-06T01:59:24.331975+00:00",
+      "triggerSeconds": 4.282,
+      "queueWaitSeconds": 8.015,
+      "taskStartupSeconds": 22.717,
+      "imagePullSeconds": 3.581,
+      "setupSeconds": 8.124,
+      "analysisSeconds": 175.16,
+      "saveSeconds": 0.513,
+      "estimatedComputeAndIpUSD": 0.09175441006111111,
+      "totalSeconds": 219.013975,
+      "processingSeconds": 206.716
+    },
+    "deep": {
+      "backend": "gpu",
+      "gpuType": "T4",
+      "cpu": 4,
+      "memoryGB": 16,
+      "visits": 1000,
+      "enqueuedAt": "2026-10-06T01:55:45.318Z",
+      "createdAt": "2026-10-06T01:55:49.819Z",
+      "completedAt": "2026-10-06T02:14:25.775427+00:00",
+      "triggerSeconds": 4.501,
+      "queueWaitSeconds": 107.181,
+      "instanceStartupSeconds": 39.807,
+      "taskStartupSeconds": 51.356,
+      "imagePullSeconds": 38.846,
+      "setupSeconds": 20.46,
+      "analysisSeconds": 895.612,
+      "saveSeconds": 1.175,
+      "estimatedComputeUSD": 0.17225691999999998,
+      "totalSeconds": 1120.457427,
+      "processingSeconds": 1008.775427
+    }
+  },
+  "quality": {
+    "model": "kata1-tf3-b11c768-s12252M-d6398M.bin.gz",
+    "modelSha256": "ad279eb0e6aa4ddf52cf24b27241d220043b31f38064b3fc3a43d5a524e6b03d",
+    "positions": 322,
+    "quickVisits": 8,
+    "referenceVisits": 1000,
+    "meanAbsolutePointDifference": 0.37800609390093165,
+    "meanAbsoluteWinratePercentagePointDifference": 1.705443034646273,
+    "maxAbsolutePointDifference": 4.05800943,
+    "maxAbsoluteWinratePercentagePointDifference": 22.767430599999994,
+    "recordUrl": "https://weiqi.dliu.com/record/2026100611",
+    "note": "Paired same-game, same-model workflow agreement; not independent accuracy measurement."
+  },
+  "pricingNote": "USD estimate covers CPU task billing and complete GPU allocation through automatic shutdown, with public IP and GPU storage allowance. Small API/S3/log/transfer usage is additional; this is not a final invoice.",
+  "gpuAllocation": {
+    "instanceId": "i-022fed9328f8a1434",
+    "type": "g4dn.xlarge",
+    "state": "shutting-down",
+    "launchedAt": "2026-10-06T01:57:37+00:00",
+    "releasedAt": "2026-10-06T02:16:42+00:00",
+    "estimatedComputeIpStorageUSD": 0.19465,
+    "releaseKnown": true
+  },
+  "estimatedWholeGameComputeIpStorageUSD": 0.2864044100611111
+}

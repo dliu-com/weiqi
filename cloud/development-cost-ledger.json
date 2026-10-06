@@ -1,0 +1,75 @@
+{
+  "asOf": "2026-10-06T02:23:55.597305+00:00",
+  "developmentBudgetUSD": 30,
+  "cpuComputeIpEstimateUSD": 4.6496,
+  "gpuComputeIpStorageEstimateUSD": 1.0219366666666667,
+  "smallServicesAllowanceUSD": 2,
+  "conservativeTotalEstimateUSD": 7.671536666666667,
+  "maximumAdditionalActiveCpuJobUSD": 6.0176,
+  "note": "Includes failed/stopped development workers, conservative setup and idle allocation, and a small-service allowance. Not a final AWS invoice.",
+  "gpuInstances": [
+    {
+      "instanceId": "i-0a129c2323af37849",
+      "type": "g4dn.xlarge",
+      "state": "terminated",
+      "launchedAt": "2026-10-06T01:15:31+00:00",
+      "releasedAt": "2026-10-06T01:35:31+00:00",
+      "estimatedComputeIpStorageUSD": 0.204,
+      "releaseKnown": true
+    },
+    {
+      "instanceId": "i-022fed9328f8a1434",
+      "type": "g4dn.xlarge",
+      "state": "shutting-down",
+      "launchedAt": "2026-10-06T01:57:37+00:00",
+      "releasedAt": "2026-10-06T02:16:42+00:00",
+      "estimatedComputeIpStorageUSD": 0.19465,
+      "releaseKnown": true
+    },
+    {
+      "instanceId": "i-0d13a00459575d1b0",
+      "type": "g4dn.xlarge",
+      "state": "terminated",
+      "launchedAt": "2026-10-06T01:41:55+00:00",
+      "releasedAt": "2026-10-06T01:45:22+00:00",
+      "estimatedComputeIpStorageUSD": 0.03519,
+      "releaseKnown": true
+    },
+    {
+      "instanceId": "i-0ec26c88951e94ca8",
+      "type": "g4dn.xlarge",
+      "launchedAt": "2026-10-06T00:12:18+00:00",
+      "releasedAt": "2026-10-06T01:22:34+01:00",
+      "estimatedComputeIpStorageUSD": 0.10472,
+      "releaseKnown": true,
+      "conservativeReleaseSource": "Last CloudTrail TerminateInstances event; repeated attempts may overstate billing."
+    },
+    {
+      "instanceId": "i-0135c60c35e5ce10a",
+      "type": "g4dn.xlarge",
+      "launchedAt": "2026-10-06T00:24:07+00:00",
+      "releasedAt": "2026-10-06T01:33:13+01:00",
+      "estimatedComputeIpStorageUSD": 0.09282,
+      "releaseKnown": true,
+      "conservativeReleaseSource": "Last CloudTrail TerminateInstances event; repeated attempts may overstate billing."
+    },
+    {
+      "instanceId": "i-0491d63fd01adde2b",
+      "type": "g4dn.xlarge",
+      "launchedAt": "2026-10-06T00:24:07+00:00",
+      "releasedAt": "2026-10-06T01:42:37+01:00",
+      "estimatedComputeIpStorageUSD": 0.1887,
+      "releaseKnown": true,
+      "conservativeReleaseSource": "Last CloudTrail TerminateInstances event; repeated attempts may overstate billing."
+    },
+    {
+      "instanceId": "i-026892f527fccd5d3",
+      "type": "g5.xlarge",
+      "launchedAt": "2026-10-06T01:01:22+00:00",
+      "releasedAt": "2026-10-06T02:11:55+01:00",
+      "estimatedComputeIpStorageUSD": 0.20185666666666666,
+      "releaseKnown": true,
+      "conservativeReleaseSource": "Last CloudTrail TerminateInstances event; repeated attempts may overstate billing."
+    }
+  ]
+}

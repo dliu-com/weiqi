@@ -32,5 +32,5 @@ test('hybrid dispatcher pins one model for independent CPU quick/GPU deep jobs a
  const [quick,deep]=d.submitted;assert.equal(quick.jobDefinition,'cpu-definition');assert.equal(quick.containerOverrides.resourceRequirements.find(r=>r.type==='VCPU').value,'32');assert.equal(quick.containerOverrides.resourceRequirements.some(r=>r.type==='GPU'),false);
  assert.equal(deep.containerOverrides.resourceRequirements.find(r=>r.type==='GPU').value,'1');assert.equal(deep.containerOverrides.resourceRequirements.find(r=>r.type==='VCPU').value,'4');
  assert.equal(JSON.parse(d.files.get('jobs/2026100601/quick-request.json')).query.maxVisits,8);assert.equal(JSON.parse(d.files.get('jobs/2026100601/deep-request.json')).query.maxVisits,1000);
- assert.deepEqual(d.fallbacks.map(m=>m.DelaySeconds),[600]);
+ assert.deepEqual(d.fallbacks.map(m=>m.DelaySeconds),[900]);
 });
