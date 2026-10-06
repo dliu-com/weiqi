@@ -44,23 +44,23 @@ try{
    await put(prefix+'/request.json',request);
    const triggerStart=performance.now(),submitted=await aws(['batch','submit-job','--cli-input-json',JSON.stringify({jobName:id,jobQueue:outputs[gpu+'QueueArn'],jobDefinition:outputs.JobDefinition,containerOverrides:{environment:[{name:'BENCHMARK_REQUEST_KEY',value:prefix+'/request.json'},{name:'KATAGO_MODEL_KEY',value:model.key},{name:'KATAGO_MODEL_URL',value:model.url},{name:'ANALYSIS_THREADS',value:String(analysisThreads)},{name:'NN_MAX_BATCH_SIZE',value:String(maxBatchSize)}]}})]);
    activeJob=submitted.jobId;
-   const result={label,gpuType:gpu,instanceType:specs[gpu],cpu:4,memoryGB:16,visits,analysisThreads,maxBatchSize,triggerSeconds:(performance.now()-triggerStart)/1000,jobId:activeJob,prefix,status:'SUBMITTED'};report.results.push(result);
+   const result={label,gpuType:gpu,instanceType:specs[gpu],cpu:4,memoryGB:16,visits,analysisThreads,maxBatchSize,triggerSeconds:(performance.now()-triggerStart)/1000,jobId:activeJob,prefix,enqueuedAt:request.requestedAt,status:'SUBMITTED'};report.results.push(result);
    const attach={bucket,model:model.name,queueKind:visits<1000?'quick':'deep',results:[result]};await attachBenchmarkRecords(attach,source);await save();await updateBenchmarks({publish:true});console.log('Submitted '+label+' '+result.recordUrl);
    let previous='',job;
    for(let n=0;n<140;n++){
-    job=(await aws(['batch','describe-jobs','--jobs',activeJob])).jobs[0];result.status=job.status;
+    job=(await aws(['batch','describe-jobs','--jobs',activeJob])).jobs[0];result.status=job.status;result.createdAt=new Date(job.createdAt).toISOString();
     const instances=await gpuInstances(gpu);
     for(const instance of instances){if(!report.instances.some(i=>i.id===instance.InstanceId))report.instances.push({id:instance.InstanceId,gpu,instanceType:instance.InstanceType,launchedAt:instance.LaunchTime,hourlyUSD:prices[instance.InstanceType].hourlyUSD});}
     const estimate=report.instances.reduce((sum,i)=>sum+((i.releasedAt?Date.parse(i.releasedAt):Date.now())-Date.parse(i.launchedAt))/3600000*(i.hourlyUSD+.005+.02),0);
     if(estimate>15)throw Error('GPU development allowance exhausted; stopping to preserve the total USD30 cap.');
-    if(job.status!==previous){console.log(label+': '+job.status+' '+(job.statusReason||''));previous=job.status;const meta=await get('games/'+result.recordId+'/metadata.json');meta.analysis={...meta.analysis,status:['RUNNING','SUCCEEDED','FAILED'].includes(job.status)?'running':'queued',...(job.startedAt?{startedAt:new Date(job.startedAt).toISOString()}: {})};await put('games/'+result.recordId+'/metadata.json',meta);}
+    if(job.status!==previous){console.log(label+': '+job.status+' '+(job.statusReason||''));previous=job.status;const meta=await get('games/'+result.recordId+'/metadata.json');meta.analysis={...meta.analysis,enqueuedAt:result.createdAt,status:['RUNNING','SUCCEEDED','FAILED'].includes(job.status)?'running':'queued',...(job.startedAt?{startedAt:new Date(job.startedAt).toISOString()}: {})};await put('games/'+result.recordId+'/metadata.json',meta);}
     await save();if(['SUCCEEDED','FAILED'].includes(job.status))break;await wait();
    }
    if(!['SUCCEEDED','FAILED'].includes(job.status))throw Error('GPU benchmark did not finish within its development monitoring allowance.');
    activeJob=null;
    let metadata=await get('games/'+result.recordId+'/metadata.json');
    if(job.status==='SUCCEEDED'){
-    const analysis=await get(prefix+'/analysis.json'),timing=await get(prefix+'/timings.json');analysis.id=result.recordId;analysis.phase=visits<1000?'quick':'deep';analysis.compute=compute;
+    const analysis=await get(prefix+'/analysis.json'),timing=await get(prefix+'/timings.json');analysis.id=result.recordId;analysis.phase=visits<1000?'quick':'deep';analysis.compute=compute;analysis.enqueuedAt=result.createdAt;analysis.endToEndMs=Date.parse(timing.completedAt)-job.createdAt;
     result.timings=timing.timings;result.positions=analysis.positions.length;result.engineVersion=analysis.engineVersion;result.modelSha256=analysis.modelSha256;result.completedAt=timing.completedAt;
     result.analysisSeconds=timing.timings.engineLoadAndAnalysisMs/1000;result.setupSeconds=(analysis.elapsedMs-timing.timings.engineLoadAndAnalysisMs)/1000;
     await writeFile(outdir+'/'+label+'-analysis.json',JSON.stringify(analysis));await writeFile(outdir+'/'+label+'-timings.json',JSON.stringify(timing));

@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-10-06T01:07:42.291239+00:00",
+  "updatedAt": "2026-10-06T01:42:57.256568+00:00",
   "awsDevelopmentDebugBudgetUSD": 30,
   "noFurtherPaidBenchmarksPlanned": false,
   "lastAuditedComputeAndIpEstimateUSD": 4.1408,
@@ -12,17 +12,19 @@
     "deepVisits": 128
   },
   "verifiedTests": {
-    "node": 64,
+    "node": 71,
     "python": 6,
-    "cdk": 9
+    "cdk": 10
   },
   "pending": [
-    "Finish the already-running A10G comparison; exclude A10G as primary production worker due to observed capacity delay.",
+    "Finish T4 32-thread/batch-64 deep comparison and validate a lower quick depth against total five-minute waiting time.",
     "Choose and deploy settings meeting five-minute quick, one-hour deep, below USD1 total per game goals.",
     "Update About technical architecture and timing estimates to the final selected worker.",
     "Verify GPU workers terminate and remove unused approaches.",
     "Audit total development/debugging AWS charges below USD30, including builds and idle instance time.",
-    "Assess T4 launch availability across Ireland zones and alternate instance pools; benchmark samples do not establish 95% availability."
+    "Assess T4 launch availability across Ireland zones and alternate instance pools; benchmark samples do not establish 95% availability.",
+    "Production GPU dispatcher and CPU capacity fallback are staged in CloudFormation, with GPU upload dispatch disabled pending end-to-end validation.",
+    "Ireland Fargate 128-vCPU quota request fd65e7d85c5b40cab799a3b9364747faddH9YHnR is pending."
   ],
   "finalProductPerGameCostTargetUSD": 1,
   "quickTargetSeconds": 300,
@@ -31,5 +33,7 @@
   "region": "eu-west-1",
   "provisioning": "CloudFormation only",
   "productionAvailabilityTarget": 0.95,
-  "existingDevelopmentRecordsDisposable": true
+  "existingDevelopmentRecordsDisposable": true,
+  "timingIncludesQueueAndCapacity": true,
+  "deepMaximumExpectationSeconds": 7200
 }

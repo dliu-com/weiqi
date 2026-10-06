@@ -37,3 +37,12 @@ test('running completion timestamp stays fixed while remaining time decreases; q
  assert.deepEqual(analysisCompletion({status:'queued',estimatedSeconds:180},321,now),{timestamp:now+180000,earliest:true});
  assert.equal(analysisCompletion({...a,startedAt:'bad'},321,now),null);
 });
+
+import {analysisTotalMillis} from '../src/analysis-status.js';
+test('total clock begins at SQS enqueue, includes capacity/setup and is fixed after completion',()=>{
+ const metadata={analysis:{enqueuedAt:'2026-10-06T00:00:00Z'}};
+ assert.equal(analysisTotalMillis(null,metadata,Date.parse('2026-10-06T00:03:30Z')),210000);
+ assert.equal(analysisTotalMillis({completedAt:'2026-10-06T00:05:30Z'},metadata),330000);
+ assert.equal(analysisTotalMillis({endToEndMs:330100},metadata,Date.parse('2026-10-06T01:00:00Z')),330100);
+ assert.equal(analysisTotalMillis(null,{analysis:{}}),null);
+});

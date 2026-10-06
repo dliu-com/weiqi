@@ -1,5 +1,5 @@
 import {t,setLanguage} from './i18n.js';
-import {analysisWait,pendingAnalysis,shouldPollQuick,analysisCompletion} from './analysis-status.js';
+import {analysisWait,pendingAnalysis,shouldPollQuick,analysisCompletion,analysisTotalMillis} from './analysis-status.js';
 import {play} from './engine.js';
 import {gameResult} from './game-result.js';
 import {drawEvaluationChart} from './evaluation-chart.js';
@@ -29,7 +29,7 @@ function render(){document.title=(data?.metadata.name || t('棋谱','Game record
  if(data.analysis){
   const a=data.analysis,network=a.model.match(/b(\d+)c(\d+)/),engine=a.engineVersion.startsWith(a.engine)?a.engineVersion:a.engine+' '+a.engineVersion;
   const phase=a.phase==='quick'?t('快速分析（临时结果）','Quick analysis (preliminary)'):a.phase==='deep'?t('深度分析','Deep analysis'):'';
-  $('analysis-depth').textContent=[phase,engine+' · '+(network?network.slice(1).join(' × ')+t(' 网络',' network'):a.model)+' · '+(evaluation?.visits??'—')+' / '+a.visits+t(' 次访问',' visits'),analysisCompute(a),t('分析规则：','Analysis rules: ')+a.rules+' · '+t('贴目 ','Komi ')+a.komi,analysisRuntime(a),t('完成于：','Completed: ')+new Date(a.completedAt).toLocaleString(document.documentElement.lang==='zh-CN'?'zh-CN':'en-GB',{year:'numeric',month:'short',day:'numeric',hour:'2-digit',minute:'2-digit',second:'2-digit',timeZoneName:'longOffset'})+' · '+Intl.DateTimeFormat().resolvedOptions().timeZone].filter(Boolean).join('\n');
+  $('analysis-depth').textContent=[phase,engine+' · '+(network?network.slice(1).join(' × ')+t(' 网络',' network'):a.model)+' · '+(evaluation?.visits??'—')+' / '+a.visits+t(' 次访问',' visits'),analysisCompute(a),t('分析规则：','Analysis rules: ')+a.rules+' · '+t('贴目 ','Komi ')+a.komi,analysisRuntime(a),analysisTotal(a),t('完成于：','Completed: ')+new Date(a.completedAt).toLocaleString(document.documentElement.lang==='zh-CN'?'zh-CN':'en-GB',{year:'numeric',month:'short',day:'numeric',hour:'2-digit',minute:'2-digit',second:'2-digit',timeZoneName:'longOffset'})+' · '+Intl.DateTimeFormat().resolvedOptions().timeZone].filter(Boolean).join('\n');
  }
  if(data.analysis&&evaluation){$('analysis-status').textContent=pending?pendingMessage():data.metadata.analysis.deep?.status==='failed'?t('深度分析未完成，保留快速结果。','Deep analysis failed. Quick results remain available.'):'';const lead=evaluation.blackLead;$('lead').textContent=Math.abs(lead)<0.05?t('双方均势','Even position'):lead>0?t('黑方领先 '+lead.toFixed(1)+' 点','Black leads by '+lead.toFixed(1)+' points'):t('白方领先 '+(-lead).toFixed(1)+' 点','White leads by '+(-lead).toFixed(1)+' points');const blackPercent=Math.max(0,Math.min(100,evaluation.blackWinrate*100)),whitePercent=100-blackPercent;$('lead').dataset.leader=Math.abs(lead)<0.05?'even':lead>0?'black':'white';$('winrate').hidden=false;$('black-probability-label').textContent=t('黑方 ','Black ')+blackPercent.toFixed(1)+'%';$('white-probability-label').textContent=t('白方 ','White ')+whitePercent.toFixed(1)+'%';$('black-probability').style.width=blackPercent+'%';$('probability-bar').setAttribute('aria-label',t('胜率：黑方 ','Win probability: Black ')+blackPercent.toFixed(1)+'%, '+t('白方 ','White ')+whitePercent.toFixed(1)+'%');}
  else $('analysis-status').textContent=trials.length?t('试下局面未分析。','Preview positions are not analysed.'):state==='ready'?t('此分支尚未分析。','This variation has not been analysed.'):state==='limited'?t('今日 AI 分析限额已用完。棋谱已保存，可正常复盘。','The daily AI analysis cap has been reached. Your game is saved and available to replay.'):state==='failed'?t('AI 分析失败，棋谱仍可查看。','AI analysis failed. The game is still available.'):pendingMessage();
@@ -37,13 +37,13 @@ function render(){document.title=(data?.metadata.name || t('棋谱','Game record
 function pendingMessage(){
  const state=data.metadata.analysis,stage=pendingAnalysis(state)||state;
  const deep=stage.phase==='deep'||data.metadata.benchmark?.queueKind==='deep';
- if(data.metadata.benchmark){const started=state.startedAt;return (state.status==='queued'?t('基准测试排队中。','Benchmark queued.'):t('基准分析运行中 · 已运行 ','Benchmark analysis running · elapsed ')+Math.floor(Math.max(0,Date.now()-Date.parse(started))/60000)+t(' 分钟',' min')+'\n'+t('开始于：','Started: ')+formatAnalysisTime(Date.parse(started)))+' '+(deep?t('刷新页面以查看深度结果。','Refresh the page for deeper results.'):t('每 15 秒检查快速结果。','Quick results are checked every 15 seconds.'));}
+ if(data.metadata.benchmark){const started=state.startedAt;return (state.status==='queued'?t('基准测试排队中。','Benchmark queued.'):t('基准分析运行中 · 已运行 ','Benchmark analysis running · elapsed ')+Math.floor(Math.max(0,Date.now()-Date.parse(started))/60000)+t(' 分钟',' min')+'\n'+t('开始于：','Started: ')+formatAnalysisTime(Date.parse(started)))+'\n'+analysisTotal(null)+' '+(deep?t('刷新页面以查看深度结果。','Refresh the page for deeper results.'):t('每 15 秒检查快速结果。','Quick results are checked every 15 seconds.'));}
  const wait=analysisWait(stage,data.metadata.moves),completion=analysisCompletion(stage,data.metadata.moves),duration=wait.seconds>=90?t(Math.ceil(wait.seconds/60)+' 分钟',Math.ceil(wait.seconds/60)+' min'):t(wait.seconds+' 秒',wait.seconds+' s');
  const name=deep?(data.analysis?t('当前显示快速结果 · 深度分析','Quick results shown · Deep analysis'):t('深度分析','Deep analysis')):t('快速分析','Quick analysis');
  const progress=wait.phase==='queued'?t('排队中 · 处理约 '+duration+'，排队另计。','queued · ~'+duration+' processing, plus queue wait.'):wait.phase==='running'?t(' · 预计还需约 '+duration+'。',' · ~'+duration+' remaining.'):t(' · 比预计耗时更长。',' · taking longer than estimated.');
  const estimate=completion?'\n'+(wait.phase==='overdue'?t('原预计完成：','Original estimated finish: '):completion.earliest?t('最早预计完成：','Earliest estimated finish: '):t('预计完成：','Estimated finish: '))+formatAnalysisTime(completion.timestamp):'';
  const check=deep?t('刷新页面查看深度结果。','Refresh the page for deeper results.'):t('每 15 秒检查快速结果。','Quick results are checked every 15 seconds.');
- return name+progress+estimate+'\n'+check;
+ return name+progress+estimate+'\n'+analysisTotal(null)+'\n'+check;
 }
 function formatAnalysisTime(timestamp){return new Date(timestamp).toLocaleString(document.documentElement.lang==='zh-CN'?'zh-CN':'en-GB',{year:'numeric',month:'short',day:'numeric',hour:'2-digit',minute:'2-digit',second:'2-digit',timeZoneName:'longOffset'})+' · '+Intl.DateTimeFormat().resolvedOptions().timeZone;}
 function scheduleStatusTicker(){clearInterval(statusTimer);if(record&&!document.hidden&&pendingAnalysis(data.metadata.analysis))statusTimer=setInterval(()=>{if(trials.length)return;const message=pendingMessage();if($('analysis-status').textContent!==message)$('analysis-status').textContent=message;},1000);}
@@ -100,3 +100,10 @@ function analysisCompute(a){
 }
 
 function restorePosition(){try{const n=Number(sessionStorage.getItem('weiqi.replay.'+id));return Number.isInteger(n)&&n>=0?n:0;}catch{return 0;}}
+
+function analysisTotal(a){
+ const elapsed=analysisTotalMillis(a,data?.metadata);
+ if(elapsed===null)return t('总时间（含排队与准备）：未记录','Total time (including queue and setup): not recorded');
+ const seconds=a?Math.round(elapsed/1000):Math.floor(elapsed/1000),h=Math.floor(seconds/3600),m=Math.floor(seconds%3600/60),s=seconds%60;
+ return (a?t('总时间（含排队与准备）：','Total time (including queue and setup): '):t('总计已等待（含排队与准备）：','Total elapsed (including queue and setup): '))+(h?h+'h ':'')+m+'m '+String(s).padStart(2,'0')+'s';
+}

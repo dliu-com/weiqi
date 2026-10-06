@@ -94,6 +94,10 @@ def handler(event,context=None):
         version=subprocess.check_output([ENGINE,'version'],text=True).splitlines()[0]
         analysis={'schemaVersion':1,'id':event['id'],'sgfSha256':event['sgfSha256'],'engine':'KataGo','engineVersion':version,'model':MODEL_KEY.split('/')[-1],'modelSha256':hashlib.sha256(model.read_bytes()).hexdigest(),'modelUrl':os.environ.get('KATAGO_MODEL_URL'),'configuration':{'analysisThreads':int(os.environ.get('ANALYSIS_THREADS','1')),'searchThreads':threads,'neuralNetThreads':int(os.environ.get('NN_THREADS','1')),'maxVisits':visits,'maxBatchSize':max_batch},'visits':visits,'phase':phase,'reportPerspective':'BLACK','rules':query['rules'],'komi':query['komi'],'completedAt':datetime.datetime.now(datetime.timezone.utc).isoformat(),'elapsedMs':round((finished-started)*1000),'positions':[rows[n] for n in sorted(rows)],'benchmark':{'backend':os.environ.get('BACKEND','cpu'),'downloadMs':round((downloaded-started)*1000),'engineMs':round((finished-engine_started)*1000),'requestStartedAt':event['requestedAt'],'workerStartedAt':datetime.datetime.fromtimestamp(started,datetime.timezone.utc).isoformat(),'searchThreads':threads}}
         if event.get('compute'):analysis['compute']=event['compute']
+        origin=event.get('enqueuedAt') or (metadata or {}).get('analysis',{}).get('enqueuedAt')
+        if origin:
+            analysis['enqueuedAt']=origin
+            analysis['endToEndMs']=max(0,round((time.time()-datetime.datetime.fromisoformat(origin.replace('Z','+00:00')).timestamp())*1000))
         timings['provenanceMs']=round((time.time()-provenance_started)*1000)
         upload_started=time.time()
         result_key=prefix+('/analysis-quick.json' if production and phase=='quick' else '/analysis.json')
