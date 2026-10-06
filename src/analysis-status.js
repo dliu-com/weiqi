@@ -29,3 +29,10 @@ export function analysisCompletion(analysis,moves,now=Date.now()){
  const seconds=analysis.estimatedSeconds||estimatedAnalysisSeconds(moves+1);
  return {timestamp:start+seconds*1000,earliest:analysis.status!=='running'};
 }
+
+export function analysisTotalMillis(analysis,metadata,now=Date.now()) {
+ if(Number.isFinite(analysis?.endToEndMs))return analysis.endToEndMs;
+ const origin=analysis?.enqueuedAt||metadata?.analysis?.enqueuedAt;
+ const start=Date.parse(origin),end=analysis?.completedAt?Date.parse(analysis.completedAt):now;
+ return Number.isFinite(start)&&Number.isFinite(end)?Math.max(0,end-start):null;
+}

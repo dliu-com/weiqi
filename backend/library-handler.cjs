@@ -31,7 +31,16 @@ async function libraryHandler(event) {
     const metadata=await uploadRecord(libraryStore,request.sgf,request.filename,request.id);
     // Only eligible uploads enqueue the quick and deep cloud analyses.
     // Duplicate deliveries are safe: workers reuse complete results and claim jobs.
-    if(process.env.ANALYSIS_QUEUE && metadata.analysis.status==='queued') await libraryQueue.send(new SendMessageCommand({QueueUrl:process.env.ANALYSIS_QUEUE,MessageBody:JSON.stringify({id:metadata.id})}));
+    if(process.env.ANALYSIS_QUEUE && metadata.analysis.status==='queued') {
+      const key='games/'+metadata.id+'/metadata.json';
+      for(let n=0;n<6;n++){
+        const obj=await libraryS3.send(new GetObjectCommand({Bucket:process.env.LIBRARY_BUCKET,Key:key})),current=JSON.parse(await obj.Body.transformToString());
+        if(current.analysis.enqueuedAt)break;
+        current.analysis.enqueuedAt=new Date().toISOString();
+        try{await libraryS3.send(new PutObjectCommand({Bucket:process.env.LIBRARY_BUCKET,Key:key,Body:JSON.stringify(current),ContentType:'application/json',IfMatch:obj.ETag}));break;}catch(e){if(![409,412].includes(e.$metadata?.httpStatusCode)||n===5)throw e;}
+      }
+      await libraryQueue.send(new SendMessageCommand({QueueUrl:process.env.ANALYSIS_QUEUE,MessageBody:JSON.stringify({id:metadata.id})}));
+    }
     return response(200,{id:metadata.id});
   } catch(e) {
     if(e.name==='NoSuchKey')return response(404,{message:'Record not found.'});

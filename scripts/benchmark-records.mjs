@@ -15,7 +15,7 @@ export async function attachBenchmarkRecords(summary,source){
   const network=summary.model.match(/b(\d+)c(\d+)/);
   m.name=`Benchmark · ${r.gpuType?r.gpuType+" GPU · ":""}${r.cpu} CPUs / ${r.memoryGB} GB · ${network?network.slice(1).join('×'):summary.model} · ${r.visits} visits`+(r.analysisThreads?` · ${r.analysisThreads} analysis threads / batch ${r.maxBatchSize}`:'');
   m.benchmark={queueKind:summary.queueKind,jobId:r.jobId,prefix:r.prefix,cpu:r.cpu,memoryGB:r.memoryGB,visits:r.visits,...(r.gpuType?{gpu:'NVIDIA '+r.gpuType,gpuCount:1,instanceType:r.instanceType}:{}),...(r.analysisThreads?{analysisThreads:r.analysisThreads,maxBatchSize:r.maxBatchSize}: {})};
-  m.analysis={status:r.status==='FAILED'?'failed':'running',visits:r.visits,jobId:r.jobId,startedAt:new Date().toISOString(),estimatedSeconds:6300};
+  m.analysis={enqueuedAt:r.enqueuedAt||new Date().toISOString(),status:r.status==='FAILED'?'failed':'running',visits:r.visits,jobId:r.jobId,startedAt:new Date().toISOString(),estimatedSeconds:6300};
   await put('games/'+m.id+'/metadata.json',JSON.stringify(m),'application/json');r.recordId=m.id;r.recordUrl='https://weiqi.dliu.com/record/'+m.id;
  }
 }
