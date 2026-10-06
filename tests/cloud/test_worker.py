@@ -69,9 +69,14 @@ class WorkerTest(unittest.TestCase):
   self.assertIn('nnMaxBatchSize = 32',configs[0]);self.assertIn('numAnalysisThreads = 16',configs[0])
   saved=json.loads(self.files['games/2026100501/analysis.json']['body']);self.assertEqual(saved['configuration']['maxBatchSize'],32)
   self.assertEqual(saved['compute']['gpu'],'NVIDIA T4');self.assertEqual(saved['compute']['vCpu'],4);self.assertEqual(saved['compute']['memoryGB'],16)
+ def test_actual_gpu_provenance_identifies_the_selected_fallback_instance(self):
+  with patch.dict(os.environ,{'BACKEND':'gpu'}),patch.object(self.worker.subprocess,'check_output',return_value='Tesla T4, 15360\n'):
+   compute=self.worker.actual_gpu_compute({'backend':'gpu','vCpu':4,'memoryGB':16});self.assertEqual(compute['instanceType'],'g4dn.xlarge');self.assertEqual(compute['gpu'],'NVIDIA T4')
+  with patch.dict(os.environ,{'BACKEND':'gpu'}),patch.object(self.worker.subprocess,'check_output',return_value='NVIDIA A10G, 23028\n'):
+   self.assertEqual(self.worker.actual_gpu_compute({})['instanceType'],'g5.xlarge')
  def test_pipeline_publishes_quick_before_deep_and_downloads_each_model_pass(self):
   self.files['games/2026100501/metadata.json']['body']=json.dumps({'analysis':{'status':'queued','token':'owner','quick':{'status':'queued'},'deep':{'status':'queued'}}})
-  event={**self.event,'token':'owner','pipeline':True,'phases':{'quick':{'visits':32,'estimatedSeconds':10},'deep':{'visits':1000,'estimatedSeconds':30}}}
+  event={**self.event,'token':'owner','pipeline':True,'compute':{'backend':'gpu','vCpu':4,'memoryGB':16,'gpu':'NVIDIA T4','instanceType':'g4dn.xlarge'},'phases':{'quick':{'visits':32,'estimatedSeconds':10},'deep':{'visits':1000,'estimatedSeconds':30}}}
   calls=[]
   def run(args,**kwargs):
    query=json.loads(kwargs['input']);calls.append(query['maxVisits'])
@@ -83,7 +88,7 @@ class WorkerTest(unittest.TestCase):
   self.assertEqual(json.loads(self.files['games/2026100501/metadata.json']['body'])['analysis']['available'],'deep')
  def test_pipeline_skips_completed_quick_results_and_preserves_owner(self):
   self.files['games/2026100501/metadata.json']['body']=json.dumps({'analysis':{'status':'queued','token':'owner','quick':{'status':'ready','visits':32},'deep':{'status':'queued'},'available':'quick'}})
-  event={**self.event,'token':'owner','pipeline':True,'phases':{'quick':{'visits':32,'estimatedSeconds':10},'deep':{'visits':1000,'estimatedSeconds':30}}}
+  event={**self.event,'token':'owner','pipeline':True,'compute':{'backend':'gpu','vCpu':4,'memoryGB':16,'gpu':'NVIDIA T4','instanceType':'g4dn.xlarge'},'phases':{'quick':{'visits':32,'estimatedSeconds':10},'deep':{'visits':1000,'estimatedSeconds':30}}}
   output='\n'.join(json.dumps({'turnNumber':n,'rootInfo':{'scoreLead':0,'winrate':.5,'visits':1000}}) for n in [0,1,2])
   with patch.object(self.worker.subprocess,'run',return_value=types.SimpleNamespace(returncode=0,stdout=output)),patch.object(self.worker.subprocess,'check_output',return_value='KataGo test'):
    self.assertEqual(self.worker.pipeline(event)[0]['status'],'skipped')

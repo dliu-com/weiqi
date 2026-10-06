@@ -1,12 +1,12 @@
 {
-  "asOf": "2026-10-06T03:59:55.303971+00:00",
+  "asOf": "2026-10-06T04:54:39.178577+00:00",
   "developmentBudgetUSD": 30,
   "cpuComputeIpEstimateUSD": 5.4733,
-  "gpuComputeIpStorageEstimateUSD": 1.6199647642966666,
+  "gpuComputeIpStorageEstimateUSD": 2.1058854804766667,
   "smallServicesAllowanceUSD": 2,
-  "conservativeTotalEstimateUSD": 9.093264764296666,
+  "conservativeTotalEstimateUSD": 9.579185480476667,
   "maximumAdditionalActiveCpuJobUSD": 0,
-  "note": "Includes failed/stopped development workers, conservative setup and idle allocation, and a small-service allowance. Not a final AWS invoice.",
+  "note": "Includes failed/stopped tests, conservative full GPU allocations and On-Demand pricing for Spot test, plus the existing $2 small-service/build allowance. Not a final AWS invoice.",
   "gpuInstances": [
     {
       "instanceId": "i-0a129c2323af37849",
@@ -101,6 +101,39 @@
       "releaseSource": "Observed automatic retirement; conservative upper bound.",
       "estimatedComputeIpStorageUSD": 0.21816167507,
       "validationRecord": "2026100617"
+    },
+    {
+      "instanceId": "i-0c1e2e2b3b5a8b0d8",
+      "type": "g4dn.xlarge",
+      "state": "terminated",
+      "launchedAt": "2026-10-06T04:29:06+00:00",
+      "releasedAt": "2026-10-06T04:42:12+00:00",
+      "releaseKnown": true,
+      "releaseSource": "Observed terminated; conservative upper bound including failed test.",
+      "estimatedComputeIpStorageUSD": 0.13362
+    },
+    {
+      "instanceId": "i-0d31fbc91cc9c56cb",
+      "type": "g4dn.xlarge",
+      "state": "shutting-down",
+      "launchedAt": "2026-10-06T04:27:05+00:00",
+      "releasedAt": "2026-10-06T04:54:39.178577+00:00",
+      "releaseKnown": true,
+      "releaseSource": "Observed automatic shutdown; conservative allocation upper bound.",
+      "validationRecord": "2026100618",
+      "estimatedComputeIpStorageUSD": 0.28121035809
+    },
+    {
+      "instanceId": "i-069284709cddf5f09",
+      "type": "g4dn.xlarge",
+      "purchaseOption": "Spot",
+      "state": "shutting-down",
+      "launchedAt": "2026-10-06T04:47:41+00:00",
+      "releasedAt": "2026-10-06T04:54:39.178577+00:00",
+      "releaseKnown": true,
+      "releaseSource": "Observed automatic shutdown; estimate deliberately uses higher On-Demand rate.",
+      "validationRecord": "2026100619",
+      "estimatedComputeIpStorageUSD": 0.07109035809
     }
   ]
 }
