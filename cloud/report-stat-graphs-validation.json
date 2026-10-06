@@ -1,0 +1,30 @@
+{
+  "verifiedAt": "2026-10-06T12:10:33.914063+00:00",
+  "reportUrl": "https://weiqi.dliu.com/record/2026100620/report",
+  "languages": [
+    "en",
+    "zh-CN"
+  ],
+  "graphsPerLanguage": 9,
+  "pagesPerLanguage": 21,
+  "contentsEntries": 19,
+  "plainLanguageGuideUnderEveryGraph": true,
+  "separateCalculationDetailsUnderEveryGraph": true,
+  "allChartValuesMatchSavedAnalysis": true,
+  "verifiedComparisonBarValues": 32,
+  "verifiedQualityCounts": 15,
+  "bilingualValuesIdentical": true,
+  "maximumTableBodyCells": 20,
+  "maximumStatisticsTableNumericValues": 10,
+  "badMoveBoardPages": 10,
+  "allContentsDestinationsMatchPageNumbers": true,
+  "desktopVerified": true,
+  "mobileViewportWidth": 390,
+  "mobileDocumentWidth": 375,
+  "horizontalOverflow": false,
+  "nodeTestsPassed": 108,
+  "pdfExportTest": "Deferred at user request; no Save PDF action or exported PDF",
+  "cloudResourceChanges": false,
+  "newPaidAnalysisJobs": 0,
+  "screenshot": "/private/tmp/weiqi-report-stat-graphs-production.png"
+}

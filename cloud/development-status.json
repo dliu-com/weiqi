@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-10-06T11:51:20.321073+00:00",
+  "updatedAt": "2026-10-06T12:10:33.914063+00:00",
   "awsDevelopmentDebugBudgetUSD": 30,
   "noFurtherPaidBenchmarksPlanned": true,
   "smallServiceAllowanceUSD": 2,
@@ -35,7 +35,7 @@
     }
   },
   "verifiedTests": {
-    "node": 106,
+    "node": 108,
     "python": 10,
     "cdk": 14
   },
@@ -136,19 +136,18 @@
     "pdfExportTest": "Deferred at user request",
     "validationRecord": "2026100620",
     "schemaVersion": 6,
-    "format": "Five bad moves per side for board diagrams; all rated move types for statistics, charts and worked mathematics",
+    "format": "Nine visual statistics with nontechnical reading guides and separate calculation details; five bad-move boards per side",
     "maximumMovesPerSide": 5,
     "userConfigControls": false,
     "goodMoveStatistics": true,
     "statistics": [
-      "All five quality counts and percentages; evaluation coverage and first-choice matches",
-      "Loss tolerance rates at 0.5, 1 and 2 points",
-      "All-rated-move total, mean, median, 90th/95th-percentile, population SD and RMS loss",
-      "Searched versus estimated played evaluation counts and means",
-      "All-rated-move win-loss mean, median, 90th percentile, population SD, maxima and 5/10/20 pp drops",
-      "Per-quality summaries, complete zero-inclusive loss bins and move-range quality counts",
-      "Whole-game metrics pooled across both sides; all-rated-move loss timelines",
-      "Bilingual formulas, denominators and worked game calculations"
+      "Move-quality proportions and exact counts",
+      "Average, median and 90th-percentile point and win-rate loss",
+      "Five worst moves share of total point loss",
+      "Average point loss in fixed move ranges",
+      "Zero-inclusive point-loss distribution",
+      "Per-move error timeline, Black win probability and point advantage",
+      "Detailed metrics retained in saved JSON; specialist and overlapping summaries omitted from the reader view"
     ],
     "languages": [
       "en",
@@ -156,21 +155,24 @@
     ],
     "languageFormat": "English / Chinese switcher; selected language displayed and saved",
     "bilingualBrowserValidation": {
-      "verifiedAt": "2026-10-06T11:51:20.321073+00:00",
+      "verifiedAt": "2026-10-06T12:10:33.914063+00:00",
       "recordUrl": "https://weiqi.dliu.com/record/2026100620",
       "languages": [
         "en",
         "zh-CN"
       ],
-      "sheetsPerLanguage": 24,
+      "sheetsPerLanguage": 21,
       "badMovesPerSidePerLanguage": 5,
-      "chartsPerLanguage": 4,
+      "chartsPerLanguage": 9,
       "identicalTableNumbers": true,
       "desktop": true,
       "mobileWidth": 390,
       "horizontalOverflow": false,
       "configurationInputs": 0,
-      "pdfExportTest": "Deferred at user request"
+      "pdfExportTest": "Deferred at user request",
+      "identicalChartNumbers": true,
+      "plainLanguageFirst": true,
+      "mathUnderEveryGraph": true
     },
     "automaticGeneration": "AWS Batch SUCCEEDED event through EventBridge to existing GameHandler Lambda",
     "savePdfAvailable": true,
@@ -183,6 +185,7 @@
       "pdfContentsLinksImplemented": true,
       "pdfSectionBookmarksImplemented": true,
       "actualPdfExportTest": "Deferred at user request"
-    }
+    },
+    "statisticsPresentation": "Nine graphs; compact tables only; plain-language explanations first, technical maths below"
   }
 }
