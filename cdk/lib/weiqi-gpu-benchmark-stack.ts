@@ -20,10 +20,10 @@ export class WeiqiGpuBenchmarkStack extends Stack {
   const instanceRole=new iam.Role(this,'InstanceRole',{assumedBy:new iam.ServicePrincipal('ec2.amazonaws.com'),managedPolicies:[iam.ManagedPolicy.fromAwsManagedPolicyName('service-role/AmazonEC2ContainerServiceforEC2Role')]});
   const profile=new iam.CfnInstanceProfile(this,'Profile',{roles:[instanceRole.roleName]});
   const launch=new ec2.CfnLaunchTemplate(this,'Launch',{launchTemplateData:{networkInterfaces:[{deviceIndex:0,associatePublicIpAddress:true,groups:[security.securityGroupId]}]}});
-  // The account quota permits one four-vCPU GPU instance at a time. The runner
-  // submits sequentially and releases each instance before trying the next type.
+  // Ireland's approved eight-vCPU G/VT quota permits two production T4 workers.
+  // Benchmark environments retain a one-instance limit for controlled comparisons.
   let productionCompute:batch.CfnComputeEnvironment,productionQueue:batch.CfnJobQueue;
-  const variants:readonly (readonly [string,string,number])[]=props.production?[['T4','g4dn.xlarge',4]]:[['T4','g4dn.xlarge',4],['A10G','g5.xlarge',4]];
+  const variants:readonly (readonly [string,string,number])[]=props.production?[['T4','g4dn.xlarge',8]]:[['T4','g4dn.xlarge',4],['A10G','g5.xlarge',4]];
   for(const [name,type,limit] of variants){
    const compute=new batch.CfnComputeEnvironment(this,name+'Compute',{type:'MANAGED',state:'ENABLED',replaceComputeEnvironment:false,computeResources:{type:'EC2',allocationStrategy:'BEST_FIT_PROGRESSIVE',minvCpus:0,maxvCpus:limit,scalingPolicy:{minScaleDownDelayMinutes:props.production?0:20},instanceTypes:[type],instanceRole:profile.attrArn,subnets:[...vpc.publicSubnets.map(s=>s.subnetId),capacitySubnet.ref],launchTemplate:{launchTemplateId:launch.ref,version:launch.attrLatestVersionNumber},ec2Configuration:[{imageType:'ECS_AL2023_NVIDIA'}],tags:{service:'weiqi-gpu-benchmark',benchmarkGpu:name}}});
    compute.node.addDependency(capacityRoute);
@@ -47,14 +47,14 @@ export class WeiqiGpuBenchmarkStack extends Stack {
    const fallback=new lambda.Function(this,'CapacityFallback',{runtime:lambda.Runtime.NODEJS_22_X,handler:'index.handler',code:lambda.Code.fromInline(fs.readFileSync(path.join(root,'backend/gpu-fallback.cjs'),'utf8')),timeout:Duration.seconds(30),memorySize:256,environment:{LIBRARY_BUCKET:bucket.bucketName,CPU_QUICK_QUEUE:props.cpuQuickQueue,CPU_DEEP_QUEUE:props.cpuDeepQueue,CPU_JOB_DEFINITION:cpuJobDefinition,FALLBACK_QUEUE:fallbackQueue.queueUrl,GPU_FALLBACK_WAIT_SECONDS:'1200'},logRetention:logs.RetentionDays.ONE_WEEK});
    bucket.grantReadWrite(fallback,'games/*');bucket.grantReadWrite(fallback,'jobs/*');
    fallback.addToRolePolicy(new iam.PolicyStatement({actions:['batch:DescribeJobs','batch:ListJobs','batch:CancelJob'],resources:['*']}));
-   fallback.addToRolePolicy(new iam.PolicyStatement({actions:['batch:SubmitJob'],resources:[props.cpuQuickQueue,props.cpuDeepQueue,cpuJobDefinitionResource]}));
+   fallback.addToRolePolicy(new iam.PolicyStatement({actions:['batch:SubmitJob'],resources:[props.cpuQuickQueue,props.cpuDeepQueue,cpuJobDefinition,cpuJobDefinitionResource]}));
    fallbackQueue.grantSendMessages(fallback);
    fallback.addEventSource(new sources.SqsEventSource(fallbackQueue,{batchSize:1,maxConcurrency:2,reportBatchItemFailures:true}));
    const shared=['src/engine.js','src/sgf.js','backend/library-service.js'].map(file=>fs.readFileSync(path.join(root,file),'utf8').replace(/^import .*;\n/gm,'').replace(/^export /gm,'')).join('\n');
    const modelResolver=fs.readFileSync(path.join(root,'backend/katago-model.cjs'),'utf8').replace(/^module.exports=.*;$/gm,'');
    const dispatcher=new lambda.Function(this,'ProductionDispatcher',{runtime:lambda.Runtime.NODEJS_22_X,handler:'index.handler',code:lambda.Code.fromInline(shared+'\n'+modelResolver+'\n'+fs.readFileSync(path.join(root,'backend/fargate-dispatcher.cjs'),'utf8')),timeout:Duration.seconds(30),memorySize:256,environment:{LIBRARY_BUCKET:bucket.bucketName,JOB_QUEUE:props.cpuQuickQueue,DEEP_QUEUE:deep.ref,JOB_DEFINITION:job.ref,CPU_JOB_DEFINITION:cpuJobDefinition,ANALYSIS_BACKEND:'gpu',FALLBACK_QUEUE:fallbackQueue.queueUrl,GPU_ANALYSIS_THREADS:'16',GPU_MAX_BATCH_SIZE:'32',GPU_FALLBACK_WAIT_SECONDS:'1200'},logRetention:logs.RetentionDays.ONE_WEEK});
    bucket.grantReadWrite(dispatcher,'games/*');bucket.grantWrite(dispatcher,'jobs/*');fallbackQueue.grantSendMessages(dispatcher);
-   dispatcher.addToRolePolicy(new iam.PolicyStatement({actions:['batch:SubmitJob'],resources:[props.cpuQuickQueue,cpuJobDefinitionResource,deep.ref,job.ref]}));
+   dispatcher.addToRolePolicy(new iam.PolicyStatement({actions:['batch:SubmitJob'],resources:[props.cpuQuickQueue,cpuJobDefinition,cpuJobDefinitionResource,deep.ref,job.ref]}));
    dispatcher.addEventSource(new sources.SqsEventSource(uploads,{batchSize:1,maxConcurrency:2,reportBatchItemFailures:true,enabled:props.dispatchEnabled!==false}));
    const failure=new lambda.Function(this,'FailureStatus',{runtime:lambda.Runtime.NODEJS_22_X,handler:'index.handler',code:lambda.Code.fromInline(fs.readFileSync(path.join(root,'backend/fargate-status.cjs'),'utf8')),timeout:Duration.seconds(15),environment:{LIBRARY_BUCKET:bucket.bucketName},logRetention:logs.RetentionDays.ONE_WEEK});
    bucket.grantReadWrite(failure,'games/*');
