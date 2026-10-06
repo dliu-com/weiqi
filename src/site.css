@@ -24,3 +24,7 @@ button.is-loading:before{content:'';display:inline-block;width:12px;height:12px;
 .editor-save-help{margin:-3px 0 14px;font-size:13px;line-height:1.5;color:#52636c}
 
 .game-details-editor h2{margin:0;font:600 14px system-ui}
+
+.editor-heading{display:flex;align-items:center;justify-content:space-between;gap:10px;min-height:32px;margin-bottom:12px}.editor-heading h1{margin:0;flex-shrink:0}.editor-heading #draft-status{margin:0;min-width:0;max-width:50%;font-size:12px;line-height:1.4;color:#52636c;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+.editor-page .workspace-panel{overflow-anchor:none}
