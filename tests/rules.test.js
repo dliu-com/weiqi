@@ -75,3 +75,23 @@ test('single result confirmation finishes scoring and rejects stale results',()=
  s=act(s,{type:'finish'});assert.equal(s.phase,'ended');assert.equal(s.result.winner,'white');
  assert.throws(()=>act(s,{type:'move',index:181}));assert.throws(()=>act(s,{type:'finish'}));
 });
+
+test('legacy live branches are pruned and undo permanently removes the active move',()=>{
+ let s=createState();for(const index of [0,1,2])s=act(s,{type:'move',index});
+ const abandoned=structuredClone(s.tree.nodes[2]);
+ s=act(s,{type:'undo'});s=act(s,{type:'move',index:3});
+ const played=structuredClone(s.tree.nodes[2]);
+ s.tree.nodes.splice(2,0,abandoned);s.tree.head=3;
+ const original=JSON.stringify(s);
+ const cleaned=act(s,{type:'heartbeat'});
+ assert.equal(JSON.stringify(s),original);
+ assert.deepEqual(cleaned.tree.nodes.map(n=>n[2]),[0,1,3]);
+ assert.deepEqual(cleaned.tree.nodes[2].slice(4),played.slice(4));
+ assert.equal(reviewPosition(cleaned,cleaned.tree.head).board,s.board);
+ s=act(s,{type:'undo'});
+ assert.deepEqual(s.tree.nodes.map(n=>n[2]),[0,1]);
+ s=act(s,{type:'move',index:19});
+ assert.deepEqual(s.tree.nodes.map(n=>n[0]),[-1,0,1]);
+ assert.deepEqual(s.tree.nodes.map(n=>n[2]),[0,1,19]);
+ assert.equal(reviewPosition(s,s.tree.head).board,s.board);
+});

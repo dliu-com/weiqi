@@ -56,3 +56,26 @@ test('an already-published legacy draft clears once without deleting the library
  a.rows.set('record-draft',{gameId:{S:'record-draft'},revision:{N:'12'},state:{S:JSON.stringify(legacy)}});
  const first=await a.call('/api/draft'),second=await a.call('/api/draft');assert.equal(first.draft.sgf,newRecordingSgf());assert.equal(first.draft.revision,13);assert.equal(second.draft.revision,13);assert.equal(a.saved.size,0);
 });
+
+test('auto-sync recovers an ended game after a failed save and resets exactly once',async()=>{
+ const a=api();let s=(await a.call('/api/game')).state;
+ s=(await a.call('/api/game',{expectedRevision:s.revision,action:{type:'move',index:60}})).state;
+ a.fail(true);
+ assert.equal((await a.call('/api/game',{expectedRevision:s.revision,action:{type:'result',winner:'white'}})).status,500);
+ assert.equal(JSON.parse(a.rows.get('current').state.S).phase,'ended');
+ assert.equal((await a.call('/api/game',{action:{type:'heartbeat'}})).status,500);
+ a.fail(false);
+ const next=await a.call('/api/game',{action:{type:'heartbeat'}});
+ assert.equal(next.status,200);assert.equal(next.state.phase,'play');assert.equal(next.state.history.length,0);
+ assert.equal(a.saved.size,1);
+ await a.call('/api/game',{action:{type:'heartbeat'}});
+ assert.equal(a.saved.size,1);
+});
+
+test('counted result selected from New game saves the score and starts a blank game',async()=>{
+ const a=api();let s=(await a.call('/api/game',{expectedRevision:0,action:{type:'move',index:60}})).state;
+ s=(await a.call('/api/game',{expectedRevision:s.revision,action:{type:'move',index:300}})).state;
+ const done=await a.call('/api/game',{expectedRevision:s.revision,action:{type:'finish'}});
+ assert.equal(done.status,200);assert.equal(done.state.phase,'play');assert.equal(done.state.history.length,0);
+ const record=readSgf([...a.saved.values()][0].sgf);assert.equal(record.result,'W+7.5');assert.equal(a.saved.size,1);
+});
