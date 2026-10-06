@@ -1,6 +1,6 @@
 import './site-shell.js';
 import {BoardView} from './board-view.js';
-import {localTimestamp} from './site-time.js';
+import {localTimestamp,analysisQuotaDate} from './site-time.js';
 import {t,setLanguage} from './i18n.js';
 import {analysisWait,pendingAnalysis,shouldPollQuick,analysisCompletion,analysisTotalMillis,queueWait,QUICK_POLL_INTERVAL_MS,conservativeMinute} from './analysis-status.js';
 import {reviewMove,nextMoveComparison,recommendedLine,gtpPoint} from './ai-review.js';
@@ -35,7 +35,7 @@ function renderContents(){document.title=(data?.metadata.name || t('棋谱','Gam
   $('analysis-depth').textContent=[phase,engine+' · '+(network?network.slice(1).join(' × ')+t(' 网络',' network'):a.model)+' · '+(evaluation?.visits??'—')+' / '+a.visits+t(' 次访问',' visits'),analysisCompute(a),t('分析规则：','Analysis rules: ')+a.rules+' · '+t('贴目 ','Komi ')+a.komi,analysisRuntime(a),analysisTotal(a),t('完成于：','Completed: ')+localTimestamp(a.completedAt,document.documentElement.lang==='zh-CN'?'zh':'en')].filter(Boolean).join('\n');
  }
  if(data.analysis&&evaluation){$('analysis-status').textContent=pending?pendingMessage():data.metadata.analysis.deep?.status==='failed'?terminalAnalysisMessage():'';const lead=evaluation.blackLead;$('lead').textContent=Math.abs(lead)<0.05?t('双方均势','Even position'):lead>0?t('黑方领先 '+lead.toFixed(1)+' 目','Black leads by '+lead.toFixed(1)+' points'):t('白方领先 '+(-lead).toFixed(1)+' 目','White leads by '+(-lead).toFixed(1)+' points');const blackPercent=Math.max(0,Math.min(100,evaluation.blackWinrate*100)),whitePercent=100-blackPercent;$('lead').dataset.leader=Math.abs(lead)<0.05?'even':lead>0?'black':'white';$('winrate').hidden=false;$('black-probability-label').textContent=t('黑方 ','Black ')+blackPercent.toFixed(1)+'%';$('white-probability-label').textContent=t('白方 ','White ')+whitePercent.toFixed(1)+'%';$('black-probability').style.width=blackPercent+'%';$('probability-bar').setAttribute('aria-label',t('胜率：黑方 ','Win probability: Black ')+blackPercent.toFixed(1)+'%, '+t('白方 ','White ')+whitePercent.toFixed(1)+'%');}
- else $('analysis-status').textContent=aiLine?(pending?pendingMessage():t('AI 推荐变化；后续局面未单独分析。','KataGo recommended line; continuation positions are not separately analysed.')):trialOffset?t('试下局面未分析。','Preview positions are not analysed.'):state==='ready'?t('此分支尚未分析。','This variation has not been analysed.'):state==='limited'?t('今日 AI 分析限额已用完。棋谱已保存，可正常复盘。','The daily AI analysis cap has been reached. Your game is saved and available to replay.'):state==='failed'?terminalAnalysisMessage():pendingMessage();
+ else $('analysis-status').textContent=aiLine?(pending?pendingMessage():t('AI 推荐变化；后续局面未单独分析。','KataGo recommended line; continuation positions are not separately analysed.')):trialOffset?t('试下局面未分析。','Preview positions are not analysed.'):state==='ready'?t('此分支尚未分析。','This variation has not been analysed.'):state==='limited'?t(analysisQuotaDate(data.metadata)+' 的 AI 分析限额已用完。棋谱已保存，可正常复盘。','The daily AI analysis cap for '+analysisQuotaDate(data.metadata)+' has been reached. Your game is saved and available to replay.'):state==='failed'?terminalAnalysisMessage():pendingMessage();
  renderSuggestions();
 }
 function pendingMessage(){
