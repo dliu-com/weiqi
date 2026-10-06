@@ -183,4 +183,9 @@ body{background:#fff}.card,.status-card{background:#fff}button:not(.point):hover
 #record-main .point.ai-candidate:hover,#record-main .point.ai-candidate:focus-visible{opacity:1;outline:3px solid white;z-index:4}
 #record-main .point.ai-candidate:before,#record-main .point.ai-candidate:after{display:none}
 
-#generate-report[aria-disabled=true]{color:var(--muted);opacity:.65;cursor:default;text-decoration:none}
+#record-main .game-meta>.record-file-actions{display:flex;gap:8px;flex:0 1 auto;min-width:0;align-items:center}
+#record-main .record-file-actions .record-file-button{display:inline-flex;align-items:center;justify-content:center;min-height:38px;padding:8px 12px;line-height:1.25;font-size:14px;border:1px solid var(--line);border-radius:7px;text-decoration:none;white-space:nowrap}
+#record-main .record-file-actions #generate-report{background:#26343d;border-color:#26343d;color:#fff;font-weight:650}
+#record-main .record-file-actions #generate-report:not([aria-disabled=true]):hover{background:#3c4c55;border-color:#3c4c55}
+#record-main .record-file-actions #generate-report[aria-disabled=true]{background:#f3f5f6;border-color:var(--line);color:var(--muted);opacity:.65;cursor:default}
+@media(max-width:480px){#record-main .record-file-actions .record-file-button{min-height:44px;font-size:13px;padding:8px 10px}}
