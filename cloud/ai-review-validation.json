@@ -1,0 +1,86 @@
+{
+  "asOf": "2026-10-06T03:45:40.273Z",
+  "recordUrl": "https://weiqi.dliu.com/record/2026100617",
+  "gameMoves": 321,
+  "positions": 322,
+  "quick": {
+    "jobId": "5fb29e50-a29f-48f2-b660-4287af3fcf7e",
+    "visits": 8,
+    "totalSeconds": 178.881,
+    "engineSeconds": 140.363,
+    "compute": {
+      "backend": "fargate-cpu",
+      "vCpu": 32,
+      "memoryGB": 60
+    },
+    "completedAt": "2026-10-06T03:39:46.763537+00:00"
+  },
+  "quickReview": {
+    "positions": 322,
+    "withCandidates": 322,
+    "bytes": 147382,
+    "ratings": {
+      "good": 90,
+      "best": 130,
+      "inaccuracy": 65,
+      "mistake": 27,
+      "blunder": 9
+    },
+    "lines": 588,
+    "invalid": [],
+    "examples": [
+      {
+        "move": 1,
+        "candidate": "R16",
+        "frames": 4,
+        "provided": 3,
+        "truncated": false
+      },
+      {
+        "move": 1,
+        "candidate": "R4",
+        "frames": 4,
+        "provided": 3,
+        "truncated": false
+      },
+      {
+        "move": 1,
+        "candidate": "C16",
+        "frames": 4,
+        "provided": 3,
+        "truncated": false
+      },
+      {
+        "move": 3,
+        "candidate": "Q3",
+        "frames": 4,
+        "provided": 3,
+        "truncated": false
+      },
+      {
+        "move": 3,
+        "candidate": "C16",
+        "frames": 4,
+        "provided": 3,
+        "truncated": false
+      }
+    ]
+  },
+  "browser": {
+    "first100BoardsMatched": true,
+    "whiteAlternativeMatched": true,
+    "returnToRecordVerified": true,
+    "togglePreferenceVerified": true,
+    "mobileChartVisible": true,
+    "desktopNoPageOverflow": true
+  },
+  "tests": {
+    "node": 80,
+    "python": 7,
+    "cdk": 13
+  },
+  "deep": {
+    "status": "running"
+  },
+  "developmentBudgetUSD": 30
+}
