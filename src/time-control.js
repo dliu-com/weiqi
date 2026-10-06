@@ -29,9 +29,9 @@ export function timeControlValue(fields) {
 export function timeControlSummary(value,t=(zh,en)=>en) {
  if(!value)return '';
  const f=timeControlFields(value),minutes=String(Number(f.minutes.toFixed(3)));
- if(f.type==='absolute')return t(minutes+' 分钟（绝对用时）',minutes+' min absolute time');
- if(f.type==='byoyomi')return t(minutes+' 分钟 + '+f.periods+' 次 × '+f.seconds+' 秒读秒',minutes+' min + '+f.periods+' × '+f.seconds+' sec byo-yomi');
- if(f.type==='fischer')return t(minutes+' 分钟 + 每手 '+f.increment+' 秒',minutes+' min + '+f.increment+' sec per move');
+ if(f.type==='absolute')return t('绝对用时：'+minutes+' 分钟','Absolute time: '+minutes+' min');
+ if(f.type==='byoyomi')return t('日式读秒：'+minutes+' 分钟 + '+f.periods+' 次 × '+f.seconds+' 秒','Japanese byo-yomi: '+minutes+' min + '+f.periods+' × '+f.seconds+' sec');
+ if(f.type==='fischer')return t('费舍尔加秒：'+minutes+' 分钟 + 每手 '+f.increment+' 秒','Fischer: '+minutes+' min + '+f.increment+' sec per move');
  return minutes+t(' 分钟 · ',' min · ')+f.overtime;
 }
 export function mountTimeControl(form,t) {
