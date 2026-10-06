@@ -212,3 +212,5 @@ The recording controls sit below the game tree. Reposition move changes the sele
 A single prominent Open local SGF file button opens the file chooser; its native duplicate is hidden. Save game is followed by “AI analysis starts after saving”; confirmation explains that only the currently selected branch is saved.
 
 Recording Game details remain visible in a fixed section, without an expand/collapse control.
+
+Draft-saving status appears inline beside the recording title, without inserting or removing vertical space while autosaves run.
