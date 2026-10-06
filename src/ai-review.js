@@ -36,6 +36,28 @@ export function nextMoveSuggestions(record,selected,analyses,phase) {
   return {anchor:selected,side,best,alternatives,preliminary:phase==='quick'};
 }
 
+// Compare alternatives for this position with the next recorded move. The
+// recorded choice is retained even when it falls outside the good-move filter.
+export function nextMoveComparison(record,selected,analyses,phase) {
+  const next=nextMoveSuggestions(record,selected,analyses,phase),sign=next.side==='B'?1:-1;
+  const rows=next.alternatives.map((candidate,rank)=>{
+    const loss=Math.max(0,sign*(next.best.blackLead-candidate.blackLead));
+    return {move:candidate.move,label:'ABC'[rank],candidate,actual:false,loss,estimated:false,
+      quality:candidate.order===0?'best':loss<=.5?'good':loss<=2?'inaccuracy':loss<=5?'mistake':'blunder',
+      blackWinrate:candidate.blackWinrate};
+  });
+  const actualNode=record.nodes[selected].children[0],node=record.nodes[actualNode];
+  if(next.best&&node?.move&&node.move.side===next.side){
+    const review=reviewMove(record,actualNode,analyses,phase),move=moveCoordinate(node.move,record.size);
+    const candidate=analyses.get(selected)?.candidates?.find(c=>c.move===move);
+    const row=rows.find(r=>r.move===move),best=review.quality==='best';
+    const actual={move,actual:true,actualNode,loss:best?0:review.loss,quality:review.quality,
+      estimated:!best&&review.estimated,blackWinrate:best||!review.estimated?candidate?.blackWinrate:analyses.get(actualNode)?.blackWinrate};
+    if(row)Object.assign(row,actual);else rows.push({...actual,label:null,candidate});
+  }
+  return {...next,rows};
+}
+
 // Preview on a separate board tree; never mutate the uploaded record.
 export function recommendedLine(record,anchor,candidate) {
   const base=record.nodes[anchor],frames=[base],history=[];
