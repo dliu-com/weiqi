@@ -1,0 +1,36 @@
+{
+  "verifiedAt": "2026-10-06T12:14:22.159445+00:00",
+  "reportUrl": "https://weiqi.dliu.com/record/2026100620/report",
+  "languages": [
+    "en",
+    "zh-CN"
+  ],
+  "badMovesPerSide": 3,
+  "badMoveBoardPages": 6,
+  "pagesPerLanguage": 17,
+  "contentsEntries": 15,
+  "allContentsDestinationsMatchPageNumbers": true,
+  "blackMoves": [
+    107,
+    171,
+    199
+  ],
+  "whiteMoves": [
+    184,
+    144,
+    162
+  ],
+  "summaryRowsPerSide": 3,
+  "chartHighlightsMatchBoardSelection": true,
+  "topThreeLossShares": {
+    "B": 20.7725224133404,
+    "W": 22.1340036758746
+  },
+  "allMoveStatisticsRetained": true,
+  "cachedReportDataPreserved": true,
+  "nodeTestsPassed": 110,
+  "pdfExportTest": "Deferred at user request",
+  "newPaidAnalysisJobs": 0,
+  "cloudResourceChanges": false,
+  "screenshot": "/private/tmp/weiqi-three-bad-moves-production.png"
+}
