@@ -7,7 +7,7 @@ export function gamePrefix(id) {
 export function recordMetadata(source, filename, id) {
   if (!validRecordId(id) || typeof filename !== 'string' || filename.length > 255) throw Object.assign(new Error('Invalid upload request.'),{statusCode:400});
   const record = readSgf(source);
-  return {schemaVersion:1,id,originalFilename:filename,name:record.name || filename.replace(/\.sgf$/i,'').slice(0,200) || 'Uploaded game',players:record.players,size:record.size,komi:record.komi,rules:record.rules,date:record.date,result:record.result,moves:record.mainLine.length-1,uploadedAt:new Date().toISOString(),analysis:{status:'queued'}};
+  return {schemaVersion:1,id,originalFilename:filename,name:record.name || filename.replace(/\.sgf$/i,'').slice(0,200) || 'Uploaded game',players:record.players,size:record.size,komi:record.komi,rules:record.rules,date:record.date,venue:record.venue||'',result:record.result,moves:record.mainLine.length-1,uploadedAt:new Date().toISOString(),analysis:{status:'queued'}};
 }
 export const DAILY_ANALYSIS_CAP=Number(typeof process!=='undefined'?process.env.DAILY_ANALYSIS_CAP||10:10);
 export async function saveRecord(store, source, filename, id, analysisAllowed=true, analysisPaused=false) {

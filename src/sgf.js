@@ -81,7 +81,7 @@ export function readSgf(source) {
   }
   visit(parsed,0,true);
   const clean = text => (text || '').replace(/\s+/g,' ').trim().slice(0,200);
-  return {size,komi,rules:clean(one(root,'RU')),date:clean(one(root,'DT')),result:clean(one(root,'RE')),name:clean(one(root,'GN')),players:{black:clean(one(root,'PB')),white:clean(one(root,'PW'))},initialPlayer,nodes,mainLine};
+  return {size,komi,rules:clean(one(root,'RU')),date:clean(one(root,'DT')),venue:clean(one(root,'PC')),result:clean(one(root,'RE')),name:clean(one(root,'GN')),players:{black:clean(one(root,'PB')),white:clean(one(root,'PW'))},initialPlayer,nodes,mainLine};
 }
 export function kataQuery(record, id, visits = 1000) {
   const rules = record.rules.toLowerCase(); let normalized;

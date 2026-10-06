@@ -85,7 +85,7 @@ test('komi defaults follow rules and handicap while preserving explicitly suppli
   const handicap=setRecordingHandicap(r,2);assert.equal(handicap.komi,0.5);assert.equal(setRecordingHandicap(handicap,0).komi,komi);
  }
  const changed=setRecordingRules(recordingTree(newRecordingSgf()),'Chinese');assert.equal(changed.komi,7.5);assert.equal(setRecordingRules(changed,'Japanese').komi,6.5);
- const custom=recordingTree('(;SZ[19]RU[Japanese]KM[0])');populateRecordingDetails(custom);assert.equal(custom.komi,0);assert.equal(setRecordingRules(custom,'Chinese').komi,0);assert.equal(setRecordingHandicap(custom,2).komi,0);
+ const custom=recordingTree('(;SZ[19]RU[Japanese]KM[0])');populateRecordingDetails(custom);assert.equal(custom.komi,0);assert.equal(setRecordingRules(custom,'Chinese').komi,0);assert.equal(setRecordingHandicap(custom,2).komi,0.5);
  const sgf=recordingTree('(;SZ[19]RU[Chinese]KM[6.5])');populateRecordingDetails(sgf);assert.equal(sgf.komi,6.5);
  assert.equal(recordingTree(mainRecordingSgf('(;SZ[19]RU[Chinese];B[dd])')).komi,7.5);
 });

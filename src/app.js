@@ -1,9 +1,11 @@
 import './site-shell.js';
 import {BoardView} from './board-view.js';
+import {mountStoneSound,prepareStoneSound,playStoneSound} from './stone-sound.js';
 import {localTimestamp} from './site-time.js';
 import { t, language, setLanguage, translateError } from './i18n.js';
 import { play, opposite, score, gameTree, reviewPosition, gameClock, sgf } from './engine.js';
 const $ = id => document.getElementById(id);
+mountStoneSound($('play-sound'));
 const names = { get black() { return t('黑方','Black'); }, get white() { return t('白方','White'); } };
 const archiveId = new URLSearchParams(location.search).get('game');
 const apiPath = archiveId ? '/api/games/' + encodeURIComponent(archiveId) : '/api/game';
@@ -28,7 +30,7 @@ function previewMove(index) {
   try {
     const result = play(base.board,index,base.turn,19,previous);
     trialMoves.push({...base,board:result.board,turn:opposite(base.turn),captures:{...base.captures,[base.turn]:base.captures[base.turn]+result.captured.length},last:{type:'move',index}});
-    render();
+    render();playStoneSound();
   } catch(error) { notice(translateError(error.message)); }
 }
 let state = null, busy = false, polling = false, automatic = true, lastActivity = Date.now(), noticeTimer, pendingConfirmation;
@@ -53,7 +55,8 @@ function adopt(next) {
   if (state && (state.generation || 0) !== (next.generation || 0)) reviewing = null;
   if (reviewing !== null && reviewing >= gameTree(next).nodes.length) reviewing = null;
   const freshGame=state&&(state.generation||0)!==(next.generation||0);
-  state = next; render();
+  const newStone=state&&!freshGame&&next.history.length===state.history.length+1&&next.history.at(-1)?.type==='move';
+  state = next; render();if(newStone)playStoneSound();
   if (pendingSavedGeneration !== null && next.lastSavedGame?.generation === pendingSavedGeneration) {
     pendingSavedGeneration = null; location.assign('/game/' + encodeURIComponent(next.lastSavedGame.id));
   }
@@ -230,7 +233,7 @@ $('download-sgf').onclick = () => {
   const link = document.createElement('a'); link.href=url; link.download=(state.gameName || state.createdAt || 'weiqi').replace(/[^\p{L}\p{N} _-]/gu,'-').slice(0,80)+'.sgf'; link.click(); setTimeout(()=>URL.revokeObjectURL(url),1000);
 };
 setInterval(renderClock,1000);
-const boardView=new BoardView($('board'),{onPoint:i=>{if(busy||!state)return;if(reviewing!==null){previewMove(i);return;}if(archiveId)return;if(state.phase==='scoring')action({type:'dead',index:i});else if(canPlay())action({type:'move',index:i});}});
+const boardView=new BoardView($('board'),{onPoint:i=>{if(busy||!state)return;prepareStoneSound();if(reviewing!==null){previewMove(i);return;}if(archiveId)return;if(state.phase==='scoring')action({type:'dead',index:i});else if(canPlay())action({type:'move',index:i});}});
 const points=boardView.points;
 function confirmAction(title,text,operation,acceptLabel=t('确认','Confirm')) { $('accept-confirm').textContent=acceptLabel; $('confirm-title').className=''; const revision = state.revision; pendingConfirmation = () => { if (state.revision !== revision) { notice(t('棋局已更新，请重新确认。','The game has changed. Please confirm again.')); return; } operation(); }; $('confirm-title').textContent=title; $('confirm-text').textContent=text; $('confirm-dialog').showModal(); }
 $('cancel-confirm').onclick=()=>$('confirm-dialog').close(); $('accept-confirm').onclick=()=>{ $('confirm-dialog').close(); pendingConfirmation?.(); };
