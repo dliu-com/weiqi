@@ -110,7 +110,7 @@ function render() {
     el.setAttribute('aria-disabled',String(busy || (!review && (!!archiveId || ended || (!scoring && !canPlay())))));
   }
   $('turn').textContent = ended ? (state.result.winner ? names[state.result.winner] + t("胜"," wins") : t("和棋","Draw")) : scoring ? t("双方数子","Scoring") : t("轮到","To play: ") + names[state.turn];
-  $('detail').textContent = ended ? (state.result.reason === 'resign' ? t("对方认输，本局结束。","The opponent resigned. Game over.") : state.result.reason==='agreed'?t('双方约定结果，棋局已保存。','Agreed result; game saved.'):t(`胜差 ${state.result.margin} 目 · 白贴 ${state.komi} 目`,`Margin: ${state.result.margin} points · White komi: ${state.komi}`)) : scoring ? t("标记所有死子，然后确认胜负。","Mark all dead stones, then confirm the result.") : (canPlay() ? t("点击交叉点落子。","Click an intersection to play.") : t("等待对方落子…","Waiting for the other player…")) + t(' 白贴 '+state.komi+' 目。',' White komi: '+state.komi+' points.');
+  $('detail').textContent = ended ? (state.result.reason === 'resign' ? t("对方认输，本局结束。","The opponent resigned. Game over.") : state.result.reason==='agreed'?t('双方约定结果，棋局已保存。','Agreed result; game saved.'):t(`胜差 ${state.result.margin} 目 · 白贴 ${state.komi} 目`,`Margin: ${state.result.margin} points · White komi: ${state.komi}`)) : scoring ? t("标记所有死子，然后确认胜负。","Mark all dead stones, then confirm the result.") : (canPlay() ? '' : t("等待对方落子…","Waiting for the other player…")) + t(' 白贴 '+state.komi+' 目。',' White komi: '+state.komi+' points.');
   $('black-captures').textContent = displayed.captures.black; $('white-captures').textContent = displayed.captures.white;
   const undoSide = state.history.at(-1)?.side;
   $('undo').textContent = undoSide ? t('悔棋（' + names[undoSide] + '）', 'Undo ' + names[undoSide]) : t('悔棋','Undo');
@@ -126,7 +126,7 @@ function render() {
   if (totals) $('score').textContent = t(`黑 ${totals.black} 目 · 白 ${totals.white} + ${state.komi} 目 → ${totals.winner ? names[totals.winner] + '胜 ' + totals.margin + ' 目' : '和棋'}`,`Black ${totals.black} · White ${totals.white} + ${state.komi} → ${totals.winner ? names[totals.winner] + ' wins by ' + totals.margin + ' points' : 'Draw'}`);
   $('confirm-score').disabled = busy || !!archiveId || reviewing !== null;
   $('resume').disabled = busy;
-  $('count').textContent = state.history.length + t(" 手"," moves"); $('empty').hidden = state.history.length > 0;
+  $('count').textContent = state.history.length + t(" 手"," moves");
   if (archiveId && !review) { $('turn').textContent = t('已归档棋局','Archived game'); $('detail').textContent = t('选择棋谱节点查看历史局面。','Select a tree node to review an earlier position.'); }
   if (!archiveId && !review && state.phase === 'play' && state.clock?.paused) $('detail').textContent = t('计时已暂停，请恢复计时后继续。','Clock paused. Resume it to continue playing.');
   if (review) {
@@ -161,8 +161,9 @@ function renderTree() {
   const tree = gameTree(state), selected = reviewing === null ? tree.head : reviewing, active = new Set();
   for (let id = tree.head; id !== -1; id = tree.nodes[id][0]) active.add(id);
   $('review-status').textContent = archiveId ? t('已归档棋局 · 试下不会保存','Archived game · Preview moves are not saved') : reviewing === null
-    ? t('当前棋局 · 点击任一节点复盘', 'Live game · Select any node to review')
+    ? ''
     : t('正在复盘 · 云端棋局继续同步', 'Reviewing · Live game still syncs');
+  $('review-status').hidden = !$('review-status').textContent;
   $('review-start').setAttribute('aria-label',t('查看初始棋盘','Review initial position'));
   $('review-prev').setAttribute('aria-label',t('查看上一手','Review previous move'));
   $('review-next').setAttribute('aria-label',t('查看下一手','Review next move'));
@@ -218,7 +219,8 @@ function renderClock() {
   $('white-time').textContent = names.white + ' ' + (reviewing !== null && !saved ? '—' : format(clock.white));
   $('pause-clock').disabled = busy || !!archiveId || reviewing !== null || state.phase !== 'play';
   $('pause-clock').textContent = state.clock?.paused ? t('恢复计时','Resume clock') : t('暂停计时','Pause clock');
-  $('clock-note').textContent = reviewing !== null ? t('该手结束时的累计用时','Total time at this move') : !state.clock?.since ? t('首手落子后开始计时','Timing starts after the first move') : state.phase !== 'play' ? t('计时已停止','Clock stopped') : state.clock?.paused ? t('计时已暂停','Clock paused') : clock.autoPaused ? t('无人在线，计时自动暂停','No active page · Clock automatically paused') : t('所有页面离线 1 分钟后自动暂停','Auto-pauses after all pages are inactive for 1 minute');
+  $('clock-note').textContent = reviewing !== null ? t('该手结束时的累计用时','Total time at this move') : !state.clock?.since ? '' : state.phase !== 'play' ? t('计时已停止','Clock stopped') : state.clock?.paused ? t('计时已暂停','Clock paused') : clock.autoPaused ? t('无人在线，计时自动暂停','No active page · Clock automatically paused') : t('所有页面离线 1 分钟后自动暂停','Auto-pauses after all pages are inactive for 1 minute');
+  $('clock-note').hidden = !$('clock-note').textContent;
 }
 $('pause-clock').onclick = () => { if (state) action({type:'clock',paused:!state.clock?.paused}); };
 $('download-sgf').onclick = () => {
