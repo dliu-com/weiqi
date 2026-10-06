@@ -15,7 +15,7 @@ async function client() {
     setAttribute(k,v) { this.attrs[k]=v; }
     append(...nodes) { this.children.push(...nodes); }
     replaceChildren(...nodes) { this.children=nodes; }
-    addEventListener() {} focus() {} showModal() {} close() {}
+    addEventListener() {} focus() {} showModal() {this.open=true;} close() {this.open=false;}
   }
   const get = id => { if(!elements.has(id)) elements.set(id,new Element()); return elements.get(id); };
   let remote = createState(), failAfterSave = false, failGet = false, now = Date.now();
@@ -121,4 +121,32 @@ test('preview moves are local, survive sync, undo and clear without changing sav
  c.run('previewMove(0)');c.run('selectReview(0)');assert.equal(c.run('trialMoves.length'),0);
  c.run('previewMove(1)');c.get('review-live').onclick();assert.equal(c.run('trialMoves.length'),0);
  assert.equal(c.run('state.history.length'),1);
+});
+
+test('live tree hides legacy abandoned variations and navigation stays on the active sequence',async()=>{
+ const c=await client();c.move(180);c.move(181);await c.run('sync()');
+ c.run("state.tree.nodes.push([0,'white',0,[[0,'W']]]);treeRenderKey='';renderTree();");
+ assert.equal(c.get('history').children[0].children.length,3);
+ c.run('selectReview(0)');c.get('review-next').onclick();assert.equal(c.run('reviewing'),1);
+ c.run('selectReview(-1)');c.get('review-next').onclick();assert.equal(c.run('reviewing'),0);
+});
+
+test('End game recovers stale finished state instead of showing disabled result choices',async()=>{
+ const c=await client();c.run("state.phase='ended'");c.get('new').onclick();
+ while(c.run('polling'))await new Promise(r=>setImmediate(r));
+ assert.equal(c.run('state.phase'),'play');assert.ok(c.calls.includes('HEARTBEAT'));
+});
+
+test('New game and Confirm dead stones share the result picker and automatic count',async()=>{
+ const c=await client();c.move(180);await c.run('sync()');
+ assert.equal(c.get('new').textContent,'New game');assert.equal(c.get('edit-game').textContent,'Edit game info');
+ c.get('new').onclick();assert.equal(c.get('end-game-dialog').open,true);
+ assert.match(c.get('result-count-summary').textContent,/Automatic count: Black/);
+ c.get('end-game-cancel').onclick();assert.equal(c.get('end-game-dialog').open,false);
+ await c.run("action({type:'pass'})");await c.run("action({type:'pass'})");
+ c.get('confirm-score').onclick();assert.equal(c.get('end-game-dialog').open,true);
+ for(const side of ['black','white','draw'])assert.equal(c.get('result-'+side).disabled,false);
+ c.get('result-counted').onclick();assert.equal(c.get('confirm-dialog').open,true);
+ c.get('accept-confirm').onclick();while(c.run('busy'))await new Promise(r=>setImmediate(r));
+ assert.equal(c.remote().result.reason,'score');assert.equal(c.remote().phase,'ended');
 });

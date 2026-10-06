@@ -7,7 +7,7 @@ const $ = id => document.getElementById(id);
 const names = { get black() { return t('黑方','Black'); }, get white() { return t('白方','White'); } };
 const archiveId = new URLSearchParams(location.search).get('game');
 const apiPath = archiveId ? '/api/games/' + encodeURIComponent(archiveId) : '/api/game';
-const gameTitle = s => s.gameName || localTimestamp(s.createdAt || s.updatedAt || Date.now(),language);
+const gameTitle = s => s.gameName || t('现场对弈 · ','Live game · ')+localTimestamp(s.createdAt || s.updatedAt || Date.now(),language);
 const letters = 'ABCDEFGHJKLMNOPQRST';
 const coord = i => letters[i % 19] + (19 - Math.floor(i / 19));
 let syncFailed = false;
@@ -90,6 +90,9 @@ function render() {
   if (!state) return;
   $('game-name').textContent = gameTitle(state);
   $('player-names').textContent = names.black + (state.players?.black ? ': ' + state.players.black : '') + ' · ' + names.white + (state.players?.white ? ': ' + state.players.white : '');
+  $('edit-game').textContent=t('编辑棋局信息','Edit game info');
+  for(const [id,zh,en] of [['live-date-label','日期','Date'],['live-rules-label','规则','Rules'],['live-komi-label','贴目','Komi']])$(id).textContent=t(zh,en);
+  for(const option of document.querySelectorAll('#live-rules option'))option.textContent=option.value==='Chinese'?t('中国规则','Chinese rules'):t('日本规则','Japanese rules');
   $('edit-game').disabled = busy || state.phase==='ended';
   const review = reviewing === null ? null : reviewPosition(state, reviewing);
   const displayed = (review && trialMoves.at(-1)) || review || state;
@@ -131,8 +134,11 @@ function render() {
     $('detail').textContent = moveStatus.phase === 'submitting' ? t('正在核对并保存落子，请稍候。','Checking and saving your move. Please wait.') : t('落子未发送，请检查网络后重试。','Move not sent. Check your connection and try again.');
   }
   $('turn').className = 'turn-label' + (!review && (state.phase === 'play' || state.result?.winner) ? ' turn-' + (moveStatus?.side || state.result?.winner || state.turn) : '');
-  $('new').textContent=t('结束棋局','End game');$('end-game-cancel').textContent=t('取消','Cancel');
-  $('result-label').textContent=t('结束棋局并自动保存','Finish and save automatically');for(const [key,zh,en] of [['black','黑方获胜','Black wins'],['white','白方获胜','White wins'],['draw','和棋 / 未完成','Draw / unfinished']]){$('result-'+key).textContent=t(zh,en);$('result-'+key).disabled=busy||ended||reviewing!==null;}
+  $('new').textContent=t('新一局','New game');$('end-game-cancel').textContent=t('取消','Cancel');
+  $('result-label').textContent=t('保存本局，开始新一局','Save this game and start a new one');
+  const counted=totals||score(state.board,state.size,state.dead,state.komi);
+  $('result-count-summary').textContent=t(`自动数子：黑 ${counted.black} 目 · 白 ${counted.white} + ${state.komi} 目 → ${counted.winner ? names[counted.winner] + '胜 ' + counted.margin + ' 目' : '和棋'}`,`Automatic count: Black ${counted.black} · White ${counted.white} + ${state.komi} → ${counted.winner ? names[counted.winner] + ' wins by ' + counted.margin + ' points' : 'Draw'}`);
+  $('result-counted').textContent=t('采用数子结果','Use counted result');$('result-counted').disabled=busy||ended||reviewing!==null;for(const [key,zh,en] of [['black','黑方获胜','Black wins'],['white','白方获胜','White wins'],['draw','和棋 / 未完成','Draw / unfinished']]){$('result-'+key).textContent=t(zh,en);$('result-'+key).disabled=busy||ended||reviewing!==null;}
   if (review) $('turn').className = 'turn-label turn-' + displayed.turn;
   $('trial-controls').hidden = !review;
   $('trial-undo').disabled = !trialMoves.length;
@@ -148,7 +154,8 @@ function selectReview(id) { reviewing = id; trialMoves = []; render(); }
 $('trial-undo').onclick = () => { trialMoves.pop(); render(); };
 $('trial-reset').onclick = () => { trialMoves = []; render(); };
 function renderTree() {
-  const tree = gameTree(state), selected = reviewing === null ? tree.head : reviewing;
+  const tree = gameTree(state), selected = reviewing === null ? tree.head : reviewing, active = new Set();
+  for (let id = tree.head; id !== -1; id = tree.nodes[id][0]) active.add(id);
   $('review-status').textContent = archiveId ? t('已归档棋局 · 试下不会保存','Archived game · Preview moves are not saved') : reviewing === null
     ? t('当前棋局 · 点击任一节点复盘', 'Live game · Select any node to review')
     : t('正在复盘 · 云端棋局继续同步', 'Reviewing · Live game still syncs');
@@ -156,15 +163,14 @@ function renderTree() {
   $('review-prev').setAttribute('aria-label',t('查看上一手','Review previous move'));
   $('review-next').setAttribute('aria-label',t('查看下一手','Review next move'));
   $('review-prev').disabled = selected === -1;
-  $('review-next').disabled = !tree.nodes.some(n => n[0] === selected);
+  $('review-next').disabled = !tree.nodes.some((n,id) => n[0] === selected && (archiveId || active.has(id)));
   $('review-live').disabled = !archiveId && reviewing === null;
   const key = [state.players?.black,state.players?.white,state.generation || 0,tree.nodes.length,tree.head,reviewing,language].join(':');
   if (key === treeRenderKey) return;
   treeRenderKey = key;
   const scroll = $('history').scrollTop;
-  const children = new Map(), active = new Set();
-  tree.nodes.forEach((node,id) => { if (!children.has(node[0])) children.set(node[0],[]); children.get(node[0]).push(id); });
-  for (let id = tree.head; id !== -1; id = tree.nodes[id][0]) active.add(id);
+  const children = new Map();
+  tree.nodes.forEach((node,id) => { if (!archiveId && !active.has(id)) return; if (!children.has(node[0])) children.set(node[0],[]); children.get(node[0]).push(id); });
   const fragment = document.createDocumentFragment();
   const pending = [{id:-1,depth:0,branch:0}];
   while (pending.length) {
@@ -193,7 +199,7 @@ $('review-next').onclick = () => {
   if (!state) return;
   const tree = gameTree(state), id = reviewing === null ? tree.head : reviewing;
   // Prefer the current game's continuation at a fork.
-  let next = tree.nodes.findIndex(n => n[0] === id);
+  let next = archiveId ? tree.nodes.findIndex(n => n[0] === id) : -1;
   for (let p = tree.head; p !== -1; p = tree.nodes[p][0]) if (tree.nodes[p][0] === id) { next = p; break; }
   if (next !== -1) selectReview(next);
 };
@@ -221,23 +227,18 @@ const boardView=new BoardView($('board'),{onPoint:i=>{if(busy||!state)return;if(
 const points=boardView.points;
 function confirmAction(title,text,operation,acceptLabel=t('确认','Confirm')) { $('accept-confirm').textContent=acceptLabel; $('confirm-title').className=''; const revision = state.revision; pendingConfirmation = () => { if (state.revision !== revision) { notice(t('棋局已更新，请重新确认。','The game has changed. Please confirm again.')); return; } operation(); }; $('confirm-title').textContent=title; $('confirm-text').textContent=text; $('confirm-dialog').showModal(); }
 $('cancel-confirm').onclick=()=>$('confirm-dialog').close(); $('accept-confirm').onclick=()=>{ $('confirm-dialog').close(); pendingConfirmation?.(); };
-$('new').onclick=()=>{if(state&&!busy&&!archiveId)$('end-game-dialog').showModal();};
+function chooseGameResult(){if(!state||busy||archiveId||reviewing!==null)return;if(state.phase==='ended')sync(true);else $('end-game-dialog').showModal();}
+$('new').onclick=chooseGameResult;
 $('end-game-cancel').onclick=()=>$('end-game-dialog').close();
 for(const winner of ['black','white','draw'])$('result-'+winner).onclick=()=>{$('end-game-dialog').close();confirmAction(t('确认结果并保存？','Confirm result and save?'),t('本局结束并自动保存到公共棋谱库。','The game will finish and save automatically to the public library.'),()=>action({type:'result',winner}));};
-$('undo').onclick=()=>confirmAction(t('撤回' + names[state.history.at(-1)?.side] + '的上一手？','Undo ' + names[state.history.at(-1)?.side] + '’s last move?'),t("撤回最近一手，双方设备都会更新。请先征得对方同意。","Undo the last move on all devices. Please agree with your opponent first."),()=>action({type:'undo'}));
+$('undo').onclick=()=>confirmAction(t('撤回' + names[state.history.at(-1)?.side] + '的上一手？','Undo ' + names[state.history.at(-1)?.side] + '’s last move?'),t("永久删除最近一手，不保留分支；双方设备都会更新。请先征得对方同意。","Permanently remove the last move on all devices; no variation is saved. Please agree with your opponent first."),()=>action({type:'undo'}));
 for (const side of ['black','white']) $('resign-' + side).onclick=()=>{ confirmAction(names[side]+t("认输？"," resigns?"),t("确认后本局结束。","Confirm to end this game."),()=>action({type:'resign',side})); };
 $('pass').onclick=()=>action({type:'pass'}); $('resume').onclick=()=>action({type:'resume'});
-$('confirm-score').onclick=()=>{
-  if (!state || busy || reviewing !== null || archiveId) return;
-  const result=score(state.board,19,state.dead,state.komi);
-  const winner=result.winner ? names[result.winner]+t('胜',' wins') : t('和棋','Draw');
-  confirmAction(winner,t('胜差 '+result.margin+' 点。确认此结果结束棋局？','Margin: '+result.margin+' points. Confirm this result to finish the game?'),()=>action({type:'finish'}),t('确认'+winner,'Confirm '+winner));
-  $('confirm-title').className=result.winner ? 'turn-'+result.winner : '';
-};
+$('confirm-score').onclick=chooseGameResult;
+$('result-counted').onclick=()=>{$('end-game-dialog').close();confirmAction(t('确认数子结果并保存？','Confirm counted result and save?'),$('result-count-summary').textContent,()=>action({type:'finish'}));};
 function focusBoard(on) { document.body.classList.toggle('focus',on); $('focus').textContent=on?t("退出专注 ↙","Exit focus ↙"):t("专注棋盘 ↗","Focus board ↗"); $('focus').setAttribute('aria-pressed',String(on)); }
 $('focus').onclick=()=>focusBoard(!document.body.classList.contains('focus')); document.addEventListener('keydown',e=>{if(e.key==='Escape')focusBoard(false);});
 $('auto').onchange=()=>{automatic=$('auto').checked; if(automatic){lastActivity=Date.now();sync(true);}};
-$('refresh').onclick=()=>sync(true);
 setInterval(()=>{ if(!automatic)return; if(Date.now()-lastActivity>=10*60*1000){automatic=false;$('auto').checked=false;$('sync').textContent=t("10 分钟无落子，已暂停自动同步","Auto-sync paused after 10 minutes without a move");return;} if(document.visibilityState==='visible')sync(); },5000);
 window.addEventListener('focus',()=>{if(automatic)sync();}); window.addEventListener('online',()=>{if(automatic)sync();}); document.addEventListener('visibilitychange',()=>{if(automatic&&document.visibilityState==='visible')sync();});
 if (archiveId) {

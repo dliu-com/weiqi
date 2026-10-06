@@ -17,6 +17,12 @@ export function transition(current, request) {
   const a = request.action; if (!a || typeof a.type !== 'string') throw new GameError('操作无效。');
   let next = structuredClone(current);
   next.tree = structuredClone(gameTree(current));
+  // Live games retain only the path to the current position, including legacy
+  // trees whose older undo implementation left abandoned variations behind.
+  const livePath = [];
+  for (let id = next.tree.head; id !== -1; id = next.tree.nodes[id][0]) livePath.push(id);
+  next.tree.nodes = livePath.reverse().map((id,index) => [index - 1,...next.tree.nodes[id].slice(1)]);
+  next.tree.head = next.tree.nodes.length - 1;
   next.createdAt ||= current.updatedAt || new Date().toISOString();
   next.clock = gameClock(current, now);
   // Legacy clocks cannot reconstruct presence before this version. Start presence tracking now.
@@ -48,13 +54,8 @@ export function transition(current, request) {
     throw new GameError('请结束并保存当前棋局；下一局会自动开始。');
   } else if (a.type === 'undo') {
     const last = next.history.pop(); if (!last) throw new GameError('还没有可以悔棋的记录。');
-    const removed = new Set([next.tree.head]), parent = next.tree.nodes[next.tree.head][0];
-    const ids = new Map([[-1,-1]]), nodes = [];
-    next.tree.nodes.forEach((node,id) => {
-      if (removed.has(id) || removed.has(node[0])) { removed.add(id); return; }
-      ids.set(id,nodes.length); nodes.push([ids.get(node[0]),...node.slice(1)]);
-    });
-    next.tree.nodes = nodes; next.tree.head = ids.get(parent);
+    next.tree.nodes.pop();
+    next.tree.head = next.tree.nodes.length - 1;
     Object.assign(next, { board: last.board, turn: last.side, captures: last.captures, passes: last.passes, phase: 'play', dead: [], agreed: [], result: null });
   } else if (a.type === 'resume' && current.phase === 'scoring') {
     Object.assign(next, { phase: 'play', passes: 0, dead: [], agreed: [] });
@@ -63,7 +64,7 @@ export function transition(current, request) {
     const g = groupAt(current.board, a.index, current.size).group;
     next.dead = current.dead.includes(a.index) ? current.dead.filter(i => !g.includes(i)) : [...new Set([...current.dead, ...g])];
     next.agreed = [];
-  } else if (a.type === 'finish' && current.phase === 'scoring') {
+  } else if (a.type === 'finish' && ['play','scoring'].includes(current.phase)) {
     const result = score(next.board, next.size, next.dead, next.komi);
     next.result = { winner: result.winner, reason: 'score', black: result.black, white: result.white, margin: result.margin };
     next.phase = 'ended';

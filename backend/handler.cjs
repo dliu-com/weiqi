@@ -52,6 +52,7 @@ exports.handler = async event => {
     try { request = JSON.parse(raw); } catch { return response(400, { message: '请求格式无效。' }); }
     if (archiveId) throw new GameError('当前棋局不能执行此操作。');
     const current = await readGame(key);
+    if (current.phase === 'ended') return response(200, { state: await publishLiveGame(current) });
     if (request.action?.type === 'heartbeat' && (current.phase !== 'play' || current.clock?.paused || current.clock?.since === null)) return response(200, { state: current });
     const next = transition(current, request);
     const item = (id, state) => ({
