@@ -101,3 +101,22 @@ test('queued record reads expose a stable queue forecast without changing record
 
  test('public draft API persists edits, rejects stale writes, prunes variations and retries saving idempotently',async()=>{const h=api(),initial=await h.call('/api/draft');assert.equal(initial.draft.revision,0);const source='(;SZ[19]GN[Draft test];B[dd](;W[pp])(;W[dp]))',edit=await h.call('/api/draft',{action:'update',expectedRevision:0,sgf:source,selected:1});assert.equal(edit.status,200);assert.equal((await h.call('/api/draft')).draft.sgf,source);assert.equal((await h.call('/api/draft',{action:'update',expectedRevision:0,sgf:source,selected:0})).status,409);const save={action:'save',expectedRevision:1,id},first=await h.call('/api/draft',save),again=await h.call('/api/draft',save);assert.equal(first.status,200);assert.equal(again.id,first.id);assert.equal([...h.files.keys()].filter(k=>k.endsWith('/original.sgf')).length,1);const saved=await h.call('/api/library/'+first.id);assert.equal(saved.metadata.moves,2);assert.equal(saved.metadata.result,'0');assert.ok(!saved.sgf.includes('W[dp]'));assert.equal((await h.call('/api/draft')).draft.publication.status,'ready');});
  test('site mutation limiter uses bounded state and refuses excess requests before new records',async()=>{const h=api();for(let n=0;n<120;n++)assert.equal((await h.call('/api/draft',{action:'invalid'})).status,400);assert.equal((await h.call('/api/library',{id,sgf,filename:'over-limit.sgf'})).status,429);assert.equal(h.files.size,0);});
+
+
+test('a different game cannot reuse an upload ID, mutate saved files or enqueue another analysis',async()=>{
+ const {call,files,messages,event}=api();
+ const saved=await call('/api/library',{id,sgf,filename:'original.sgf'}),prefix='games/'+saved.id+'/';
+ const original=[...files].filter(([key])=>key.startsWith(prefix)),slots=[...files].filter(([key])=>key.startsWith('daily-analysis/'));
+ const replacements=['(;SZ[19]GN[Different game];B[pp];W[dd])',sgf.replace('GN[API test]','GN[Changed name]'),sgf.replace('KM[7.5]','KM[6.5]')];
+ for(const replacement of replacements){
+  assert.equal((await call('/api/library',{id,sgf:replacement,filename:'replacement.sgf'})).status,409);
+ }
+ assert.equal((await call('/api/library',{id:saved.id,sgf:replacements[0],filename:'replacement.sgf'})).status,400);
+ for(const method of ['POST','PUT','PATCH','DELETE']){
+  const denied=await event({rawPath:'/api/library/'+saved.id,requestContext:{http:{method}},headers:{'content-type':'application/json',origin:'https://test.invalid'},body:JSON.stringify({id,sgf:replacements[0],name:'Changed name',action:'update'})});
+  assert.ok(denied.statusCode>=400);
+ }
+ assert.deepEqual([...files].filter(([key])=>key.startsWith(prefix)),original);
+ assert.deepEqual([...files].filter(([key])=>key.startsWith('daily-analysis/')),slots);
+ assert.equal(messages.length,1);assert.equal((await call('/api/library/'+saved.id)).sgf,sgf);
+});
