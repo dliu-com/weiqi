@@ -169,14 +169,14 @@ function renderLanguage(value){
   const link=node('a',t('在棋局中复盘这一步','Review this move in the game'));link.href='/game/'+id+'?move='+m.nodeId;answer.append(link);
  }
  const plan=reportPagination(sheets.map(s=>s.querySelector('h2').textContent));
- for(const [index,s] of sheets.entries()){s.id=plan.contents[index].target;s.dataset.reportTitle=plan.contents[index].title;s.prepend(node('p','DL / Dewei WEIQI','report-running-header'));}
+ for(const [index,s] of sheets.entries()){s.id=plan.contents[index].target;s.dataset.reportTitle=plan.contents[index].title;s.prepend(node('p','DL Weiqi','report-running-header'));}
  for(const link of fragment.querySelectorAll('[data-review-move]')){
   const target=sheets.find(s=>s.dataset.move===link.dataset.reviewMove&&s.dataset.side===link.dataset.reviewSide),page=sheets.indexOf(target)+3;
   if(target){link.href=location.pathname+location.search+'#'+target.id;link.dataset.reportPage=String(page);link.textContent=t('棋盘详解 · 第 '+page+' 页','Board review · p. '+page);}
  }
  const front=type=>{const page=node('section',undefined,'report-sheet report-'+type);page.lang=value==='zh'?'zh-CN':'en';page.dataset.reportLanguage=value;return page;};
  const cover=front('cover');cover.id='report-page-1';cover.dataset.reportTitle=t('封面','Title page');
- cover.append(node('p','DL / Dewei WEIQI','report-cover-brand'),node('p',t('深度分析 · 棋局复盘','DEEP ANALYSIS / GAME REVIEW'),'report-cover-kicker'),node('h1',t('围棋 AI\n复盘报告','Go AI\nReview Report')),node('p',report.name,'report-cover-name'));
+ cover.append(node('p','DL Weiqi','report-cover-brand'),node('p',t('深度分析 · 棋局复盘','DEEP ANALYSIS / GAME REVIEW'),'report-cover-kicker'),node('h1',t('围棋 AI\n复盘报告','Go AI\nReview Report')),node('p',report.name,'report-cover-name'));
  const playerCards=node('div',undefined,'report-cover-players');
  for(const side of ['B','W']){const card=node('div',undefined,'report-cover-player report-cover-player-'+side);card.append(node('span',sideName(side),'report-cover-side'),node('strong',game.players[side==='B'?'black':'white']||'—'));playerCards.append(card);}
  cover.append(playerCards,node('p',result?t(result.zh,result.en):game.result||t('结果未记录','Result not recorded'),'report-cover-result'));
@@ -185,10 +185,10 @@ function renderLanguage(value){
  const gameDetails=metadata([[t('棋局 ID','Game ID'),id],[t('棋局日期','Game date'),game.date],[t('规则','Rules'),rules],[t('棋盘','Board'),'19 × 19'],[t('贴目','Komi'),String(game.komi)],[t('实战手数','Recorded moves'),String(game.moves)]]);gameDetails.classList.add('report-cover-game-details');cover.append(gameDetails);
  const publication=node('div',undefined,'report-cover-analysis');
  publication.append(node('h3',t('分析与报告元数据','ANALYSIS AND REPORT METADATA')),metadata([[t('引擎','Engine'),p.engine],[t('每个局面的访问量','Visits per position'),p.visits.toLocaleString(locale())],[t('模型','Model'),p.model,true],[t('模型 SHA-256','Model SHA-256'),p.modelSha256,true],[t('计算资源','Compute'),[c.gpu,c.instanceType,c.vCpu?c.vCpu+' vCPUs':'',c.memoryGB?c.memoryGB+' GB RAM':''].filter(Boolean).join(' · '),true],[t('总分析时间（含排队与准备）','Analysis total including queue/setup'),duration],[t('报告语言','Report language'),t('中文','English')],[t('分析完成时间','Analysis completed'),timestamp(p.completedAt),true],[t('报告生成时间','Report prepared'),timestamp(report.generatedAt),true]]));
- const credit=node('p',undefined,'report-cover-credit');credit.append(document.createTextNode(t('由 Dewei 围棋生成 · ','Prepared by Dewei Weiqi · ')));const creditLink=node('a','dliu.com');creditLink.href='https://dliu.com';credit.append(creditLink);cover.append(credit);
+ const credit=node('p',undefined,'report-cover-credit');credit.append(document.createTextNode(t('由 DL 围棋生成 · ','Prepared by DL Weiqi · ')));const creditLink=node('a','dliu.com');creditLink.href='https://dliu.com';credit.append(creditLink);cover.append(credit);
  cover.append(publication,node('p',t('先看全局走势 · 双方各五手失误统计 · 各三手棋盘详解','Game story first / Five errors per side / Three detailed board reviews each'),'report-cover-scope'));
  const contents=front('contents');contents.id='report-page-2';contents.dataset.reportTitle=t('目录','Table of contents');
- contents.append(node('p','DL / Dewei WEIQI','report-running-header'),node('h2',t('目录','Table of contents')),node('p',t('全局统计与数学方法在前，具体失误局面在后。点击条目即可跳转。','Statistics and methods come first, followed by the detailed error positions. Select an entry to jump to its page.'),'report-note'));
+ contents.append(node('p','DL Weiqi','report-running-header'),node('h2',t('目录','Table of contents')),node('p',t('全局统计与数学方法在前，具体失误局面在后。点击条目即可跳转。','Statistics and methods come first, followed by the detailed error positions. Select an entry to jump to its page.'),'report-note'));
  const list=node('ol',undefined,'report-contents-list');
  for(const entry of plan.contents){const item=node('li'),link=node('a');link.href=location.pathname+location.search+'#'+entry.target;link.dataset.reportPage=String(entry.page);link.append(node('span',entry.title,'report-contents-title'),node('span',undefined,'report-contents-leader'),node('span',String(entry.page),'report-contents-page'));item.append(link);list.append(item);}
  contents.append(list);fragment.prepend(cover,contents);sheets.unshift(cover,contents);

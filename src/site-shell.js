@@ -20,6 +20,6 @@ export class AppShell {
   const measure=()=>document.documentElement.style.setProperty('--record-header-height',this.header.getBoundingClientRect().height+'px');
   if(typeof ResizeObserver!=='undefined')new ResizeObserver(measure).observe(this.header);measure();
  }
- render(){this.brand.textContent=t('Dewei 围棋','Dewei Weiqi');this.menu.setAttribute('aria-label',t('主菜单','Main menu'));this.menuButton.setAttribute('aria-label',t('菜单','Menu'));this.languageToggle.setAttribute('aria-label',t('语言','Language'));for(const a of this.links){a.textContent=t(a.dataset.zh,a.dataset.en);if(location.pathname===a.getAttribute('href')||a.getAttribute('href')==='/game'&&location.pathname.startsWith('/game/'))a.setAttribute('aria-current','page');}for(const b of this.languages.children)b.setAttribute('aria-pressed',String(language===b.dataset.language));}
+ render(){this.brand.textContent=t('DL 围棋','DL Weiqi');this.menu.setAttribute('aria-label',t('主菜单','Main menu'));this.menuButton.setAttribute('aria-label',t('菜单','Menu'));this.languageToggle.setAttribute('aria-label',t('语言','Language'));for(const a of this.links){a.textContent=t(a.dataset.zh,a.dataset.en);if(location.pathname===a.getAttribute('href')||a.getAttribute('href')==='/game'&&location.pathname.startsWith('/game/'))a.setAttribute('aria-current','page');}for(const b of this.languages.children)b.setAttribute('aria-pressed',String(language===b.dataset.language));}
 }
 export const appShell=new AppShell();
