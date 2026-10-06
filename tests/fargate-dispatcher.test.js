@@ -1,7 +1,8 @@
+import {gamePrefix} from '../backend/library-service.js';
 import test from 'node:test';import assert from 'node:assert/strict';import vm from 'node:vm';import {readFileSync} from 'node:fs';import {createHash,randomUUID} from 'node:crypto';
 function dispatcher({lookupFailure=false,deepFailure=false,gpu=false}={}){
- const id='2026100601',key='games/'+id+'/metadata.json',original='(;SZ[19]KM[6.5];B[dd];W[pp])';
- const files=new Map([[key,JSON.stringify({id,analysis:{status:'queued'}})],['games/'+id+'/original.sgf',original]]),submitted=[],fallbacks=[];let lookups=0;
+ const id='2026100601',key=gamePrefix(id)+'/metadata.json',original='(;SZ[19]KM[6.5];B[dd];W[pp])';
+ const files=new Map([[key,JSON.stringify({id,analysis:{status:'queued'}})],[gamePrefix(id)+'/original.sgf',original]]),submitted=[],fallbacks=[];let lookups=0;
  class GetObjectCommand{constructor(input){this.input=input;}}class PutObjectCommand{constructor(input){this.input=input;}}class SubmitJobCommand{constructor(input){this.input=input;}}
  class S3Client{async send(c){if(c instanceof GetObjectCommand)return {ETag:'test',Body:{transformToString:async()=>files.get(c.input.Key)}};files.set(c.input.Key,c.input.Body);return {};}}
  class SendMessageCommand{constructor(input){this.input=input;}}
@@ -20,7 +21,7 @@ test('dispatcher selects one fresh latest model for two 32-CPU jobs and reuses e
 });
 test('repeated latest-model lookup failure marks analysis failed while preserving the original game and submitting no paid jobs',async()=>{
  const d=dispatcher({lookupFailure:true});assert.equal((await d.call(1)).batchItemFailures.length,1);assert.equal((await d.call(3)).batchItemFailures.length,0);
- assert.equal(JSON.parse(d.files.get(d.key)).analysis.status,'failed');assert.equal(d.submitted.length,0);assert.equal(d.files.get('games/2026100601/original.sgf'),d.original);
+ assert.equal(JSON.parse(d.files.get(d.key)).analysis.status,'failed');assert.equal(d.submitted.length,0);assert.equal(d.files.get('games/20261006/01/original.sgf'),d.original);
 });
 test('failed deep submission preserves already available quick results and never submits the quick job twice',async()=>{
  const d=dispatcher({deepFailure:true});await d.call(1);const meta=JSON.parse(d.files.get(d.key));meta.analysis.quick.status='ready';meta.analysis.available='quick';meta.analysis.dispatchedAt='2026-01-01T00:00:00Z';d.files.set(d.key,JSON.stringify(meta));await d.call(3);

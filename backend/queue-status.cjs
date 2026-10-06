@@ -7,7 +7,7 @@ async function queueSnapshot(queue){
   const jobs=lists.flatMap(list=>list.jobSummaryList||[]),analyses=new Map();
   // Bounded by the public daily cap; skip unrelated jobs and fail open on
   // missing metadata rather than inventing their processing duration.
-  await Promise.all(jobs.slice(0,50).map(async job=>{const id=/^weiqi-(\d{10,14})-a\d+-[a-f0-9]{8}$/.exec(job.jobName||'')?.[1];if(!id)return;try{const meta=JSON.parse(await libraryStore.get('games/'+id+'/metadata.json'));if(meta.analysis.jobId===job.jobId)analyses.set(job.jobId,meta.analysis);}catch{}}));
+  await Promise.all(jobs.slice(0,50).map(async job=>{const id=/^weiqi-(\d{10,14})-a\d+-[a-f0-9]{8}$/.exec(job.jobName||'')?.[1];if(!id)return;try{const meta=JSON.parse(await libraryStore.get(gamePrefix(id)+'/metadata.json'));if(meta.analysis.jobId===job.jobId)analyses.set(job.jobId,meta.analysis);}catch{}}));
   return {jobs,analyses,complete:jobs.length<=50&&!lists.some(list=>list.nextToken)};
  })();queueSnapshots.set(queue,{checkedAt:Date.now(),promise});try{return await promise;}catch(e){queueSnapshots.delete(queue);throw e;}
 }

@@ -1,3 +1,4 @@
+import {gamePrefix} from '../backend/library-service.js';
 import {readFile,writeFile,mkdir} from 'node:fs/promises';
 import {execFile} from 'node:child_process';
 import {promisify} from 'node:util';
@@ -53,18 +54,18 @@ try{
     for(const instance of instances){if(!report.instances.some(i=>i.id===instance.InstanceId))report.instances.push({id:instance.InstanceId,gpu,instanceType:instance.InstanceType,launchedAt:instance.LaunchTime,hourlyUSD:prices[instance.InstanceType].hourlyUSD});}
     const estimate=report.instances.reduce((sum,i)=>sum+((i.releasedAt?Date.parse(i.releasedAt):Date.now())-Date.parse(i.launchedAt))/3600000*(i.hourlyUSD+.005+.02),0);
     if(estimate>15)throw Error('GPU development allowance exhausted; stopping to preserve the total USD30 cap.');
-    if(job.status!==previous){console.log(label+': '+job.status+' '+(job.statusReason||''));previous=job.status;const meta=await get('games/'+result.recordId+'/metadata.json');meta.analysis={...meta.analysis,enqueuedAt:result.createdAt,status:['RUNNING','SUCCEEDED','FAILED'].includes(job.status)?'running':'queued',...(job.startedAt?{startedAt:new Date(job.startedAt).toISOString()}: {})};await put('games/'+result.recordId+'/metadata.json',meta);}
+    if(job.status!==previous){console.log(label+': '+job.status+' '+(job.statusReason||''));previous=job.status;const meta=await get(gamePrefix(result.recordId)+'/metadata.json');meta.analysis={...meta.analysis,enqueuedAt:result.createdAt,status:['RUNNING','SUCCEEDED','FAILED'].includes(job.status)?'running':'queued',...(job.startedAt?{startedAt:new Date(job.startedAt).toISOString()}: {})};await put(gamePrefix(result.recordId)+'/metadata.json',meta);}
     await save();if(['SUCCEEDED','FAILED'].includes(job.status))break;await wait();
    }
    if(!['SUCCEEDED','FAILED'].includes(job.status))throw Error('GPU benchmark did not finish within its development monitoring allowance.');
    activeJob=null;
-   let metadata=await get('games/'+result.recordId+'/metadata.json');
+   let metadata=await get(gamePrefix(result.recordId)+'/metadata.json');
    if(job.status==='SUCCEEDED'){
     const analysis=await get(prefix+'/analysis.json'),timing=await get(prefix+'/timings.json');analysis.id=result.recordId;analysis.phase=visits<1000?'quick':'deep';analysis.compute=compute;analysis.enqueuedAt=result.createdAt;analysis.endToEndMs=Date.parse(timing.completedAt)-job.createdAt;
     result.timings=timing.timings;result.positions=analysis.positions.length;result.engineVersion=analysis.engineVersion;result.modelSha256=analysis.modelSha256;result.completedAt=timing.completedAt;
     result.analysisSeconds=timing.timings.engineLoadAndAnalysisMs/1000;result.setupSeconds=(analysis.elapsedMs-timing.timings.engineLoadAndAnalysisMs)/1000;
     await writeFile(outdir+'/'+label+'-analysis.json',JSON.stringify(analysis));await writeFile(outdir+'/'+label+'-timings.json',JSON.stringify(timing));
-    await put('games/'+result.recordId+'/analysis.json',analysis);metadata.analysis={...metadata.analysis,status:'ready',completedAt:analysis.completedAt};
+    await put(gamePrefix(result.recordId)+'/analysis.json',analysis);metadata.analysis={...metadata.analysis,status:'ready',completedAt:analysis.completedAt};
     if(job.container?.taskArn){const taskArn=job.container.taskArn,p=taskArn.split('/'),task=(await aws(['ecs','describe-tasks','--cluster',p.at(-2),'--tasks',taskArn])).tasks[0];
      result.taskCreatedAt=task.createdAt;result.taskStartedAt=task.startedAt;result.taskStoppedAt=task.stoppedAt;result.imagePullSeconds=(Date.parse(task.pullStoppedAt)-Date.parse(task.pullStartedAt))/1000;
      result.taskStartupSeconds=(Date.parse(task.startedAt)-Date.parse(task.createdAt))/1000;
@@ -79,7 +80,7 @@ try{
      result.estimatedComputeUSD=(Date.parse(timing.completedAt)-Date.parse(start))/3600000*(instance.hourlyUSD+.005+.02);
     }
    }else metadata.analysis={...metadata.analysis,status:'failed',message:job.statusReason};
-   await put('games/'+result.recordId+'/metadata.json',metadata);await save();await updateBenchmarks({publish:true});console.log(JSON.stringify(result));
+   await put(gamePrefix(result.recordId)+'/metadata.json',metadata);await save();await updateBenchmarks({publish:true});console.log(JSON.stringify(result));
    if(job.status==='FAILED')break;
   }
   await stopInstance(gpu);for(const instance of report.instances.filter(i=>i.gpu===gpu)){instance.releasedAt=new Date().toISOString();instance.estimatedComputeIpAndStorageUSD=(Date.parse(instance.releasedAt)-Date.parse(instance.launchedAt))/3600000*(instance.hourlyUSD+.005+.02);}activeCompute=null;await save();

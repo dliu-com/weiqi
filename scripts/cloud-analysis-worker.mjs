@@ -7,17 +7,17 @@ import os from 'node:os';
 import path from 'node:path';
 import {randomUUID} from 'node:crypto';
 import {fileURLToPath} from 'node:url';
-import {validRecordId} from '../backend/library-service.js';
+import {validRecordId,gamePrefix} from '../backend/library-service.js';
 import {runLocalJob} from './analysis-worker.mjs';
 const execute=promisify(execFile);
 export async function processCloudJob(store,id,options) {
   if(!validRecordId(id))throw Error('Invalid queued record ID.');
-  const prefix='games/'+id+'/',key=prefix+'metadata.json',initial=await store.get(key),metadata=JSON.parse(initial.body);
+  const prefix=gamePrefix(id)+'/',key=prefix+'metadata.json',initial=await store.get(key),metadata=JSON.parse(initial.body);
   if(metadata.analysis.status==='ready')return 'ready';
   if(metadata.analysis.status==='running' && Date.now()-Date.parse(metadata.analysis.startedAt)<30*60*1000)return 'busy';
   const claimId=randomUUID();metadata.analysis={status:'running',startedAt:new Date().toISOString(),claimId,visits:options.visits,estimatedSeconds:estimatedAnalysisSeconds((metadata.moves || 0)+1,options.visits)};
   let claim;try{claim=await store.put(key,JSON.stringify(metadata),initial.etag);}catch(e){if(e.conflict)return 'busy';throw e;}
-  const directory=await mkdtemp(path.join(os.tmpdir(),'weiqi-cloud-analysis-')),folder=path.join(directory,'games',id);
+  const directory=await mkdtemp(path.join(os.tmpdir(),'weiqi-cloud-analysis-')),folder=path.join(directory,gamePrefix(id));
   try {
     await mkdir(folder,{recursive:true});await writeFile(path.join(folder,'metadata.json'),JSON.stringify(metadata));
     await writeFile(path.join(folder,'original.sgf'),(await store.get(prefix+'original.sgf')).body);

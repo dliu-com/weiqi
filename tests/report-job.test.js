@@ -1,9 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {prepareReportFiles,reportEvents} from '../backend/report-renderer/report-job.mjs';
-const key='games/2026100620/reports/'+'a'.repeat(64)+'.json',event={id:'2026100620',reportKey:key,jobId:'deep-job'};
+const key='games/20261006/20/reports/'+'a'.repeat(64)+'.json',event={id:'2026100620',reportKey:key,jobId:'deep-job'};
 function setup(){
- const entries=new Map([['records/games/2026100620/metadata.json',{analysis:{deep:{status:'ready',jobId:'deep-job'}}}],['records/'+key,{id:'2026100620'}]]),writes=[];
+ const entries=new Map([['records/games/20261006/20/metadata.json',{analysis:{deep:{status:'ready',jobId:'deep-job'}}}],['records/'+key,{id:'2026100620'}]]),writes=[];
  const store={json:async(bucket,key)=>entries.get(bucket+'/'+key)||null,put:async(bucket,key,body,type)=>{writes.push({key,type});entries.set(bucket+'/'+key,type==='application/json'?JSON.parse(body):body);}};
  let calls=0;const render=async()=>{calls++;return Object.fromEntries(['en','zh'].map(lang=>[lang,{pdf:Buffer.from('%PDF'),html:'<main>'+lang+'</main>',pageCount:17}]));};
  return {entries,writes,options:{store,render,version:'v1',libraryBucket:'records',siteBucket:'site'},calls:()=>calls};

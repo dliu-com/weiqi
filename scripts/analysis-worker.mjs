@@ -6,7 +6,7 @@ import {fileURLToPath} from 'node:url';
 import {promisify} from 'node:util';
 import {createHash} from 'node:crypto';
 import {readSgf,kataQuery,kataCandidates} from '../src/sgf.js';
-import {validRecordId} from '../backend/library-service.js';
+import {validRecordId,gamePrefix} from '../backend/library-service.js';
 export async function analyse(source, {id,model,engine='katago',visits=1,timeoutMs=120000,configPath}) {
   if (!Number.isInteger(visits) || visits<1 || visits>10000) throw Error('Visits must be between 1 and 10,000.');
   const record=readSgf(source), query=kataQuery(record,id,visits);
@@ -41,7 +41,7 @@ export async function analyse(source, {id,model,engine='katago',visits=1,timeout
 }
 export async function runLocalJob(directory,id,options) {
   if(!validRecordId(id))throw Error('Invalid game ID.');
-  const folder=path.join(directory,'games',id), metaPath=path.join(folder,'metadata.json'), lockPath=path.join(folder,'.analysis-lock');
+  const folder=path.join(directory,gamePrefix(id)), metaPath=path.join(folder,'metadata.json'), lockPath=path.join(folder,'.analysis-lock');
   let lock;try{lock=await open(lockPath,'wx');}catch(e){if(e.code==='EEXIST')return;throw e;}
   let metadata;
   const saveMeta=async()=>{const tmp=metaPath+'.tmp';await writeFile(tmp,JSON.stringify(metadata,null,2));await rename(tmp,metaPath);};

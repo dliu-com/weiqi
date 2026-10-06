@@ -1,5 +1,9 @@
 import { readSgf } from '../src/sgf.js';
 export const validRecordId = id => /^(?:[0-9]{10,14}|[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12})$/.test(id);
+export function gamePrefix(id) {
+  if (!validRecordId(id)) throw Object.assign(new Error('Invalid game ID.'),{statusCode:400});
+  return 'games/' + (/^[0-9]{10,14}$/.test(id) ? id.slice(0,8)+'/'+id.slice(8) : id);
+}
 export function recordMetadata(source, filename, id) {
   if (!validRecordId(id) || typeof filename !== 'string' || filename.length > 255) throw Object.assign(new Error('Invalid upload request.'),{statusCode:400});
   const record = readSgf(source);
@@ -9,7 +13,7 @@ export const DAILY_ANALYSIS_CAP=10;
 export async function saveRecord(store, source, filename, id, analysisAllowed=true) {
   const metadata = recordMetadata(source,filename,id);
   if(!analysisAllowed)metadata.analysis={status:'limited',dailyLimit:DAILY_ANALYSIS_CAP};
-  const prefix = 'games/' + id + '/';
+  const prefix = gamePrefix(id) + '/';
   // A retried upload reuses its ID; never overwrite an existing game.
   const created = await store.create(prefix+'original.sgf',source,'application/x-go-sgf; charset=utf-8');
   if (!created && await store.get(prefix+'original.sgf') !== source) throw Object.assign(new Error('Upload ID already exists.'),{statusCode:409});

@@ -21,7 +21,7 @@ export class WeiqiFargateStack extends Stack{
   const uploadQueue=sqs.Queue.fromQueueArn(this,'UploadQueue',props.analysisQueueArn);dispatcher.addEventSource(new sources.SqsEventSource(uploadQueue,{batchSize:1,maxConcurrency:2,reportBatchItemFailures:true}));
   new CfnOutput(this,'DispatcherName',{value:dispatcher.functionName});
   }
-  const status=new lambda.Function(this,'FailureStatus',{runtime:lambda.Runtime.NODEJS_22_X,code:lambda.Code.fromInline(fs.readFileSync(path.join(root,'backend/fargate-status.cjs'),'utf8')),handler:'index.handler',timeout:Duration.seconds(15),environment:{LIBRARY_BUCKET:bucket.bucketName},logRetention:logs.RetentionDays.ONE_WEEK});bucket.grantReadWrite(status,'games/*');
+  const status=new lambda.Function(this,'FailureStatus',{runtime:lambda.Runtime.NODEJS_22_X,code:lambda.Code.fromInline(shared+'\n'+fs.readFileSync(path.join(root,'backend/fargate-status.cjs'),'utf8')),handler:'index.handler',timeout:Duration.seconds(15),environment:{LIBRARY_BUCKET:bucket.bucketName},logRetention:logs.RetentionDays.ONE_WEEK});bucket.grantReadWrite(status,'games/*');
   new events.Rule(this,'JobFailure',{eventPattern:{source:['aws.batch'],detailType:['Batch Job State Change'],detail:{status:['FAILED'],jobQueue:[queue.ref,deepQueue.ref]}},targets:[new targets.LambdaFunction(status)]});
   new CfnOutput(this,'JobQueue',{value:queue.ref});new CfnOutput(this,'JobDefinition',{value:definition.ref});new CfnOutput(this,'DeepJobQueue',{value:deepQueue.ref});new CfnOutput(this,'ComputeEnvironment',{value:compute.ref});
  }
