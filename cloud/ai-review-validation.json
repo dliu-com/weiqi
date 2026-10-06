@@ -1,5 +1,5 @@
 {
-  "asOf": "2026-10-06T03:45:40.273Z",
+  "asOf": "2026-10-06T03:59:55.303971+00:00",
   "recordUrl": "https://weiqi.dliu.com/record/2026100617",
   "gameMoves": 321,
   "positions": 322,
@@ -72,7 +72,10 @@
     "returnToRecordVerified": true,
     "togglePreferenceVerified": true,
     "mobileChartVisible": true,
-    "desktopNoPageOverflow": true
+    "desktopNoPageOverflow": true,
+    "deepUpgradeRequiresRefreshVerified": true,
+    "deep12MoveLineBoardMatched": true,
+    "deepPVBoardHash": 759856860
   },
   "tests": {
     "node": 80,
@@ -80,7 +83,186 @@
     "cdk": 13
   },
   "deep": {
-    "status": "running"
+    "jobId": "fbdc9b54-81bb-471b-8016-4e2e0d9b7832",
+    "visits": 1000,
+    "totalSeconds": 1111.45,
+    "engineSeconds": 911.933,
+    "compute": {
+      "backend": "gpu",
+      "vCpu": 4,
+      "memoryGB": 16,
+      "gpu": "NVIDIA T4",
+      "gpuCount": 1,
+      "gpuMemoryGB": 16,
+      "instanceType": "g4dn.xlarge"
+    },
+    "completedAt": "2026-10-06T03:55:19.332730+00:00"
   },
-  "developmentBudgetUSD": 30
+  "developmentBudgetUSD": 30,
+  "deepReview": {
+    "positions": 322,
+    "withCandidates": 322,
+    "bytes": 356169,
+    "ratings": {
+      "good": 86,
+      "best": 131,
+      "inaccuracy": 66,
+      "mistake": 30,
+      "blunder": 8
+    },
+    "lines": 672,
+    "invalid": [],
+    "maxLineMoves": 12,
+    "configuration": {
+      "analysisThreads": 16,
+      "searchThreads": 1,
+      "neuralNetThreads": 1,
+      "maxVisits": 1000,
+      "maxBatchSize": 32,
+      "analysisPVLen": 11
+    },
+    "examples": [
+      {
+        "move": 171,
+        "played": "B10",
+        "quality": "blunder",
+        "loss": 10.62209214,
+        "best": {
+          "move": "C10",
+          "order": 0,
+          "blackLead": 2.79079716,
+          "blackWinrate": 0.776671752,
+          "visits": 974,
+          "pv": [
+            "C10",
+            "B10",
+            "B11",
+            "C12",
+            "A8",
+            "A12",
+            "B7",
+            "B9",
+            "H15",
+            "H18",
+            "G15",
+            "D18"
+          ]
+        }
+      },
+      {
+        "move": 107,
+        "played": "S9",
+        "quality": "blunder",
+        "loss": 9.297509550000001,
+        "best": {
+          "move": "R6",
+          "order": 0,
+          "blackLead": 14.2216915,
+          "blackWinrate": 0.996544553,
+          "visits": 366,
+          "pv": [
+            "R6",
+            "B6",
+            "C5",
+            "Q6",
+            "S6",
+            "R9",
+            "Q14",
+            "L12",
+            "M12"
+          ]
+        }
+      },
+      {
+        "move": 184,
+        "played": "A11",
+        "quality": "blunder",
+        "loss": 8.8315245,
+        "best": {
+          "move": "N11",
+          "order": 0,
+          "blackLead": -12.7492041,
+          "blackWinrate": 0.00221687793,
+          "visits": 263,
+          "pv": [
+            "N11",
+            "L10",
+            "G12",
+            "A8",
+            "B7",
+            "A7",
+            "C5"
+          ]
+        }
+      },
+      {
+        "move": 144,
+        "played": "H6",
+        "quality": "blunder",
+        "loss": 8.059241896,
+        "best": {
+          "move": "K2",
+          "order": 0,
+          "blackLead": -0.285392156,
+          "blackWinrate": 0.465852504,
+          "visits": 405,
+          "pv": [
+            "K2",
+            "N11",
+            "P10",
+            "H6",
+            "O16",
+            "K3",
+            "J2",
+            "O14",
+            "P14",
+            "N14",
+            "P15",
+            "L2"
+          ]
+        }
+      },
+      {
+        "move": 162,
+        "played": "D7",
+        "quality": "blunder",
+        "loss": 7.769248405,
+        "best": {
+          "move": "B7",
+          "order": 0,
+          "blackLead": -0.804029225,
+          "blackWinrate": 0.421737599,
+          "visits": 909,
+          "pv": [
+            "B7",
+            "E9",
+            "C5",
+            "K10",
+            "J10",
+            "N11",
+            "P10",
+            "H18",
+            "G18",
+            "B5",
+            "B6",
+            "B4"
+          ]
+        }
+      }
+    ]
+  },
+  "gpuImageDigest": "sha256:4b1edfffebe318cb6a518ef5751167a8eb297a28b38cf8a0c5dba4d1fae0da38",
+  "gpuShutdown": {
+    "instanceId": "i-0b32ecd58bee136ec",
+    "type": "g4dn.xlarge",
+    "state": "shutting-down",
+    "launchedAt": "2026-10-06T03:38:32+00:00",
+    "releasedAt": "2026-10-06T03:59:55.303971+00:00",
+    "releaseKnown": true,
+    "releaseSource": "Observed automatic retirement; conservative upper bound.",
+    "estimatedComputeIpStorageUSD": 0.21816167507,
+    "validationRecord": "2026100617"
+  },
+  "conservativeDevelopmentTotalUSD": 9.093264764296666,
+  "pairedComputeEstimateUSD": 0.31756167507
 }

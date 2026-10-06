@@ -1,10 +1,10 @@
 {
-  "asOf": "2026-10-06T03:19:55.475276+00:00",
+  "asOf": "2026-10-06T03:59:55.303971+00:00",
   "developmentBudgetUSD": 30,
-  "cpuComputeIpEstimateUSD": 5.3739,
-  "gpuComputeIpStorageEstimateUSD": 1.4018030892266666,
+  "cpuComputeIpEstimateUSD": 5.4733,
+  "gpuComputeIpStorageEstimateUSD": 1.6199647642966666,
   "smallServicesAllowanceUSD": 2,
-  "conservativeTotalEstimateUSD": 8.775703089226667,
+  "conservativeTotalEstimateUSD": 9.093264764296666,
   "maximumAdditionalActiveCpuJobUSD": 0,
   "note": "Includes failed/stopped development workers, conservative setup and idle allocation, and a small-service allowance. Not a final AWS invoice.",
   "gpuInstances": [
@@ -90,6 +90,17 @@
       "releaseKnown": true,
       "releasedAt": "2026-10-06T03:15:51.018584+00:00",
       "releaseSource": "Observed automatic retirement; conservative upper bound."
+    },
+    {
+      "instanceId": "i-0b32ecd58bee136ec",
+      "type": "g4dn.xlarge",
+      "state": "shutting-down",
+      "launchedAt": "2026-10-06T03:38:32+00:00",
+      "releasedAt": "2026-10-06T03:59:55.303971+00:00",
+      "releaseKnown": true,
+      "releaseSource": "Observed automatic retirement; conservative upper bound.",
+      "estimatedComputeIpStorageUSD": 0.21816167507,
+      "validationRecord": "2026100617"
     }
   ]
 }
