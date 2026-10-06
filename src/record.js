@@ -1,6 +1,6 @@
 import {t,setLanguage} from './i18n.js';
 import {analysisWait,pendingAnalysis,shouldPollQuick,analysisCompletion,analysisTotalMillis} from './analysis-status.js';
-import {reviewMove,recommendedLine,gtpPoint} from './ai-review.js';
+import {reviewMove,nextMoveSuggestions,recommendedLine,gtpPoint} from './ai-review.js';
 import {play} from './engine.js';
 import {gameResult} from './game-result.js';
 import {drawEvaluationChart} from './evaluation-chart.js';
@@ -127,26 +127,28 @@ function renderSuggestions(){
  $('ai-review-content').hidden=!suggestions;
  boardCandidates.clear();for(const point of points){delete point.dataset.quality;delete point.dataset.aiCandidate;point.classList.remove('ai-candidate','ai-best','ai-good');point.removeAttribute('title');}
  if(!suggestions)return;
- const review=reviewMove(record,selected,analyses,data.analysis?.phase),quality=$('move-quality');
+ const review=reviewMove(record,selected,analyses,data.analysis?.phase),next=nextMoveSuggestions(record,selected,analyses,data.analysis?.phase),quality=$('move-quality');
+ quality.hidden=!!aiLine||!!trials.length||!record.nodes[selected].move;
  const names={best:t('最佳着法','Best move'),good:t('好棋','Good move'),inaccuracy:t('不精确','Inaccuracy'),mistake:t('失误','Mistake'),blunder:t('严重失误','Blunder')};
  const last=record.nodes[selected].move?.index;
  if(!aiLine&&!trials.length&&last!==null&&last!==undefined&&review.quality){points[last].dataset.quality=review.quality;points[last].setAttribute('aria-label',points[last].getAttribute('aria-label')+' · '+names[review.quality]);}
  quality.dataset.quality=review.quality||'';
  quality.textContent=review.unavailable?(!data.analysis?t('AI 推荐将在分析完成后显示。','Suggestions appear when analysis is ready.'):!analyses.has(review.anchor)?t('此 SGF 分支尚未分析。','This SGF branch has not been analysed.'):data.analysis.schemaVersion>=2?t('此局面没有已搜索的候选着法。','No searched candidate moves in this position.'):t('此分析未保存推荐变化；新上传棋谱将包含此功能。','Suggestions were not saved in this analysis. New uploads include them.')):review.played?t('第 '+record.nodes[selected].depth+' 手 · ','Move '+record.nodes[selected].depth+' · ')+(review.side==='B'?t('黑方 ','Black '):t('白方 ','White '))+review.played+' · '+(names[review.quality]||t('未评定','Unrated'))+(review.loss!==null&&review.quality!=='best'?' · '+t('约损失 '+review.loss.toFixed(1)+' 点','~'+review.loss.toFixed(1)+' points lost'):'')+(review.preliminary?t('（快速估计）',' (preliminary)'):review.estimated?t('（估计）',' (estimated)'):''):t('AI 推荐首手','Recommended next moves');
  quality.title=t('按估计点数损失评级：好棋 ≤ 0.5；不精确 ≤ 2；失误 ≤ 5；严重失误 > 5。最佳着法为 KataGo 首选，不代表数学上的完美。','Estimated point loss: Good ≤ 0.5; Inaccuracy ≤ 2; Mistake ≤ 5; Blunder > 5. Best means KataGo’s top choice, not mathematical perfection.');
- $('ai-alternatives').replaceChildren();
- for(const [rank,candidate] of review.alternatives.entries()){
+ $('ai-next-label').textContent=aiLine?t('AI 推荐变化；后续局面未单独分析。','AI recommended line; continuation positions are not separately analysed.'):trials.length?t('试下局面未分析。','Preview positions are not analysed.'):(next.side==='B'?t('黑方行棋','Black to move'):t('白方行棋','White to move'))+' · '+t('第 '+(record.nodes[selected].depth+1)+' 手推荐','Suggestions for move '+(record.nodes[selected].depth+1))+(next.preliminary?t('（快速估计）',' (preliminary)'):'');
+ $('ai-alternatives').replaceChildren();$('ai-alternatives').hidden=!!aiLine||!!trials.length;
+ for(const [rank,candidate] of next.alternatives.entries()){
    const label='ABC'[rank],index=gtpPoint(candidate.move,record.size);
-   if(!aiLine&&!trials.length&&index!==null&&record.nodes[selected].board[index]==='.'&&recommendedLine(record,review.anchor,candidate).frames.length>1){
-     const point=points[index];point.classList.add('ai-candidate',candidate.order===0?'ai-best':'ai-good');point.dataset.aiCandidate=candidate.move;point.textContent=label;boardCandidates.set(index,{review,candidate});
-     const loss=Math.max(0,(review.side==='B'?1:-1)*(review.best.blackLead-candidate.blackLead));
+   if(!aiLine&&!trials.length&&index!==null&&record.nodes[selected].board[index]==='.'&&recommendedLine(record,next.anchor,candidate).frames.length>1){
+     const point=points[index];point.classList.add('ai-candidate',candidate.order===0?'ai-best':'ai-good');point.dataset.aiCandidate=candidate.move;point.textContent=label;boardCandidates.set(index,{review:next,candidate});
+     const loss=Math.max(0,(next.side==='B'?1:-1)*(next.best.blackLead-candidate.blackLead));
      point.title=label+' · '+candidate.move+' · '+(candidate.order===0?t('最佳','Best'):t('也可','Also good'))+' · '+t('比首选损失 ','Loss versus best: ')+loss.toFixed(1)+t(' 点',' points');point.setAttribute('aria-label',point.title+' · '+t('查看推荐变化','View recommended line'));
    }
-   const button=document.createElement('button');button.type='button';button.textContent=label+' · '+(candidate.order===0?t('最佳：','Best: '):t('也可：','Also good: '))+(candidate.move==='pass'?t('停一手','Pass'):candidate.move);button.setAttribute('aria-pressed',String(aiLine?.candidate.move===candidate.move));button.onclick=()=>showAiCandidate(review,candidate);$('ai-alternatives').append(button);
+   const button=document.createElement('button');button.type='button';button.textContent=label+' · '+(candidate.order===0?t('最佳：','Best: '):t('也可：','Also good: '))+(candidate.move==='pass'?t('停一手','Pass'):candidate.move);button.setAttribute('aria-pressed',String(aiLine?.candidate.move===candidate.move));button.onclick=()=>showAiCandidate(next,candidate);$('ai-alternatives').append(button);
  }
- if(!review.unavailable&&!review.alternatives.length){const note=document.createElement('span');note.textContent=t('没有评分相近的其他着法。','No similarly strong alternatives in this search.');$('ai-alternatives').append(note);}
+ if(next.unavailable){const note=document.createElement('span');note.textContent=!data.analysis?t('AI 推荐将在分析完成后显示。','Suggestions appear when analysis is ready.'):!analyses.has(selected)?t('此 SGF 分支尚未分析。','This SGF branch has not been analysed.'):data.analysis.schemaVersion>=2?t('此局面没有已搜索的候选着法。','No searched candidate moves in this position.'):t('此分析未保存推荐变化；新上传棋谱将包含此功能。','Suggestions were not saved in this analysis. New uploads include them.');$('ai-alternatives').append(note);}
  $('ai-line-controls').hidden=!aiLine;
- if(aiLine){$('ai-line-status').textContent=t('代替第 '+(record.nodes[aiLine.anchor].depth+1)+' 手','Alternative at move '+(record.nodes[aiLine.anchor].depth+1))+' · '+aiLine.offset+'/'+(aiLine.frames.length-1);$('ai-line-previous').disabled=aiLine.offset===0;$('ai-line-next').disabled=aiLine.offset===aiLine.frames.length-1;$('ai-line-clear').textContent=t('返回棋谱','Return to record');}
+ if(aiLine){$('ai-line-status').textContent=t('从第 '+record.nodes[aiLine.anchor].depth+' 手后开始的推荐变化','Continuation after move '+record.nodes[aiLine.anchor].depth)+' · '+aiLine.offset+'/'+(aiLine.frames.length-1);$('ai-line-previous').disabled=aiLine.offset===0;$('ai-line-next').disabled=aiLine.offset===aiLine.frames.length-1;$('ai-line-clear').textContent=t('返回棋谱','Return to record');}
 }
 
 function showAiCandidate(review,candidate){stopAutoplay();trials=[];aiLine=recommendedLine(record,review.anchor,candidate);$('record-message').textContent=aiLine.truncated?t('推荐变化在无法复现的棋步前停止。','The recommended line stops before a move that cannot be replayed.'):'';render();}

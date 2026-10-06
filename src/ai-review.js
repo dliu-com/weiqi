@@ -26,6 +26,16 @@ export function reviewMove(record,selected,analyses,phase) {
   return {anchor,side,played,quality,loss,estimated,preliminary:phase==='quick',alternatives,best};
 }
 
+// Candidate searches belong to the displayed position and its player to move.
+// Reviewing the last recorded move separately uses its parent position.
+export function nextMoveSuggestions(record,selected,analyses,phase) {
+  const node=record.nodes[selected],candidates=analyses.get(selected)?.candidates||[];
+  const best=candidates.find(c=>c.order===0),side=node.turn,sign=side==='B'?1:-1;
+  if(!best)return {anchor:selected,side,alternatives:[],unavailable:true};
+  const alternatives=candidates.filter(c=>c===best||(c.visits>=Math.max(phase==='quick'?1:2,Math.ceil(best.visits*.03))&&sign*(best.blackLead-c.blackLead)<=1&&sign*(best.blackWinrate-c.blackWinrate)<=.05)).sort((a,b)=>a.order-b.order).slice(0,3);
+  return {anchor:selected,side,best,alternatives,preliminary:phase==='quick'};
+}
+
 // Preview on a separate board tree; never mutate the uploaded record.
 export function recommendedLine(record,anchor,candidate) {
   const base=record.nodes[anchor],frames=[base],history=[];
