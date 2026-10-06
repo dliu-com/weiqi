@@ -1,0 +1,12 @@
+import {mkdir,copyFile,readFile,writeFile,rm} from 'node:fs/promises';
+import {fileURLToPath} from 'node:url';
+import {createHash} from 'node:crypto';
+const root=fileURLToPath(new URL('../',import.meta.url)),destination=root+'backend/report-renderer/assets/';
+await mkdir(destination,{recursive:true});
+await rm(destination+'report-pdf.js',{force:true});
+const files=['report-render.js','report.css','report-stat-charts.js','report-highlights.js','report-document.js','library-api.js','board-diagram.js','evaluation-chart.js','sgf.js','ai-review.js','engine.js','game-result.js','report-font.otf'];
+for(const file of files)await copyFile(root+'src/'+file,destination+file);
+const license=await readFile(root+'backend/report-renderer/FONT-LICENSE.txt');await writeFile(destination+'FONT-LICENSE.txt',license);
+const hash=createHash('sha256');for(const file of files)hash.update(await readFile(destination+file));
+for(const file of ['render.mjs','render.html','finish-pdf.mjs','report-job.mjs','index.mjs','package-lock.json'])hash.update(await readFile(root+'backend/report-renderer/'+file));
+await writeFile(root+'backend/report-renderer/version.json',JSON.stringify({version:hash.digest('hex').slice(0,16)})+'\n');

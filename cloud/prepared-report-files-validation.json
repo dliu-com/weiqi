@@ -1,0 +1,217 @@
+{
+  "verifiedAt": "2026-10-06T13:31:20.994376+00:00",
+  "recordUrl": "https://weiqi.dliu.com/record/2026100620/report?lang=en",
+  "region": "eu-west-1",
+  "provisioning": "CloudFormation only",
+  "renderVersion": "c5bad7e8633f6b4c",
+  "pdf": {
+    "en": {
+      "bytes": 1203789,
+      "sha256": "7a73454d104153e278fec41f399539b935aef67867b9fe8e50e4d5de4c217608",
+      "pages": 16,
+      "contentsDestinations": [
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14,
+        15,
+        16
+      ],
+      "tableReviewDestinations": [
+        11,
+        12,
+        13,
+        14,
+        15,
+        16
+      ],
+      "bookmarks": 33,
+      "searchableText": true,
+      "runningHeadersAndFooters": true,
+      "A4": true
+    },
+    "zh": {
+      "bytes": 1757177,
+      "sha256": "e5e3a1dbd4c0f77a3f446478573d3b31b42c764aa41d1d31cd95c89a6e02a606",
+      "pages": 16,
+      "contentsDestinations": [
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14,
+        15,
+        16
+      ],
+      "tableReviewDestinations": [
+        11,
+        12,
+        13,
+        14,
+        15,
+        16
+      ],
+      "bookmarks": 33,
+      "searchableText": true,
+      "runningHeadersAndFooters": true,
+      "A4": true
+    }
+  },
+  "browser": {
+    "languages": [
+      "en",
+      "zh-CN"
+    ],
+    "directDownloadsMatchStoredFiles": true,
+    "sheetsPerLanguage": 16,
+    "graphsPerLanguage": 6,
+    "keyMomentRows": 10,
+    "detailedReviewsPerSide": 3,
+    "contentsAndReviewLinks": true,
+    "desktop": true,
+    "mobileWidth": 390,
+    "horizontalOverflow": false
+  },
+  "migration": {
+    "reports": [
+      {
+        "id": "2026100620",
+        "status": "ready",
+        "version": "c5bad7e8633f6b4c",
+        "languages": [
+          "en",
+          "zh"
+        ],
+        "generatedAt": "2026-10-06T13:23:10.529Z"
+      },
+      {
+        "id": "2026100621",
+        "status": "ready",
+        "version": "c5bad7e8633f6b4c",
+        "languages": [
+          "en",
+          "zh"
+        ],
+        "generatedAt": "2026-10-06T13:23:18.778Z"
+      },
+      {
+        "id": "2026100601",
+        "status": "ready",
+        "version": "c5bad7e8633f6b4c",
+        "languages": [
+          "en",
+          "zh"
+        ],
+        "generatedAt": "2026-10-06T13:23:25.461Z"
+      },
+      {
+        "id": "2026100506",
+        "status": "ready",
+        "version": "c5bad7e8633f6b4c",
+        "languages": [
+          "en",
+          "zh"
+        ],
+        "generatedAt": "2026-10-06T13:23:32.203Z"
+      },
+      {
+        "id": "2026100611",
+        "status": "ready",
+        "version": "c5bad7e8633f6b4c",
+        "languages": [
+          "en",
+          "zh"
+        ],
+        "generatedAt": "2026-10-06T13:23:38.873Z"
+      },
+      {
+        "id": "2026100612",
+        "status": "ready",
+        "version": "c5bad7e8633f6b4c",
+        "languages": [
+          "en",
+          "zh"
+        ],
+        "generatedAt": "2026-10-06T13:23:45.453Z"
+      },
+      {
+        "id": "2026100615",
+        "status": "ready",
+        "version": "c5bad7e8633f6b4c",
+        "languages": [
+          "en",
+          "zh"
+        ],
+        "generatedAt": "2026-10-06T13:23:52.130Z"
+      },
+      {
+        "id": "2026100616",
+        "status": "ready",
+        "version": "c5bad7e8633f6b4c",
+        "languages": [
+          "en",
+          "zh"
+        ],
+        "generatedAt": "2026-10-06T13:23:58.892Z"
+      },
+      {
+        "id": "2026100617",
+        "status": "ready",
+        "version": "c5bad7e8633f6b4c",
+        "languages": [
+          "en",
+          "zh"
+        ],
+        "generatedAt": "2026-10-06T13:24:07.083Z"
+      },
+      {
+        "id": "2026100618",
+        "status": "ready",
+        "version": "c5bad7e8633f6b4c",
+        "languages": [
+          "en",
+          "zh"
+        ],
+        "generatedAt": "2026-10-06T13:24:15.212Z"
+      },
+      {
+        "id": "2026100619",
+        "status": "ready",
+        "version": "c5bad7e8633f6b4c",
+        "languages": [
+          "en",
+          "zh"
+        ],
+        "generatedAt": "2026-10-06T13:24:21.876Z"
+      }
+    ],
+    "queues": {
+      "WeiqiSite-ReportQueueEBFFFAE8-8rlZ2e5wSqGa.fifo": {
+        "ApproximateNumberOfMessages": "0",
+        "ApproximateNumberOfMessagesNotVisible": "0"
+      },
+      "WeiqiSite-ReportDeadLettersD1941892-50ECZBbXDJ7A.fifo": {
+        "ApproximateNumberOfMessages": "0",
+        "ApproximateNumberOfMessagesNotVisible": "0"
+      }
+    }
+  },
+  "newAiJobsStarted": 0,
+  "protectedStorageStackChanged": false,
+  "interactionsGenerateReportsOrPdfs": false
+}

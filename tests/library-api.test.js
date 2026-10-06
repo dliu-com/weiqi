@@ -4,18 +4,20 @@ import vm from 'node:vm';
 import {createHash} from 'node:crypto';
 import {readFileSync} from 'node:fs';
 function api(){
- const files=new Map(),messages=[];
+ const files=new Map(),messages=[],invocations=[];
  class GetObjectCommand{constructor(input){this.input=input;}}
  class PutObjectCommand{constructor(input){this.input=input;}}
  class ListObjectsV2Command{constructor(input){this.input=input;}}
  class SendMessageCommand{constructor(input){this.input=input;}}
  class S3Client{async send(c){const key=c.input.Key;if(c instanceof GetObjectCommand){if(!files.has(key))throw Object.assign(Error(),{name:'NoSuchKey'});return {ETag:'test',Body:{transformToString:async()=>files.get(key)}};}if(c instanceof PutObjectCommand){if(c.input.IfNoneMatch==='*'&&files.has(key))throw Object.assign(Error(),{$metadata:{httpStatusCode:412}});files.set(key,c.input.Body);return {};}const keys=[...files.keys()].filter(k=>k.startsWith(c.input.Prefix)).sort(),offset=Number(c.input.ContinuationToken||0);return {Contents:keys.slice(offset,offset+c.input.MaxKeys).map(Key=>({Key})),NextContinuationToken:keys.length>offset+c.input.MaxKeys?String(offset+c.input.MaxKeys):undefined};}}
  class SQSClient{async send(c){messages.push(c.input);return {};}}
+ class InvokeCommand{constructor(input){this.input=input;}}
+ class LambdaClient{async send(c){invocations.push(c.input);return {StatusCode:202};}}
  class DynamoDBClient{}
  const exports={},source=['src/engine.js','backend/game-service.js','src/sgf.js','src/ai-review.js','src/report-data.js','backend/library-service.js','backend/library-handler.cjs','backend/handler.cjs'].map(file=>readFileSync(new URL('../'+file,import.meta.url),'utf8').replace(/^import .*;\n/gm,'').replace(/^export /gm,'')).join('\n');
- vm.runInNewContext(source,{exports,require:name=>name.includes('client-s3')?{S3Client,GetObjectCommand,PutObjectCommand,ListObjectsV2Command}:name.includes('client-sqs')?{SQSClient,SendMessageCommand}:name==='node:crypto'?{createHash}:{DynamoDBClient},process:{env:{LIBRARY_BUCKET:'test',ANALYSIS_QUEUE:'testqueue',SITE_ORIGIN:'https://test.invalid'}},TextEncoder,Buffer,console});
+ vm.runInNewContext(source,{exports,require:name=>name.includes('client-s3')?{S3Client,GetObjectCommand,PutObjectCommand,ListObjectsV2Command}:name.includes('client-sqs')?{SQSClient,SendMessageCommand}:name.includes('client-lambda')?{LambdaClient,InvokeCommand}:name==='node:crypto'?{createHash}:{DynamoDBClient},process:{env:{LIBRARY_BUCKET:'test',ANALYSIS_QUEUE:'testqueue',SITE_ORIGIN:'https://test.invalid',REPORT_QUEUE:'reportqueue'}},TextEncoder,Buffer,console});
  const call=async(path,body,headers={})=>{const result=await exports.handler({rawPath:new URL(path,'https://test.invalid').pathname,queryStringParameters:Object.fromEntries(new URL(path,'https://test.invalid').searchParams),requestContext:{http:{method:body?'POST':'GET'}},headers:{'content-type':'application/json',origin:'https://test.invalid',...headers},body:body?JSON.stringify(body):undefined});return {status:result.statusCode,...JSON.parse(result.body)};};
- return {call,files,messages,event:exports.handler};
+ return {call,files,messages,invocations,event:exports.handler};
 }
 const id='12345678-1234-1234-1234-123456789abc',sgf='(;GM[1]SZ[19]KM[7.5]GN[API test];B[dd];W[pp])';
 test('deployed library handler allocates a short ID, stores portable files, queues analysis and immediately serves the original record',async()=>{
@@ -55,13 +57,15 @@ test('library lists newest ten records and returns a cursor for the next page wi
  assert.equal(new Set([...first.games,...second.games,...last.games].map(r=>r.id)).size,23);
 });
 
-test('report generation caches a portable artifact, reuses deep analysis and starts no paid job',async()=>{
- const {call,files,messages}=api(),upload=await call('/api/library',{id,sgf,filename:'report.sgf'}),prefix='games/'+upload.id+'/';
- assert.equal((await call('/api/library/'+upload.id+'/report')).status,409);
- const meta=JSON.parse(files.get(prefix+'metadata.json'));meta.analysis={status:'ready',available:'deep'};files.set(prefix+'metadata.json',JSON.stringify(meta));
+test('report reads never generate artifacts or invoke document workers',async()=>{
+ const {call,files,messages,invocations,event}=api(),upload=await call('/api/library',{id,sgf,filename:'report.sgf'}),prefix='games/'+upload.id+'/';
+ const meta=JSON.parse(files.get(prefix+'metadata.json'));meta.analysis={status:'ready',available:'deep',deep:{status:'ready',jobId:'job'}};files.set(prefix+'metadata.json',JSON.stringify(meta));
  const a={phase:'deep',visits:3000,completedAt:'2026-10-06T00:00:00Z',sgfSha256:createHash('sha256').update(sgf).digest('hex'),modelSha256:'abc',positions:[0,1,2].map(n=>({nodeId:n,move:n,blackLead:0,blackWinrate:.5,candidates:[{move:n===0?'Q16':'D4',order:0,blackLead:2,blackWinrate:.6,visits:100,pv:[n===0?'Q16':'D4']}]}))};files.set(prefix+'analysis.json',JSON.stringify(a));
- const first=await call('/api/library/'+upload.id+'/report'),second=await call('/api/library/'+upload.id+'/report');assert.equal(first.status,200);assert.deepEqual(first,second);assert.equal([...files.keys()].filter(k=>k.includes('/reports/')).length,1);assert.equal(messages.length,1);
- files.set(prefix+'analysis.json',JSON.stringify({...a,visits:1000}));assert.equal((await call('/api/library/'+upload.id+'/report')).provenance.visits,1000);assert.equal([...files.keys()].filter(k=>k.includes('/reports/')).length,2);
+ assert.equal((await call('/api/library/'+upload.id+'/report')).status,409);assert.equal(invocations.length,0);assert.equal([...files.keys()].filter(k=>k.includes('/reports/')).length,0);
+ await event({source:'aws.batch','detail-type':'Batch Job State Change',detail:{status:'SUCCEEDED',jobName:'weiqi-'+upload.id+'-a1-1234abcd',jobId:'job'}});
+ assert.equal(invocations.length,0);assert.equal(messages.length,2);assert.equal(messages[1].MessageGroupId,'reports');assert.equal(messages[1].QueueUrl,'reportqueue');
+ const first=await call('/api/library/'+upload.id+'/report'),second=await call('/api/library/'+upload.id+'/report');assert.equal(first.status,200);assert.deepEqual(first,second);assert.equal(invocations.length,0);assert.equal(messages.length,2);
+ files.set(prefix+'analysis.json',JSON.stringify({...a,visits:1000}));assert.equal((await call('/api/library/'+upload.id+'/report')).status,409);assert.equal(invocations.length,0);assert.equal(messages.length,2);
 });
 test('report API rejects analysis for another SGF and incomplete positions',async()=>{
  const {call,files}=api(),upload=await call('/api/library',{id,sgf,filename:'report.sgf'}),prefix='games/'+upload.id+'/';const meta=JSON.parse(files.get(prefix+'metadata.json'));meta.analysis={status:'ready',available:'deep'};files.set(prefix+'metadata.json',JSON.stringify(meta));
@@ -75,8 +79,8 @@ test('successful production completion prepares the report before viewing, dedup
  files.set(prefix+'analysis.json',JSON.stringify({phase:'deep',visits:3000,completedAt:'2026-10-06T00:00:00Z',sgfSha256:createHash('sha256').update(sgf).digest('hex'),modelSha256:'model',positions:[0,1,2].map(n=>({nodeId:n,move:n,blackLead:0,blackWinrate:.5,candidates:[{move:n===0?'Q16':'D4',order:0,blackLead:2,blackWinrate:.6,visits:100,pv:[n===0?'Q16':'D4']}]}))}));
  const notice=jobId=>({source:'aws.batch','detail-type':'Batch Job State Change',detail:{status:'SUCCEEDED',jobName:'weiqi-'+upload.id+'-a1-1234abcd',jobId}});
  assert.equal((await event(notice('old-job'))).ignored,true);assert.equal([...files.keys()].filter(k=>k.includes('/reports/')).length,0);
- assert.equal((await event(notice('completed-job'))).reportReady,true);const reportKeys=[...files.keys()].filter(k=>k.includes('/reports/'));assert.equal(reportKeys.length,1);
+ assert.equal((await event(notice('completed-job'))).reportDataReady,true);const reportKeys=[...files.keys()].filter(k=>k.includes('/reports/'));assert.equal(reportKeys.length,1);
  const prepared=JSON.parse(files.get(reportKeys[0]));assert.deepEqual(prepared.availableLanguages,['en','zh']);
- await event(notice('completed-job'));const viewed=await call('/api/library/'+upload.id+'/report');assert.equal(viewed.generatedAt,prepared.generatedAt);assert.equal([...files.keys()].filter(k=>k.includes('/reports/')).length,1);assert.equal(messages.length,1);
+ await event(notice('completed-job'));const viewed=await call('/api/library/'+upload.id+'/report');assert.equal(viewed.generatedAt,prepared.generatedAt);assert.equal([...files.keys()].filter(k=>k.includes('/reports/')).length,1);assert.equal(messages.length,3);assert.equal(messages[1].MessageDeduplicationId,messages[2].MessageDeduplicationId);
  meta.analysis.deep.status='running';files.set(prefix+'metadata.json',JSON.stringify(meta));assert.equal((await event(notice('completed-job'))).ignored,true);
 });

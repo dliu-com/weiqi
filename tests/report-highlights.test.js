@@ -6,6 +6,8 @@ test('three bad moves per side drive both diagrams and loss concentration withou
  const report={problems,players:{B:{totalPointLoss:40},W:{totalPointLoss:60}}},original=JSON.stringify(report),view=selectReportHighlights(report);
  assert.deepEqual(view.problems.filter(m=>m.side==='B').map(m=>m.pointLoss),[10,8,6]);
  assert.deepEqual(view.problems.filter(m=>m.side==='W').map(m=>m.pointLoss),[10,8,6]);
+ assert.deepEqual(view.keyMoves.B.map(m=>m.pointLoss),[10,8,6,4,2]);
+ assert.deepEqual(view.keyMoves.W.map(m=>m.pointLoss),[10,8,6,4,2]);
  assert.equal(view.players.B.highlightLossPercent,60);assert.equal(view.players.W.highlightLossPercent,40);
  assert.equal(JSON.stringify(report),original);
 });

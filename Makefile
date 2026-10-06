@@ -6,6 +6,7 @@ STACK_NAME := WeiqiSite
 
 install:
 	npm ci
+	npm ci --prefix backend/report-renderer
 	cd cdk && npm ci
 
 serve:
