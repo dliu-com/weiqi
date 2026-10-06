@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import vm from 'node:vm';
+import {createHash} from 'node:crypto';
 import {readFileSync} from 'node:fs';
 function api(){
  const files=new Map(),messages=[];
@@ -11,8 +12,8 @@ function api(){
  class S3Client{async send(c){const key=c.input.Key;if(c instanceof GetObjectCommand){if(!files.has(key))throw Object.assign(Error(),{name:'NoSuchKey'});return {ETag:'test',Body:{transformToString:async()=>files.get(key)}};}if(c instanceof PutObjectCommand){if(c.input.IfNoneMatch==='*'&&files.has(key))throw Object.assign(Error(),{$metadata:{httpStatusCode:412}});files.set(key,c.input.Body);return {};}const keys=[...files.keys()].filter(k=>k.startsWith(c.input.Prefix)).sort(),offset=Number(c.input.ContinuationToken||0);return {Contents:keys.slice(offset,offset+c.input.MaxKeys).map(Key=>({Key})),NextContinuationToken:keys.length>offset+c.input.MaxKeys?String(offset+c.input.MaxKeys):undefined};}}
  class SQSClient{async send(c){messages.push(c.input);return {};}}
  class DynamoDBClient{}
- const exports={},source=['src/engine.js','backend/game-service.js','src/sgf.js','backend/library-service.js','backend/library-handler.cjs','backend/handler.cjs'].map(file=>readFileSync(new URL('../'+file,import.meta.url),'utf8').replace(/^import .*;\n/gm,'').replace(/^export /gm,'')).join('\n');
- vm.runInNewContext(source,{exports,require:name=>name.includes('client-s3')?{S3Client,GetObjectCommand,PutObjectCommand,ListObjectsV2Command}:name.includes('client-sqs')?{SQSClient,SendMessageCommand}:{DynamoDBClient},process:{env:{LIBRARY_BUCKET:'test',ANALYSIS_QUEUE:'testqueue',SITE_ORIGIN:'https://test.invalid'}},TextEncoder,Buffer,console});
+ const exports={},source=['src/engine.js','backend/game-service.js','src/sgf.js','src/ai-review.js','src/report-data.js','backend/library-service.js','backend/library-handler.cjs','backend/handler.cjs'].map(file=>readFileSync(new URL('../'+file,import.meta.url),'utf8').replace(/^import .*;\n/gm,'').replace(/^export /gm,'')).join('\n');
+ vm.runInNewContext(source,{exports,require:name=>name.includes('client-s3')?{S3Client,GetObjectCommand,PutObjectCommand,ListObjectsV2Command}:name.includes('client-sqs')?{SQSClient,SendMessageCommand}:name==='node:crypto'?{createHash}:{DynamoDBClient},process:{env:{LIBRARY_BUCKET:'test',ANALYSIS_QUEUE:'testqueue',SITE_ORIGIN:'https://test.invalid'}},TextEncoder,Buffer,console});
  const call=async(path,body,headers={})=>{const result=await exports.handler({rawPath:new URL(path,'https://test.invalid').pathname,queryStringParameters:Object.fromEntries(new URL(path,'https://test.invalid').searchParams),requestContext:{http:{method:body?'POST':'GET'}},headers:{'content-type':'application/json',origin:'https://test.invalid',...headers},body:body?JSON.stringify(body):undefined});return {status:result.statusCode,...JSON.parse(result.body)};};
  return {call,files,messages};
 }
@@ -52,4 +53,18 @@ test('library lists newest ten records and returns a cursor for the next page wi
  const second=await call('/api/library?cursor='+first.cursor);assert.equal(second.games.length,10);assert.equal(second.games[0].id,'2026100513');
  const last=await call('/api/library?cursor='+second.cursor);assert.equal(last.games.length,3);assert.equal(last.cursor,null);
  assert.equal(new Set([...first.games,...second.games,...last.games].map(r=>r.id)).size,23);
+});
+
+test('report generation caches a portable artifact, reuses deep analysis and starts no paid job',async()=>{
+ const {call,files,messages}=api(),upload=await call('/api/library',{id,sgf,filename:'report.sgf'}),prefix='games/'+upload.id+'/';
+ assert.equal((await call('/api/library/'+upload.id+'/report')).status,409);
+ const meta=JSON.parse(files.get(prefix+'metadata.json'));meta.analysis={status:'ready',available:'deep'};files.set(prefix+'metadata.json',JSON.stringify(meta));
+ const a={phase:'deep',visits:3000,completedAt:'2026-10-06T00:00:00Z',sgfSha256:createHash('sha256').update(sgf).digest('hex'),modelSha256:'abc',positions:[0,1,2].map(n=>({nodeId:n,move:n,blackLead:0,blackWinrate:.5,candidates:[{move:n===0?'Q16':'D4',order:0,blackLead:2,blackWinrate:.6,visits:100,pv:[n===0?'Q16':'D4']}]}))};files.set(prefix+'analysis.json',JSON.stringify(a));
+ const first=await call('/api/library/'+upload.id+'/report'),second=await call('/api/library/'+upload.id+'/report');assert.equal(first.status,200);assert.deepEqual(first,second);assert.equal([...files.keys()].filter(k=>k.includes('/reports/')).length,1);assert.equal(messages.length,1);
+ files.set(prefix+'analysis.json',JSON.stringify({...a,visits:1000}));assert.equal((await call('/api/library/'+upload.id+'/report')).provenance.visits,1000);assert.equal([...files.keys()].filter(k=>k.includes('/reports/')).length,2);
+});
+test('report API rejects analysis for another SGF and incomplete positions',async()=>{
+ const {call,files}=api(),upload=await call('/api/library',{id,sgf,filename:'report.sgf'}),prefix='games/'+upload.id+'/';const meta=JSON.parse(files.get(prefix+'metadata.json'));meta.analysis={status:'ready',available:'deep'};files.set(prefix+'metadata.json',JSON.stringify(meta));
+ files.set(prefix+'analysis.json',JSON.stringify({phase:'deep',sgfSha256:'wrong',positions:[]}));assert.equal((await call('/api/library/'+upload.id+'/report')).status,409);
+ files.set(prefix+'analysis.json',JSON.stringify({phase:'deep',sgfSha256:createHash('sha256').update(sgf).digest('hex'),positions:[]}));assert.equal((await call('/api/library/'+upload.id+'/report')).status,409);
 });

@@ -177,3 +177,10 @@ body{background:#fff}.card,.status-card{background:#fff}button:not(.point):hover
 #record-main .point[data-quality]:after{position:absolute;inset:10%;width:auto;height:auto;border-width:2px;border-color:#409869;pointer-events:none}#record-main .point[data-quality=inaccuracy]:after{border-color:#d7982d}#record-main .point:is([data-quality=mistake],[data-quality=blunder]):after{border-color:#df5144}
 
 @media(min-width:851px){.record-page #record-main{grid-template-rows:minmax(0,1fr);align-items:stretch;margin-bottom:0}#record-main aside>section{flex-shrink:0}}
+
+#record-main .point.ai-candidate{border-radius:50%;background:#2978ce;color:white;box-shadow:0 0 0 2px #ffffffbd,inset 0 0 0 1px #173d6d;opacity:.93;cursor:pointer;font-size:clamp(10px,1.3vw,18px)}
+#record-main .point.ai-good{background:#327e53;box-shadow:0 0 0 2px #ffffffbd,inset 0 0 0 1px #173d2b}
+#record-main .point.ai-candidate:hover,#record-main .point.ai-candidate:focus-visible{opacity:1;outline:3px solid white;z-index:4}
+#record-main .point.ai-candidate:before,#record-main .point.ai-candidate:after{display:none}
+
+#generate-report[aria-disabled=true]{color:var(--muted);opacity:.65;cursor:default;text-decoration:none}

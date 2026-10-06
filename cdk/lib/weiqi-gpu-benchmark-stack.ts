@@ -51,7 +51,7 @@ export class WeiqiGpuBenchmarkStack extends Stack {
    const modelResolver=fs.readFileSync(path.join(root,'backend/katago-model.cjs'),'utf8').replace(/^module.exports=.*;$/gm,'');
    const code=lambda.Code.fromInline(shared+'\n'+modelResolver+'\n'+fs.readFileSync(path.join(root,'backend/gpu-production.cjs'),'utf8'));
    const gpuQueues=[productionQueue!.ref,fallbackGpuQueue!.ref,spotQueue!.ref];
-   const environment={LIBRARY_BUCKET:bucket.bucketName,JOB_QUEUE:productionQueue!.ref,FALLBACK_GPU_QUEUE:fallbackGpuQueue!.ref,FALLBACK_SPOT_QUEUE:spotQueue!.ref,JOB_DEFINITION:job.ref,CONTROL_QUEUE:fallbackQueue.queueUrl,GPU_FALLBACK_WAIT_SECONDS:'180',QUICK_VISITS:'32'};
+   const environment={LIBRARY_BUCKET:bucket.bucketName,JOB_QUEUE:productionQueue!.ref,FALLBACK_GPU_QUEUE:fallbackGpuQueue!.ref,FALLBACK_SPOT_QUEUE:spotQueue!.ref,JOB_DEFINITION:job.ref,CONTROL_QUEUE:fallbackQueue.queueUrl,GPU_FALLBACK_WAIT_SECONDS:'180',QUICK_VISITS:'32',DEEP_VISITS:'3000'};
    const createCoordinator=(name:string)=>{
     const fn=new lambda.Function(this,name,{runtime:lambda.Runtime.NODEJS_22_X,handler:'index.handler',code,timeout:Duration.seconds(30),memorySize:256,environment,logRetention:logs.RetentionDays.ONE_WEEK});
     bucket.grantReadWrite(fn,'games/*');bucket.grantReadWrite(fn,'jobs/*');fallbackQueue.grantSendMessages(fn);

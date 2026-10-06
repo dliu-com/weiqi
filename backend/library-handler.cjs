@@ -1,5 +1,6 @@
 const {S3Client,GetObjectCommand,PutObjectCommand,ListObjectsV2Command} = require('@aws-sdk/client-s3');
 const {SQSClient,SendMessageCommand} = require('@aws-sdk/client-sqs');
+const {createHash:reportHash}=require('node:crypto');
 const libraryS3 = new S3Client({}), libraryQueue = new SQSClient({});
 const libraryStore = {
   async get(key) {const value=await libraryS3.send(new GetObjectCommand({Bucket:process.env.LIBRARY_BUCKET,Key:key}));return value.Body.transformToString();},
@@ -15,6 +16,18 @@ async function libraryHandler(event) {
       const list=await libraryS3.send(new ListObjectsV2Command({Bucket:process.env.LIBRARY_BUCKET,Prefix:'library-index/',MaxKeys:10,...(cursor?{ContinuationToken:cursor}:{})}));
       const games=await Promise.all((list.Contents || []).map(async p=>{try{const entry=JSON.parse(await libraryStore.get(p.Key));if(!validRecordId(entry.id))return null;return JSON.parse(await libraryStore.get('games/'+entry.id+'/metadata.json'));}catch(e){if(e.name==='NoSuchKey')return null;throw e;}}));
       return response(200,{games:games.filter(Boolean),cursor:list.NextContinuationToken || null});
+    }
+    const reportId=path.match(/^\/api\/library\/([^/]+)\/report$/)?.[1];
+    if(method==='GET'&&validRecordId(reportId||'')){
+      const prefix='games/'+reportId+'/',metadata=JSON.parse(await libraryStore.get(prefix+'metadata.json'));
+      if(metadata.analysis.available==='quick'||metadata.analysis.status!=='ready')return response(409,{message:'The report will be available when deep analysis finishes. Refresh the game page to check.'});
+      const analysis=JSON.parse(await libraryStore.get(prefix+'analysis.json'));
+      const hash=reportHash('sha256').update(JSON.stringify([1,analysis.sgfSha256,analysis.modelSha256,analysis.visits,analysis.completedAt])).digest('hex'),key=prefix+'reports/'+hash+'.json';
+      try{return response(200,JSON.parse(await libraryStore.get(key)));}catch(e){if(e.name!=='NoSuchKey')throw e;}
+      const source=await libraryStore.get(prefix+'original.sgf');
+      if(reportHash('sha256').update(source).digest('hex')!==analysis.sgfSha256)return response(409,{message:'Analysis does not match the saved SGF.'});
+      const report=buildAiReport(source,analysis,metadata);await libraryStore.create(key,JSON.stringify(report),'application/json');
+      return response(200,JSON.parse(await libraryStore.get(key)));
     }
     if (method==='GET' && validRecordId(id)) {
       const prefix='games/'+id+'/', metadata=JSON.parse(await libraryStore.get(prefix+'metadata.json'));

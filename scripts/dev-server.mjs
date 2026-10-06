@@ -36,7 +36,7 @@ const server = http.createServer(async (request, response) => {
     } catch (error) { return send(error.statusCode || 500, { message: error.message, ...(error.statusCode === 409 ? { state } : {}) }); }
   }
   try {
-    const filename = path.resolve(root, '.' + decodeURIComponent(pathname === '/' ? '/index.html' : /^\/(?:record|game)\/(?:[0-9]{10,14}|[a-f0-9-]{36})\/?$/.test(pathname)?'/record.html':pathname));
+    const filename = path.resolve(root, '.' + decodeURIComponent(pathname === '/' ? '/index.html' : /^\/record\/(?:[0-9]{10,14}|[a-f0-9-]{36})\/report\/?$/.test(pathname)?'/report.html':/^\/(?:record|game)\/(?:[0-9]{10,14}|[a-f0-9-]{36})\/?$/.test(pathname)?'/record.html':pathname));
     if (!filename.startsWith(root + path.sep) && filename !== root) throw new Error('Invalid path');
     const data = await readFile(filename);
     response.writeHead(200, { 'content-type': types[path.extname(filename)] || 'application/octet-stream', 'cache-control': 'no-store' });
