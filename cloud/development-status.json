@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-10-06T11:23:42.162729+00:00",
+  "updatedAt": "2026-10-06T11:39:41.749398+00:00",
   "awsDevelopmentDebugBudgetUSD": 30,
   "noFurtherPaidBenchmarksPlanned": true,
   "smallServiceAllowanceUSD": 2,
@@ -35,7 +35,7 @@
     }
   },
   "verifiedTests": {
-    "node": 101,
+    "node": 104,
     "python": 10,
     "cdk": 14
   },
@@ -135,19 +135,20 @@
     "newFargateJob": false,
     "pdfExportTest": "Deferred at user request",
     "validationRecord": "2026100620",
-    "schemaVersion": 5,
-    "format": "Five largest point losses per side plus detailed bad-move statistics, move-range summaries, loss distributions and four charts",
+    "schemaVersion": 6,
+    "format": "Five bad moves per side for board diagrams; all rated move types for statistics, charts and worked mathematics",
     "maximumMovesPerSide": 5,
     "userConfigControls": false,
-    "goodMoveStatistics": false,
+    "goodMoveStatistics": true,
     "statistics": [
-      "Severity counts and error frequency",
-      "Mean, median, 90th percentile, maximum and cumulative point loss",
-      "Top-five loss concentration",
-      "Mean and maximum win-rate drops, 10/20 percentage-point drop counts",
-      "Missed available point leads and winning chances",
-      "Fixed move-range summaries and loss buckets",
-      "Per-move and cumulative loss timelines, game-context charts"
+      "All five quality counts and percentages; evaluation coverage and first-choice matches",
+      "Loss tolerance rates at 0.5, 1 and 2 points",
+      "All-rated-move total, mean, median, 90th/95th-percentile, population SD and RMS loss",
+      "Searched versus estimated played evaluation counts and means",
+      "All-rated-move win-loss mean, median, 90th percentile, population SD, maxima and 5/10/20 pp drops",
+      "Per-quality summaries, complete zero-inclusive loss bins and move-range quality counts",
+      "Whole-game metrics pooled across both sides; all-rated-move loss timelines",
+      "Bilingual formulas, denominators and worked game calculations"
     ],
     "languages": [
       "en",
@@ -155,13 +156,13 @@
     ],
     "languageFormat": "English / Chinese switcher; selected language displayed and saved",
     "bilingualBrowserValidation": {
-      "verifiedAt": "2026-10-06T11:23:42.162729+00:00",
+      "verifiedAt": "2026-10-06T11:39:41.749398+00:00",
       "recordUrl": "https://weiqi.dliu.com/record/2026100620",
       "languages": [
         "en",
         "zh-CN"
       ],
-      "sheetsPerLanguage": 16,
+      "sheetsPerLanguage": 22,
       "badMovesPerSidePerLanguage": 5,
       "chartsPerLanguage": 4,
       "identicalTableNumbers": true,
