@@ -72,3 +72,11 @@ test('game persistence is on-demand and requests reach Lambda only through Cloud
 function cloudfrontNoCache() {
   return '4135ea2d-6df8-44a3-9df3-4b5a84be39ad';
 }
+
+test('record library uses a separate retained private bucket and a queue without paid workers',()=>{
+ template.resourceCountIs('AWS::S3::Bucket',2);
+ template.hasResourceProperties('AWS::SQS::Queue',{MessageRetentionPeriod:1209600,VisibilityTimeout:180});
+ template.resourceCountIs('AWS::Batch::ComputeEnvironment',0);
+ template.resourceCountIs('AWS::Lambda::EventSourceMapping',0);
+ template.hasResourceProperties('AWS::Lambda::Function',{Environment:{Variables:Match.objectLike({LIBRARY_BUCKET:Match.anyValue(),ANALYSIS_QUEUE:Match.anyValue()})}});
+});

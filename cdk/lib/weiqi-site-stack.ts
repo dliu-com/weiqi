@@ -12,6 +12,7 @@ import {
   aws_route53 as route53,
   aws_route53_targets as targets,
   aws_s3 as s3,
+  aws_sqs as sqs,
   CfnOutput,
   Duration,
   Fn,
@@ -71,11 +72,21 @@ export class WeiqiSiteStack extends Stack {
       encryption: dynamodb.TableEncryption.AWS_MANAGED,
       removalPolicy: RemovalPolicy.RETAIN,
     });
+    const libraryBucket = new s3.Bucket(this, 'RecordLibrary', {
+      blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL, encryption:s3.BucketEncryption.S3_MANAGED,
+      enforceSSL:true, removalPolicy:RemovalPolicy.RETAIN, versioned:true,
+      lifecycleRules:[{noncurrentVersionExpiration:Duration.days(30),abortIncompleteMultipartUploadAfter:Duration.days(1)}],
+    });
+    const analysisQueue = new sqs.Queue(this,'AnalysisQueue',{
+      retentionPeriod:Duration.days(14), visibilityTimeout:Duration.minutes(3),
+    });
     const root = path.join(__dirname, '..', '..');
     // Reuse the exact browser rules, and keep the deployed handler dependency-free.
     const engineSource = fs.readFileSync(path.join(root, 'src/engine.js'), 'utf8').replace(/^export /gm, '');
     const serviceSource = fs.readFileSync(path.join(root, 'backend/game-service.js'), 'utf8')
       .replace(/^import .*;\n/gm, '').replace(/^export /gm, '');
+    const sharedLibrarySource = ['src/sgf.js','backend/library-service.js'].map(file => fs.readFileSync(path.join(root,file),'utf8').replace(/^import .*;\n/gm,'').replace(/^export /gm,'')).join('\n');
+    const libraryHandlerSource = fs.readFileSync(path.join(root,'backend/library-handler.cjs'),'utf8');
     const handlerSource = fs.readFileSync(path.join(root, 'backend/handler.cjs'), 'utf8');
     const gameHandler = new lambda.Function(this, 'GameHandler', {
       runtime: lambda.Runtime.NODEJS_22_X,
@@ -83,14 +94,18 @@ export class WeiqiSiteStack extends Stack {
       timeout: Duration.seconds(20),
       memorySize: 256,
       logGroup: new logs.LogGroup(this, 'GameLogs', { retention: logs.RetentionDays.ONE_WEEK, removalPolicy: RemovalPolicy.DESTROY }),
-      environment: { TABLE_NAME: gameTable.tableName, SITE_ORIGIN: Fn.join('', ['https://', domainName]) },
-      code: lambda.Code.fromInline([engineSource, serviceSource, handlerSource].join('\n')),
+      environment: { LIBRARY_BUCKET:libraryBucket.bucketName, ANALYSIS_QUEUE:analysisQueue.queueUrl, TABLE_NAME: gameTable.tableName, SITE_ORIGIN: Fn.join('', ['https://', domainName]) },
+      code: lambda.Code.fromInline([engineSource, serviceSource, sharedLibrarySource, libraryHandlerSource, handlerSource].join('\n')),
     });
+    libraryBucket.grantReadWrite(gameHandler);
+    analysisQueue.grantSendMessages(gameHandler);
     gameTable.grant(gameHandler, 'dynamodb:GetItem', 'dynamodb:PutItem', 'dynamodb:Scan');
     const functionUrl = gameHandler.addFunctionUrl({ authType: lambda.FunctionUrlAuthType.AWS_IAM });
 
+    const recordRoutes=new cloudfront.Function(this,'RecordRoutes',{code:cloudfront.FunctionCode.fromInline("function handler(event){var request=event.request;if(/^\\/(?:record|game)\\/(?:[0-9]{10,14}|[a-f0-9-]{36})\\/?$/.test(request.uri))request.uri='/record.html';return request;}")});
     const distribution = new cloudfront.Distribution(this, 'SiteDistribution', {
       defaultBehavior: {
+        functionAssociations:[{eventType:cloudfront.FunctionEventType.VIEWER_REQUEST,function:recordRoutes}],
         origin: origins.S3BucketOrigin.withOriginAccessControl(bucket),
         allowedMethods: cloudfront.AllowedMethods.ALLOW_GET_HEAD,
         cachedMethods: cloudfront.CachedMethods.CACHE_GET_HEAD,
@@ -135,6 +150,8 @@ export class WeiqiSiteStack extends Stack {
       target: route53.RecordTarget.fromAlias(new targets.CloudFrontTarget(distribution)),
     });
 
+    new CfnOutput(this,'LibraryBucketName',{value:libraryBucket.bucketName});
+    new CfnOutput(this,'AnalysisQueueUrl',{value:analysisQueue.queueUrl});
     new CfnOutput(this, 'GameTableName', { value: gameTable.tableName });
     new CfnOutput(this, 'GameFunctionName', { value: gameHandler.functionName });
     new CfnOutput(this, 'SiteBucketName', { value: bucket.bucketName });

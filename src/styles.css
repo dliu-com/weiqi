@@ -53,3 +53,118 @@ header a.brand{color:var(--ink);text-decoration:none}header a.brand:hover{color:
 #board[data-preview=white] .point:not(.black):not(.white):hover:not(:disabled)::before{background:radial-gradient(circle at 30% 25%,#fff,#efede6 65%,#b3b1a8);box-shadow:1px 2px 3px #0005}
 
 header #rules{margin-left:auto}.rules-page{display:block;max-width:900px}.rules-page h1{letter-spacing:0}.rules-page nav{display:flex;flex-wrap:wrap;gap:18px;margin:24px 0}.rules-page a{color:var(--gold)}.rules-page section{scroll-margin-top:24px;margin:36px 0}.rules-page article{padding:20px 24px;margin:12px 0;border:1px solid var(--line);border-radius:10px;background:var(--panel)}.rules-page h3{font-size:17px}.rules-page p{font-size:15px;line-height:1.8;margin-bottom:0}
+
+.upload-card label{display:block;font-weight:600;margin-bottom:12px}.upload-card input[type=file]{display:block;width:100%;margin:12px 0;color:var(--ink)}.upload-card p{line-height:1.6}.upload-card a,.game-meta a{color:var(--gold)}header:has(a[href="about.html"]){flex-wrap:wrap}.record-navigation{display:flex;justify-content:center;margin-top:20px}.evaluation{font-size:20px;font-weight:650;color:var(--gold)}#analysis-depth{font-size:12px;line-height:1.6;color:var(--muted)}#record-comment{white-space:pre-wrap;overflow-wrap:anywhere}#branch-select{background:var(--panel);color:var(--ink);padding:10px;border:1px solid var(--line);border-radius:7px}#record-name{overflow-wrap:anywhere}#record-players{font-size:13px;color:var(--muted)}[hidden]{display:none!important}
+.record-message{max-width:1220px;margin:0 auto;padding:0 30px}#record-main .board-wrap{position:relative}#record-main .coordinates{pointer-events:none}
+#evaluation-chart svg{display:block;width:100%;height:auto;cursor:crosshair;touch-action:pan-y;border-radius:6px;background:#12251f}#evaluation-chart svg:focus-visible{outline:2px solid var(--gold);outline-offset:3px}.chart-grid{stroke:#ffffff12;stroke-width:1}.chart-zero{stroke:#a6b6a866;stroke-width:1}.chart-area{fill:#a6b6a829}.chart-line{stroke:#d9bd80;stroke-width:1.8;fill:none;stroke-linejoin:round}.chart-label{fill:#a6b6a8;font:10px system-ui}.chart-selected{stroke:#d8774b;stroke-width:1;stroke-dasharray:3 3}.chart-current{fill:#d8774b;stroke:#152b26;stroke-width:1.5}#chart-help{font-size:11px;line-height:1.5}#record-main{grid-template-columns:minmax(0,1fr) 340px;align-items:start}#record-main .board-wrap{width:min(100%,max(360px,calc(100dvh - 310px)));margin:auto}#record-main .board-heading{flex-wrap:wrap;gap:10px}#record-main h1{font:24px system-ui;letter-spacing:0}#record-main .record-navigation button{min-width:48px;min-height:44px}#record-main aside{display:block;min-width:0}#record-main .evaluation{font-size:18px}.game-meta{flex-wrap:wrap}#record-main .card{margin-bottom:16px}
+@media(max-width:850px){#record-main{grid-template-columns:1fr;gap:18px}#record-main .board-wrap{width:100%;max-width:650px}#record-main aside{display:block}#record-main .card{padding:18px}#record-main .board-heading{margin-bottom:14px}}
+@media(max-width:480px){#record-main{padding:0 12px;margin-top:16px}#record-main .board-heading h1{font-size:19px}.game-meta{padding:14px 12px;gap:10px}.game-meta button{font-size:12px;padding:9px 10px}#record-main .card{padding:16px}#record-main .evaluation{font-size:18px}#record-main .record-navigation{margin-top:14px;gap:10px}#record-main .board-heading{display:block}#record-players{display:block;margin-top:8px}.upload-card button{min-height:44px;width:100%}}
+#record-main .record-navigation{gap:5px;flex-wrap:nowrap}#record-main .record-navigation button{min-width:0;flex:1;max-width:54px;padding:10px 5px}#trial-help{margin:12px 0;font-size:12px}#trial-controls{justify-content:center}#record-main .point:disabled{opacity:1;cursor:default}
+
+.chart-area-black{fill:#303945;opacity:.85}.chart-area-white{fill:#f9fafb;stroke:#64748b;stroke-width:.7;opacity:1}.chart-line{stroke:#435466;stroke-width:1.2}.chart-toggle{display:flex;gap:6px}.chart-toggle button[aria-pressed=true]{background:#344454;color:white}.chart-toggle button{min-height:36px}#chart-legend{font-size:.85rem}#analysis-depth{white-space:pre-line;overflow-wrap:anywhere;font-size:.85rem;line-height:1.6}
+
+#evaluation-chart svg{background:#cbd2d6;border:1px solid #94a3ad;border-radius:5px}.chart-area-black{fill:#28323a;opacity:1}.chart-label{fill:#23343d}.chart-grid{stroke:#a0adb5}.chart-zero{stroke:#687984}.chart-selected{stroke:#ba580f}.chart-current{fill:#ba580f}#chart-legend{color:#dae4e1}
+
+#chart-legend{display:flex;align-items:center;gap:7px}.chart-key{display:inline-block;width:12px;height:12px;border-radius:50%;border:1px solid #b8c4cc}.chart-key-black{background:#28323a}.chart-key-white{background:#f9fafb;margin-left:10px}
+
+#analysis-wait{display:flex;align-items:center;gap:12px}.analysis-spinner{display:none;width:20px;height:20px;flex-shrink:0;border:2px solid #ffffff30;border-top-color:var(--gold);border-radius:50%;animation:analysis-spin 1s linear infinite}.is-loading .analysis-spinner{display:block}#analysis-status{font-size:14px;line-height:1.6}@keyframes analysis-spin{to{transform:rotate(360deg)}}@media(prefers-reduced-motion:reduce){.analysis-spinner{animation:none}}
+
+/* White canvas and readable text across the app. */
+:root{color-scheme:light;--bg:#fff;--panel:#fff;--ink:#202629;--muted:#505b61;--gold:#805719;--line:#d9dfe2}
+body{background:#fff}.card,.status-card{background:#fff}button:not(.point):hover:not(:disabled){background:#f3f5f6}button.primary{background:var(--gold);color:#fff}.brand{color:var(--ink);text-decoration:none}.tree-black{background:#eef1f2}.tree-white{background:#fafafa}.tree-node[aria-pressed=true],.languages button[aria-pressed=true],.seat button[aria-pressed=true]{background:#f6efe1}#chart-legend{color:var(--muted)}.analysis-spinner{border-color:#d9dfe2;border-top-color:var(--gold)}#sync-warning{background:#fff4df;color:#714512}
+/* Give the replay board and its evaluation chart more room. */
+#record-main{max-width:1600px;padding:0 28px;grid-template-columns:minmax(0,1fr) minmax(380px,500px);gap:32px}#record-main .board-wrap{width:100%;max-width:880px}#record-main .board-heading{max-width:880px;margin-left:auto;margin-right:auto}#record-main .card{padding:24px}#record-main .evaluation{font-size:21px}.record-message,.game-meta:has(#record-name){max-width:1600px}#chart-help{font-size:13px}#evaluation-chart{margin-top:16px}.rules-page h2{font-size:25px}.rules-page p{color:var(--ink)}.guide-actions{display:flex;flex-wrap:wrap;gap:12px;margin:24px 0}.guide-actions a{padding:12px 18px;border:1px solid var(--line);border-radius:7px;text-decoration:none}
+@media(max-width:1100px){#record-main{grid-template-columns:minmax(0,1fr) 380px;gap:22px;padding:0 20px}}
+@media(max-width:850px){#record-main{grid-template-columns:1fr;padding:0 16px;gap:22px}#record-main .board-wrap{max-width:760px}#record-main aside{width:100%;max-width:760px;margin:auto}#record-main .card{padding:20px}}
+@media(max-width:480px){#record-main{padding:0 10px}#record-main .card{padding:16px}#record-main .evaluation{font-size:19px}.rules-page article{padding:18px}#record-main .board-heading{margin-bottom:14px}}
+.chart-toggle button[aria-pressed=true]:hover:not(:disabled){background:#344454;color:#fff}
+#upload-wait{display:flex;align-items:center;gap:12px}
+#record-main .record-chart{grid-column:1/-1;margin-bottom:0;width:100%;min-width:0}#record-main .record-chart #evaluation-chart{margin-top:12px}
+@media(max-width:850px){#record-main .record-chart{grid-column:auto}}
+/* Replay uses the viewport: board left, wide analysis column right. */
+@media(min-width:851px){
+.record-page header{max-width:1800px;padding:12px 24px}.record-page .game-meta{margin:8px auto 0;padding:0 24px}.record-page .game-meta button{padding:7px 12px}.record-page #record-message:empty{display:none}
+.record-page #record-main{max-width:1800px;margin:12px auto 0;padding:0 24px;grid-template-columns:minmax(0,1fr) minmax(380px,44%);gap:24px;height:calc(100dvh - 145px)}
+#record-main .play-area{display:flex;flex-direction:column;align-items:center;min-height:0}#record-main .board-heading{width:100%;margin:0 0 10px;flex-shrink:0}#record-main .board-wrap{width:min(100%,calc(100dvh - 235px));max-width:none;flex-shrink:0}#record-main .record-navigation{margin-top:10px;flex-shrink:0;width:100%}#record-main aside{padding:0;display:flex;flex-direction:column;gap:10px;min-height:0}#record-main aside .card{padding:14px 18px;margin:0}#record-main h2{font-size:23px;margin:0 0 8px}#record-main .evaluation{font-size:19px;margin:6px 0}#record-main #analysis-depth{font-size:12px;margin:8px 0 0;line-height:1.5}#record-main .record-chart{grid-column:auto}#record-main #chart-legend{margin:8px 0}#record-main #chart-help{margin:8px 0 0}#record-main .record-info p{margin:0}#record-main .record-info #record-comment:empty{display:none}#record-main #analysis-status{margin:4px 0}#record-main #evaluation-chart{margin-top:8px}
+}
+#record-main .evaluation#lead{background:#303945;color:#fff;padding:8px 12px;border-radius:5px;font-size:18px;margin:8px 0}#record-main #winrate{font-size:14px;margin:8px 0}#record-main #analysis-title{font-family:inherit;font-size:15px;font-weight:600}#record-main #analysis-depth{border-top:1px solid var(--line);padding-top:10px}#record-main .chart-toggle{justify-content:flex-end}#record-main #evaluation-chart svg{border-radius:3px}
+#evaluation-chart svg{touch-action:none;user-select:none;-webkit-user-select:none}
+#record-main .evaluation#lead[data-leader=white]{background:#fff;color:#202629;border:1px solid #aab4bb}#record-main .evaluation#lead[data-leader=black]{background:#28323a;color:#fff;border:1px solid #28323a}#record-main .evaluation#lead[data-leader=even]{background:#edf0f2;color:#202629;border:1px solid #c8d0d5}
+#record-main .probability{margin:10px 0}.probability-labels{display:flex;justify-content:space-between;gap:12px;font-size:14px;font-variant-numeric:tabular-nums;color:var(--ink);margin-bottom:6px}.probability-bar{display:flex;height:22px;border:1px solid #9aa6ae;border-radius:4px;overflow:hidden;background:#fff}.probability-black{background:#28323a;flex-shrink:0}.probability-white{background:#fff;flex:1}
+@media(min-width:851px) and (max-height:820px){#record-main aside .card{padding:10px 14px}#record-main #analysis-depth{font-size:11px;line-height:1.4;padding-top:6px}#record-main #chart-help{font-size:11px;line-height:1.4}#record-main #analysis-status{font-size:12px;line-height:1.4}#record-main .evaluation#lead{padding:6px 10px}#record-main #chart-legend{margin:6px 0}#record-main .probability{margin:6px 0}}
+#record-players{display:flex;flex-wrap:wrap;align-items:center;gap:10px 20px;color:var(--ink);font-size:14px}.record-player{display:inline-flex;align-items:center;gap:7px;overflow-wrap:anywhere}.player-stone{display:inline-block;width:16px;height:16px;flex-shrink:0;border-radius:50%;border:1px solid #87939b}.player-stone-black{background:#202629}.player-stone-white{background:#fff}
+@media(max-width:480px){#record-players{display:flex;font-size:12px;gap:8px 16px}}
+
+/* Game details sit above analysis, leaving the full left column for replay. */
+#record-main .record-summary .game-meta{padding:0;margin:0 0 10px;gap:10px;justify-content:flex-start}
+#record-main .record-summary .board-heading{margin:0;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+#record-main .record-summary h1{font:18px system-ui;margin:0}
+#record-main .record-summary #record-players{margin:0}
+@media(min-width:851px){.record-page #record-main{height:calc(100dvh - 100px)}#record-main .board-wrap{width:min(100%,calc(100dvh - 145px))}#record-main .record-summary{padding:0 4px 2px}}
+@media(max-width:850px){#record-main .record-summary .game-meta{padding:0}#record-main .record-summary .board-heading{display:flex}}
+
+@media(min-width:851px){#record-main .board-wrap{width:min(100%,calc(100dvh - 100px))}}
+#record-main .record-summary .record-navigation{justify-content:flex-start;margin:12px 0 0}
+
+@media(max-width:850px){.record-page #record-main{height:auto;margin-top:8px;gap:18px}.record-page #record-main .play-area{min-height:calc(100svh - 140px);display:flex;flex-direction:column;justify-content:center}.record-page #record-main .board-wrap{width:100%;max-width:none;margin:0 auto}.record-page #record-main aside{max-width:none}}
+
+@media(max-width:850px){.record-page #record-main .play-area{min-height:calc(100svh - var(--record-header-height,95px) - 8px)}.record-page #record-main .board-wrap{width:min(100%,calc(100svh - var(--record-header-height,95px) - 85px))}.record-page #record-main .play-area>.record-navigation{width:100%;max-width:650px;justify-content:center;flex-shrink:0}}
+
+#record-main .record-summary #record-details{font-size:11px;line-height:1.4;color:var(--muted);margin:0 0 8px}#record-main .record-info:has(#record-comment:empty){display:none}
+
+.architecture-diagram{margin:24px 0;padding:22px;border:1px solid var(--line);border-radius:10px;background:#f7f9fa}.architecture-diagram figcaption{font-size:19px;font-weight:650;margin-bottom:18px}.architecture-flow{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:28px}.architecture-node{position:relative;min-width:0;padding:16px 12px;background:#fff;border:1px solid #bac5ce;border-radius:7px}.architecture-node strong{font-size:14px}.rules-page .architecture-node p{font-size:12px;line-height:1.6;margin:7px 0 0}.architecture-node:not(:last-child)::after{content:'→';position:absolute;right:-25px;top:40%;font-size:22px;color:#61717d}.architecture-down{text-align:center;font-size:25px;line-height:36px;color:#61717d}.rules-page .architecture-note{font-size:13px;line-height:1.6;margin-top:18px}
+@media(max-width:600px){.architecture-diagram{padding:16px}.architecture-flow{grid-template-columns:1fr;gap:28px}.architecture-node:not(:last-child)::after{content:'↓';top:auto;right:calc(50% - 8px);bottom:-28px}.architecture-node strong{font-size:15px}.rules-page .architecture-node p{font-size:13px}}
+
+.library-pagination{display:flex;justify-content:center;align-items:center;gap:16px;margin:24px 0}.library-pagination span{font-size:14px;color:var(--muted)}
+
+#record-main .record-summary .board-heading{display:grid;grid-template-columns:1fr;gap:8px}
+#record-main .record-summary #record-players{display:grid;grid-template-columns:1fr;gap:6px;order:-1;width:100%}
+.record-player{display:flex;align-items:center;gap:12px;padding:8px 12px;border:1px solid #9aa6ae;border-radius:5px;min-width:0}
+.record-player-black{background:#28323a;color:#fff}.record-player-white{background:#fff;color:#202629}
+.record-player .player-stone{width:24px;height:24px;border-width:1px;box-shadow:0 1px 2px #0002}.record-player-black .player-stone{background:#080c0f;border-color:#a5b0b8}
+.player-colour{font-size:12px;font-weight:500;min-width:38px}.player-name{font-size:16px;font-weight:650;overflow-wrap:anywhere;line-height:1.25}
+@media(min-width:851px) and (max-height:820px){.record-player{padding:5px 10px}.record-player .player-stone{width:22px;height:22px}.player-name{font-size:15px}}
+
+@media(min-width:851px) and (max-height:820px){
+ #record-main .record-navigation button{min-height:34px;padding:6px 5px}
+ #record-main .record-summary .record-navigation{margin-top:6px}
+ #record-main .chart-toggle button{min-height:30px;padding:5px 12px}
+ #record-main aside{gap:6px}#record-main aside .card{padding:8px 14px}
+ #record-main .evaluation#lead{margin:6px 0}
+ #record-main #chart-help{display:none}
+}
+
+.game-result{margin-left:auto;flex-shrink:0;font-size:20px;font-weight:750;line-height:1.2;padding:3px 9px;border-radius:4px;background:#f8eed8;color:#69490f;border:1px solid #d2b275;white-space:nowrap}
+.record-player:has(.game-result){border-color:#b38b43}.record-player .player-name{min-width:0}
+@media(max-width:600px){.record-player{gap:8px;flex-wrap:wrap}.game-result{font-size:18px}.player-name{font-size:16px}}
+@media(min-width:851px) and (max-height:820px){.game-result{font-size:18px;padding:1px 8px}}
+
+#analysis-status{white-space:pre-line}
+@media(min-width:851px) and (max-height:820px){#record-main #analysis-status{font-size:11px;line-height:1.35}}
+
+/* On phones, the chart follows the board and move controls before game details. */
+.benchmark-link{display:inline-block;margin:18px 0;padding:12px 18px;border:1px solid var(--line);border-radius:7px;font-weight:650}.benchmarks-page{max-width:1240px}.benchmark-goals{font-weight:650;color:var(--ink)}.benchmark-filters{display:flex;gap:8px;flex-wrap:wrap;margin:18px 0}.benchmark-filters button[aria-pressed=true]{background:var(--ink);color:var(--bg)}.benchmark-experiment{padding:22px;margin-bottom:18px;border:1px solid var(--line);border-radius:9px}.benchmark-experiment h2{font:600 20px system-ui;margin:0}.benchmark-context{margin:8px 0}.benchmark-status{display:inline-block;font-size:12px;font-weight:650;padding:4px 9px;border-radius:5px}.benchmark-status-complete{background:#e6f2e9;color:#235632}.benchmark-status-running{background:#fff1db;color:#805300}.benchmark-status-failed{background:#f6e8e5;color:#853b2a}.benchmark-metrics{display:grid;grid-template-columns:repeat(3,1fr);gap:20px;margin:18px 0}.benchmark-metrics dt{font-size:12px;color:var(--muted)}.benchmark-metrics dd{margin:4px 0;font-size:24px;font-weight:650}.benchmark-experiment summary{cursor:pointer;font-size:13px;margin-top:14px}.benchmark-stages{display:grid;grid-template-columns:1fr auto;gap:7px;font-size:13px}.benchmark-stages dd{margin:0;text-align:right}.benchmark-experiment details p{overflow-wrap:anywhere}.benchmark-experiment>a{font-size:13px}@media(max-width:600px){.benchmark-experiment{padding:16px}.benchmark-experiment h2{font-size:17px}.benchmark-metrics{gap:10px}.benchmark-metrics dd{font-size:19px}}
+@media(max-width:850px){
+ .record-page #record-main{padding:0 10px;gap:10px;margin-top:4px}
+ .record-page #record-main .play-area{min-height:0;justify-content:flex-start}
+ .record-page #record-main aside{display:flex;flex-direction:column;gap:10px}
+ .record-page #record-main .board-wrap{width:min(100%,max(260px,calc(100svh - var(--record-header-height,95px) - 260px)));margin:0 auto}
+ #record-main .play-area>#move-label{font-size:13px;font-weight:550;margin:6px 0 0;line-height:1.2}
+ #record-main .play-area>.record-navigation{margin-top:5px;margin-bottom:0}
+ #record-main .record-summary{order:2;margin-top:8px}
+ #record-main aside>.card:has(#analysis-title){order:1;display:grid;grid-template-columns:1fr 1fr;gap:5px 8px;padding:8px 10px}
+ #record-main aside>.record-info{order:3}
+ #record-main #analysis-title{grid-column:1;margin:0;align-self:center}
+ #record-main .chart-toggle{grid-column:2;grid-row:1;margin:0}
+ #record-main .chart-toggle button{min-height:30px;padding:5px 10px;font-size:12px}
+ #record-main #evaluation-chart{grid-column:1/-1;grid-row:2;margin:0}
+ #record-main #chart-legend{grid-column:1/-1;grid-row:3;margin:0;font-size:11px}
+ #record-main .evaluation#lead{grid-column:1/-1;grid-row:4;font-size:15px;margin:0;padding:5px 8px}
+ #record-main #winrate{grid-column:1/-1;grid-row:5;margin:0}
+ #record-main .probability-labels{font-size:12px;margin-bottom:3px}
+ #record-main .probability-bar{height:16px}
+ #record-main #analysis-wait{grid-column:1/-1;grid-row:6;gap:8px}
+ #record-main #analysis-status{font-size:11px;line-height:1.4;margin:4px 0}
+ #record-main #chart-help{grid-column:1/-1;grid-row:7;font-size:11px;margin:0}
+ #record-main #analysis-depth{grid-column:1/-1;grid-row:8;font-size:11px;padding-top:6px;margin:0}
+}

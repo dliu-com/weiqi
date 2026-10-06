@@ -1,0 +1,116 @@
+import datetime, hashlib, json, os, pathlib, subprocess, tempfile, time, shutil
+import urllib.request, zipfile, resource
+import boto3
+s3=boto3.client('s3')
+BUCKET=os.environ['LIBRARY_BUCKET']
+os.environ['APPIMAGE_EXTRACT_AND_RUN']='1'
+ENGINE=os.environ.get('KATAGO_BIN','/opt/bin/katago')
+MODEL_KEY=os.environ.get('KATAGO_MODEL_KEY','models/g170e-b20c256x2-s5303129600-d1228401921.bin.gz')
+def update_phase(game_id,phase,patch):
+    key='games/'+game_id+'/metadata.json'
+    for attempt in range(6):
+        obj=s3.get_object(Bucket=BUCKET,Key=key)
+        metadata=json.loads(obj['Body'].read());state=metadata['analysis']
+        state[phase]={**state.get(phase,{}),**patch}
+        quick=state.get('quick',{}).get('status');deep=state.get('deep',{}).get('status')
+        if deep=='ready':state.update(status='ready',available='deep',visits=state['deep']['visits'])
+        elif quick=='ready':state.update(status='running' if deep in ['queued','running'] else 'ready',available='quick',visits=state['quick']['visits'])
+        else:state['status']='running' if 'running' in [quick,deep] else 'failed' if quick==deep=='failed' else 'queued'
+        try:
+            s3.put_object(Bucket=BUCKET,Key=key,Body=json.dumps(metadata).encode(),ContentType='application/json',IfMatch=obj['ETag'])
+            return metadata
+        except Exception as error:
+            if getattr(error,'response',{}).get('ResponseMetadata',{}).get('HTTPStatusCode') not in [409,412] or attempt==5:raise
+
+def handler(event,context=None):
+    started=time.time()
+    timings=json.loads(os.environ.get('BOOT_TIMINGS','{}'))
+    worker_started=time.time()
+    production=event.get('production',False)
+    phase=event.get('phase')
+    if phase not in [None,'quick','deep']:raise ValueError('Invalid analysis phase')
+    metadata=None
+    if production:
+        obj=s3.get_object(Bucket=BUCKET,Key='games/'+event['id']+'/metadata.json')
+        metadata=json.loads(obj['Body'].read())
+        if metadata['analysis']['status'] in ['ready','failed','limited'] or phase and metadata['analysis'].get(phase,{}).get('status') in ['ready','failed']: return {'status':'skipped'}
+        patch={'status':'running','startedAt':datetime.datetime.now(datetime.timezone.utc).isoformat(),'visits':event['query']['maxVisits'],'estimatedSeconds':event.get('estimatedSeconds',300)}
+        if phase:update_phase(event['id'],phase,patch)
+        else:
+            metadata['analysis']={**metadata['analysis'],**patch}
+            s3.put_object(Bucket=BUCKET,Key='games/'+event['id']+'/metadata.json',Body=json.dumps(metadata).encode(),ContentType='application/json',IfMatch=obj['ETag'])
+    engine_download_started=time.time()
+    timings['readClaimGameMs']=round((engine_download_started-worker_started)*1000)
+    if os.environ.get('DOWNLOAD_ENGINE')=='1' and not pathlib.Path(ENGINE).exists():
+        archive=pathlib.Path('/tmp/katago.zip')
+        urllib.request.urlretrieve(os.environ.get('KATAGO_DOWNLOAD_URL','https://github.com/lightvector/KataGo/releases/download/v1.16.5/katago-v1.16.5-eigenavx2-linux-x64.zip'),archive)
+        expected=os.environ.get('KATAGO_ZIP_SHA256')
+        if expected and hashlib.sha256(archive.read_bytes()).hexdigest()!=expected: raise RuntimeError('Engine checksum mismatch')
+        with zipfile.ZipFile(archive) as z: z.extractall('/tmp/engine')
+        pathlib.Path(ENGINE).chmod(0o755)
+
+    timings['downloadExtractKataGoMs']=round((time.time()-engine_download_started)*1000)
+    query=event['query']; visits=query['maxVisits']
+    if query['boardXSize']!=19 or query['boardYSize']!=19 or not 1<=visits<=1000: raise ValueError('Invalid benchmark request')
+    prefix=event['outputPrefix']
+    if not (prefix.startswith('benchmarks/') or production and prefix=='games/'+event['id']) or '..' in prefix: raise ValueError('Invalid output prefix')
+    model=pathlib.Path(os.environ.get('KATAGO_MODEL_PATH','/tmp/katago-model.bin.gz'))
+    model_download_started=time.time()
+    url=os.environ.get('KATAGO_MODEL_URL','')
+    expected_url='https://media.katagotraining.org/uploaded/networks/models/kata1/'+MODEL_KEY.split('/')[-1]
+    if url!=expected_url:raise ValueError('Invalid official model URL')
+    request=urllib.request.Request(url,headers={'User-Agent':'KataGo-analysis-library/1.0 (+https://weiqi.dliu.com/about.html)'})
+    # Each job fetches its own model; no persistent model storage or cache fallback.
+    with urllib.request.urlopen(request,timeout=60) as response,model.open('wb') as output:shutil.copyfileobj(response,output)
+    downloaded=time.time()
+    timings['downloadModelMs']=round((downloaded-model_download_started)*1000)
+    with tempfile.TemporaryDirectory() as folder:
+        config=pathlib.Path(folder)/'analysis.cfg'
+        threads=int(os.environ.get('SEARCH_THREADS','4'))
+        max_batch=int(os.environ.get('NN_MAX_BATCH_SIZE','1'))
+        config.write_text(f'logToStderr = true\nnumAnalysisThreads = {os.environ.get("ANALYSIS_THREADS","1")}\nnumSearchThreadsPerAnalysisThread = {threads}\nmaxVisits = {visits}\nreportAnalysisWinratesAs = BLACK\nnumNNServerThreadsPerModel = 1\nnumEigenThreadsPerModel = {os.environ.get("NN_THREADS","1")}\nnnMaxBatchSize = {max_batch}\nnnCacheSizePowerOfTwo = 18\n')
+        engine_started=time.time()
+        timeout=min(840,context.get_remaining_time_in_millis()/1000-15) if context else int(os.environ.get('ANALYSIS_TIMEOUT_SECONDS','3500'))
+        result=subprocess.run([ENGINE,'analysis','-model',str(model),'-config',str(config)],input=json.dumps(query)+'\n',text=True,capture_output=True,timeout=timeout)
+        if result.returncode: raise RuntimeError(result.stderr[-2000:])
+        rows={}
+        for line in result.stdout.splitlines():
+            item=json.loads(line)
+            if 'error' in item: raise RuntimeError(item['error'])
+            if not item.get('isDuringSearch',False) and 'rootInfo' in item:
+                info=item['rootInfo']; n=item['turnNumber']
+                rows[n]={'nodeId':event['nodeIds'][n],'move':n,'blackLead':info['scoreLead'],'blackWinrate':info['winrate'],'visits':info['visits']}
+        if set(rows)!=set(query['analyzeTurns']): raise RuntimeError('Incomplete analysis')
+        finished=time.time()
+        timings['engineLoadAndAnalysisMs']=round((finished-engine_started)*1000)
+        usage=resource.getrusage(resource.RUSAGE_CHILDREN)
+        timings['engineCpuSeconds']=round(usage.ru_utime+usage.ru_stime,3)
+        timings['enginePeakRssMB']=round(usage.ru_maxrss/1024,1)
+        for peak in ['/sys/fs/cgroup/memory.peak','/sys/fs/cgroup/memory/memory.max_usage_in_bytes']:
+            try:
+                timings['containerPeakMemoryMB']=round(int(pathlib.Path(peak).read_text())/1024/1024,1);break
+            except (OSError,ValueError):pass
+        provenance_started=time.time()
+        version=subprocess.check_output([ENGINE,'version'],text=True).splitlines()[0]
+        analysis={'schemaVersion':1,'id':event['id'],'sgfSha256':event['sgfSha256'],'engine':'KataGo','engineVersion':version,'model':MODEL_KEY.split('/')[-1],'modelSha256':hashlib.sha256(model.read_bytes()).hexdigest(),'modelUrl':os.environ.get('KATAGO_MODEL_URL'),'configuration':{'analysisThreads':int(os.environ.get('ANALYSIS_THREADS','1')),'searchThreads':threads,'neuralNetThreads':int(os.environ.get('NN_THREADS','1')),'maxVisits':visits,'maxBatchSize':max_batch},'visits':visits,'phase':phase,'reportPerspective':'BLACK','rules':query['rules'],'komi':query['komi'],'completedAt':datetime.datetime.now(datetime.timezone.utc).isoformat(),'elapsedMs':round((finished-started)*1000),'positions':[rows[n] for n in sorted(rows)],'benchmark':{'backend':os.environ.get('BACKEND','cpu'),'downloadMs':round((downloaded-started)*1000),'engineMs':round((finished-engine_started)*1000),'requestStartedAt':event['requestedAt'],'workerStartedAt':datetime.datetime.fromtimestamp(started,datetime.timezone.utc).isoformat(),'searchThreads':threads}}
+        if event.get('compute'):analysis['compute']=event['compute']
+        timings['provenanceMs']=round((time.time()-provenance_started)*1000)
+        upload_started=time.time()
+        result_key=prefix+('/analysis-quick.json' if production and phase=='quick' else '/analysis.json')
+        s3.put_object(Bucket=BUCKET,Key=result_key,Body=json.dumps(analysis).encode(),ContentType='application/json')
+        if production:
+            if phase:update_phase(event['id'],phase,{'status':'ready','visits':visits,'completedAt':analysis['completedAt']})
+            else:
+                latest=s3.get_object(Bucket=BUCKET,Key=prefix+'/metadata.json')
+                metadata=json.loads(latest['Body'].read());metadata['analysis']={'status':'ready','visits':visits,'completedAt':analysis['completedAt']}
+                s3.put_object(Bucket=BUCKET,Key=prefix+'/metadata.json',Body=json.dumps(metadata).encode(),ContentType='application/json',IfMatch=latest['ETag'])
+        timings['saveResultsAndStatusMs']=round((time.time()-upload_started)*1000)
+        timings['workerTotalMs']=round((time.time()-worker_started)*1000)
+        if os.environ.get('BOOT_STARTED_AT'):timings['containerTotalMs']=round((time.time()-float(os.environ['BOOT_STARTED_AT']))*1000)
+        s3.put_object(Bucket=BUCKET,Key=('jobs/'+event['id'] if production else prefix)+('/'+phase+'-timings.json' if production and phase else '/timings.json'),Body=json.dumps({'timings':timings,'requestedAt':event['requestedAt'],'workerStartedAt':datetime.datetime.fromtimestamp(worker_started,datetime.timezone.utc).isoformat(),'completedAt':datetime.datetime.now(datetime.timezone.utc).isoformat(),'backend':os.environ.get('BACKEND','cpu')}).encode(),ContentType='application/json')
+        return {'key':result_key,'elapsedMs':analysis['elapsedMs']}
+if __name__=='__main__':
+    request_started=time.time()
+    event=json.loads(s3.get_object(Bucket=BUCKET,Key=os.environ['BENCHMARK_REQUEST_KEY'])['Body'].read())
+    boot=json.loads(os.environ.get('BOOT_TIMINGS','{}'));boot['downloadJobRequestMs']=round((time.time()-request_started)*1000);os.environ['BOOT_TIMINGS']=json.dumps(boot)
+    print(json.dumps(handler(event)))

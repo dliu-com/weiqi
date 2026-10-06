@@ -13,3 +13,8 @@ cdk/*.d.ts
 .aws/
 *.pem
 *.key
+cloud/assets/
+cloud/benchmark-results/
+__pycache__/
+
+/cdk/cdk.out-*/

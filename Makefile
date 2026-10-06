@@ -11,6 +11,7 @@ serve:
 	npm start
 
 test:
+	python3 -m unittest discover -s tests/cloud
 	npm test
 	cd cdk && npm test -- --runInBand
 

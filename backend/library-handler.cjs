@@ -1,0 +1,41 @@
+const {S3Client,GetObjectCommand,PutObjectCommand,ListObjectsV2Command} = require('@aws-sdk/client-s3');
+const {SQSClient,SendMessageCommand} = require('@aws-sdk/client-sqs');
+const libraryS3 = new S3Client({}), libraryQueue = new SQSClient({});
+const libraryStore = {
+  async get(key) {const value=await libraryS3.send(new GetObjectCommand({Bucket:process.env.LIBRARY_BUCKET,Key:key}));return value.Body.transformToString();},
+  async create(key,body,type) {try {await libraryS3.send(new PutObjectCommand({Bucket:process.env.LIBRARY_BUCKET,Key:key,Body:body,ContentType:type,IfNoneMatch:'*'}));return true;}catch(e){if(e.$metadata?.httpStatusCode===412)return false;throw e;}}
+};
+async function libraryHandler(event) {
+  const method=event.requestContext?.http?.method, path=event.rawPath, id=path.slice('/api/library/'.length);
+  try {
+    if (!process.env.LIBRARY_BUCKET) return response(503,{message:'Record library is not configured.'});
+    if (method==='GET' && path==='/api/library') {
+      const cursor=event.queryStringParameters?.cursor;
+      if (cursor && cursor.length>2048) return response(400,{message:'Invalid page cursor.'});
+      const list=await libraryS3.send(new ListObjectsV2Command({Bucket:process.env.LIBRARY_BUCKET,Prefix:'library-index/',MaxKeys:10,...(cursor?{ContinuationToken:cursor}:{})}));
+      const games=await Promise.all((list.Contents || []).map(async p=>{try{const entry=JSON.parse(await libraryStore.get(p.Key));if(!validRecordId(entry.id))return null;return JSON.parse(await libraryStore.get('games/'+entry.id+'/metadata.json'));}catch(e){if(e.name==='NoSuchKey')return null;throw e;}}));
+      return response(200,{games:games.filter(Boolean),cursor:list.NextContinuationToken || null});
+    }
+    if (method==='GET' && validRecordId(id)) {
+      const prefix='games/'+id+'/', metadata=JSON.parse(await libraryStore.get(prefix+'metadata.json'));
+      const sgf=await libraryStore.get(prefix+'original.sgf'); let analysis=null;
+      if(metadata.analysis.status==='ready'||metadata.analysis.available) analysis=JSON.parse(await libraryStore.get(prefix+(metadata.analysis.available==='quick'?'analysis-quick.json':'analysis.json')));
+      return response(200,{metadata,sgf,analysis});
+    }
+    if (method!=='POST' || path!=='/api/library') return response(404,{message:'Record not found.'});
+    if(event.headers?.origin && event.headers.origin!==process.env.SITE_ORIGIN)return response(403,{message:'Invalid request origin.'});
+    if(!event.headers?.['content-type']?.startsWith('application/json'))return response(415,{message:'Use JSON.'});
+    const raw=event.isBase64Encoded?Buffer.from(event.body || '', 'base64').toString('utf8'):event.body || '';
+    if(Buffer.byteLength(raw)>1600000)return response(413,{message:'Upload too large.'});
+    let request;try{request=JSON.parse(raw);}catch{return response(400,{message:'Invalid upload request.'});}
+    const metadata=await uploadRecord(libraryStore,request.sgf,request.filename,request.id);
+    // Only eligible uploads enqueue the quick and deep cloud analyses.
+    // Duplicate deliveries are safe: workers reuse complete results and claim jobs.
+    if(process.env.ANALYSIS_QUEUE && metadata.analysis.status==='queued') await libraryQueue.send(new SendMessageCommand({QueueUrl:process.env.ANALYSIS_QUEUE,MessageBody:JSON.stringify({id:metadata.id})}));
+    return response(200,{id:metadata.id});
+  } catch(e) {
+    if(e.name==='NoSuchKey')return response(404,{message:'Record not found.'});
+    if(e.statusCode)return response(e.statusCode,{message:e.message});
+    console.error('Library request failed',{name:e.name});return response(500,{message:'The library is unavailable. Please retry.'});
+  }
+}
