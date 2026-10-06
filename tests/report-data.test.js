@@ -15,3 +15,12 @@ test('reports require complete deep results; missing searched candidates remain 
 test('report separates estimated played evaluations from searched candidate values',()=>{
  const sparse={...analysis,positions:analysis.positions.map(p=>({...p,candidates:p.candidates.filter(c=>c.order===0)}))};const r=buildAiReport(source,sparse,{id:'x'});assert.equal(r.players.B.estimatedMoves,1);assert.equal(r.problems[1].playedEvaluation.blackLead,1);assert.equal(r.problems[1].playedLine,null);
 });
+test('report selects the five largest losses independently for each player',()=>{
+ const source='(;SZ[19]'+Array.from({length:24},(_,n)=>';'+(n%2?'W':'B')+'[]').join('')+')';
+ const positions=Array.from({length:25},(_,n)=>({nodeId:n,move:n,blackLead:0,blackWinrate:.5,candidates:n<24?[candidate('Q16',(n%2?-1:1)*(n+1)),candidate('pass',0,1)]:[]}));
+ const report=buildAiReport(source,{...analysis,positions},{id:'x'});
+ assert.equal(report.schemaVersion,2);
+ assert.deepEqual(report.problems.filter(m=>m.side==='B').map(m=>m.move),[23,21,19,17,15]);
+ assert.deepEqual(report.problems.filter(m=>m.side==='W').map(m=>m.move),[24,22,20,18,16]);
+ assert.equal(report.problems.length,10);
+});
