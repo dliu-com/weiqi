@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-10-06T11:39:41.749398+00:00",
+  "updatedAt": "2026-10-06T11:51:20.321073+00:00",
   "awsDevelopmentDebugBudgetUSD": 30,
   "noFurtherPaidBenchmarksPlanned": true,
   "smallServiceAllowanceUSD": 2,
@@ -35,7 +35,7 @@
     }
   },
   "verifiedTests": {
-    "node": 104,
+    "node": 106,
     "python": 10,
     "cdk": 14
   },
@@ -156,13 +156,13 @@
     ],
     "languageFormat": "English / Chinese switcher; selected language displayed and saved",
     "bilingualBrowserValidation": {
-      "verifiedAt": "2026-10-06T11:39:41.749398+00:00",
+      "verifiedAt": "2026-10-06T11:51:20.321073+00:00",
       "recordUrl": "https://weiqi.dliu.com/record/2026100620",
       "languages": [
         "en",
         "zh-CN"
       ],
-      "sheetsPerLanguage": 22,
+      "sheetsPerLanguage": 24,
       "badMovesPerSidePerLanguage": 5,
       "chartsPerLanguage": 4,
       "identicalTableNumbers": true,
@@ -174,6 +174,15 @@
     },
     "automaticGeneration": "AWS Batch SUCCEEDED event through EventBridge to existing GameHandler Lambda",
     "savePdfAvailable": true,
-    "pdfFormat": "Fixed A4 portrait, browser download, no user configuration"
+    "pdfFormat": "Fixed A4 portrait, metadata title page, linked page-numbered contents, running headers/footers and section bookmarks; browser download, no user configuration",
+    "documentFrontMatter": {
+      "titlePage": true,
+      "gameLinkOnTitlePage": true,
+      "metadataFields": 15,
+      "contentsPage": true,
+      "pdfContentsLinksImplemented": true,
+      "pdfSectionBookmarksImplemented": true,
+      "actualPdfExportTest": "Deferred at user request"
+    }
   }
 }
