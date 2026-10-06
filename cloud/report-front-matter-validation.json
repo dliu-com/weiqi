@@ -1,0 +1,59 @@
+{
+  "verifiedAt": "2026-10-06T11:51:20.321073+00:00",
+  "reportUrl": "https://weiqi.dliu.com/record/2026100620/report",
+  "frontMatter": [
+    "Title page",
+    "Table of contents"
+  ],
+  "titlePage": {
+    "gameLink": "https://weiqi.dliu.com/record/2026100620",
+    "metadataFields": [
+      "Game ID",
+      "Game date",
+      "Rules",
+      "Board",
+      "Komi",
+      "Recorded moves",
+      "Engine",
+      "Visits per position",
+      "Model",
+      "Model SHA-256",
+      "Compute",
+      "Analysis total including queue/setup",
+      "Report language",
+      "Analysis completed",
+      "Report prepared"
+    ],
+    "playersAndResult": true
+  },
+  "browserValidation": {
+    "languages": [
+      "en",
+      "zh-CN"
+    ],
+    "totalPages": 24,
+    "contentsEntries": 22,
+    "allDestinationsMatchPageNumbers": true,
+    "contentsClickStayedOnReportRoute": true,
+    "contentsTargetTopAfterNavigation": 86,
+    "lastFooterPageNumber": "24 / 24",
+    "mobileWidth": 390,
+    "mobileDocumentWidth": 375,
+    "configurationControls": 0,
+    "screenshot": "/private/tmp/weiqi-report-title-page-production.png"
+  },
+  "pdfImplementation": {
+    "titlePage": true,
+    "pageNumberedContents": true,
+    "contentsLinks": true,
+    "sectionBookmarks": true,
+    "gameLinks": true,
+    "preset": "Fixed A4 portrait"
+  },
+  "tests": {
+    "node": 106
+  },
+  "pdfExportTest": "Deferred at user request; Save PDF not clicked and no PDF exported",
+  "cloudResourceChanges": false,
+  "newPaidAnalysisJobs": 0
+}
