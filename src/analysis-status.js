@@ -12,7 +12,7 @@ export function pendingAnalysis(analysis) {
   if(analysis.quick||analysis.deep){
     if(analysis.deep?.status==='ready')return null;
     if(analysis.status==='retry_wait')return {...analysis,phase:analysis.quick?.status==='ready'?'deep':'quick'};
-    for(const phase of ['quick','deep']){const stage=analysis[phase];if(stage&&['queued','running'].includes(stage.status))return {...stage,phase};}
+    for(const phase of ['quick','deep']){const stage=analysis[phase];if(stage&&['queued','running'].includes(stage.status))return {...stage,phase,queueStatus:analysis.queueStatus};}
     return null;
   }
   return ['queued','running'].includes(analysis.status)?analysis:null;
@@ -25,10 +25,22 @@ export function shouldPollQuick(analysis,benchmark=null){
 }
 
 export function analysisCompletion(analysis,moves,now=Date.now()){
- const start=analysis.status==='running'?Date.parse(analysis.startedAt):now;
- if(!Number.isFinite(start))return null;
  const seconds=analysis.estimatedSeconds||estimatedAnalysisSeconds(moves+1);
- return {timestamp:start+seconds*1000,earliest:analysis.status!=='running'};
+ if(analysis.status==='running'){
+  const start=Date.parse(analysis.startedAt);
+  return Number.isFinite(start)?{timestamp:start+seconds*1000,earliest:false}:null;
+ }
+ const range=analysis.queueStatus?.startsAt;
+ if(!range||!Number.isFinite(range.earliest)||!Number.isFinite(range.latest)||range.latest<now)return null;
+ // Both passes share one GPU; the queue forecast already describes the start
+ // of the currently pending pass (quick, or deep when quick is complete).
+ return {timestamp:range.latest+seconds*1000,windowStart:range.earliest+seconds*1000,earliest:false};
+}
+export function queueWait(analysis,now=Date.now()){
+ const queue=analysis.queueStatus||{state:'unavailable'},range=queue.startsAt;
+ if(!range||!Number.isFinite(range.earliest)||!Number.isFinite(range.latest))return {...queue,seconds:null};
+ if(range.latest<now)return {...queue,state:queue.basis==='typical_startup'?'capacity_wait':'busy_unknown',seconds:null,expired:true};
+ return {...queue,seconds:{earliest:Math.max(0,Math.ceil((range.earliest-now)/1000)),latest:Math.max(0,Math.ceil((range.latest-now)/1000))}};
 }
 
 export function analysisTotalMillis(analysis,metadata,now=Date.now()) {

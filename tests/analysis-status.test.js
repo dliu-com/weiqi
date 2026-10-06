@@ -29,12 +29,12 @@ test('only pending quick results are checked automatically; deep requires a page
 });
 
 import {analysisCompletion} from '../src/analysis-status.js';
-test('running completion timestamp stays fixed while remaining time decreases; queued timestamp is only an earliest estimate',()=>{
+test('running completion timestamp stays fixed; queues without evidence have no completion timestamp',()=>{
  const now=Date.parse('2026-10-05T23:00:00Z'),a={status:'running',startedAt:'2026-10-05T22:59:00Z',estimatedSeconds:180};
  assert.equal(analysisCompletion(a,321,now).timestamp,Date.parse('2026-10-05T23:02:00Z'));
  assert.equal(analysisCompletion(a,321,now+30000).timestamp,analysisCompletion(a,321,now).timestamp);
  assert.equal(analysisWait(a,321,now+30000).seconds,90);
- assert.deepEqual(analysisCompletion({status:'queued',estimatedSeconds:180},321,now),{timestamp:now+180000,earliest:true});
+ assert.equal(analysisCompletion({status:'queued',estimatedSeconds:180},321,now),null);
  assert.equal(analysisCompletion({...a,startedAt:'bad'},321,now),null);
 });
 

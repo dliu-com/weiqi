@@ -4,7 +4,7 @@ import vm from 'node:vm';
 import {createHash} from 'node:crypto';
 import {readFileSync} from 'node:fs';
 function api(){
- const files=new Map(),messages=[],invocations=[];
+ const files=new Map(),messages=[],invocations=[],batchJobs=new Map();let batchFailure=false;
  class GetObjectCommand{constructor(input){this.input=input;}}
  class PutObjectCommand{constructor(input){this.input=input;}}
  class ListObjectsV2Command{constructor(input){this.input=input;}}
@@ -13,11 +13,14 @@ function api(){
  class SQSClient{async send(c){messages.push(c.input);return {};}}
  class InvokeCommand{constructor(input){this.input=input;}}
  class LambdaClient{async send(c){invocations.push(c.input);return {StatusCode:202};}}
+ class DescribeJobsCommand{constructor(input){this.input=input;}}
+ class ListJobsCommand{constructor(input){this.input=input;}}
+ class BatchClient{async send(c){if(batchFailure)throw Error('Batch unavailable');return c instanceof DescribeJobsCommand?{jobs:c.input.jobs.map(id=>batchJobs.get(id)).filter(Boolean)}:{jobSummaryList:[...batchJobs.values()].filter(j=>j.jobQueue===c.input.jobQueue&&j.status===c.input.jobStatus)};}}
  class DynamoDBClient{}
- const exports={},source=['src/engine.js','backend/game-service.js','src/sgf.js','src/ai-review.js','src/report-data.js','backend/library-service.js','backend/library-handler.cjs','backend/handler.cjs'].map(file=>readFileSync(new URL('../'+file,import.meta.url),'utf8').replace(/^import .*;\n/gm,'').replace(/^export /gm,'')).join('\n');
- vm.runInNewContext(source,{exports,require:name=>name.includes('client-s3')?{S3Client,GetObjectCommand,PutObjectCommand,ListObjectsV2Command}:name.includes('client-sqs')?{SQSClient,SendMessageCommand}:name.includes('client-lambda')?{LambdaClient,InvokeCommand}:name==='node:crypto'?{createHash}:{DynamoDBClient},process:{env:{LIBRARY_BUCKET:'test',ANALYSIS_QUEUE:'testqueue',SITE_ORIGIN:'https://test.invalid',REPORT_QUEUE:'reportqueue'}},TextEncoder,Buffer,console});
+ const exports={},source=['src/engine.js','backend/game-service.js','src/sgf.js','src/ai-review.js','src/report-data.js','backend/library-service.js','src/queue-estimate.js','backend/library-handler.cjs','backend/queue-status.cjs','backend/handler.cjs'].map(file=>readFileSync(new URL('../'+file,import.meta.url),'utf8').replace(/^import .*;\n/gm,'').replace(/^export /gm,'')).join('\n');
+ vm.runInNewContext(source,{exports,require:name=>name.includes('client-s3')?{S3Client,GetObjectCommand,PutObjectCommand,ListObjectsV2Command}:name.includes('client-sqs')?{SQSClient,SendMessageCommand}:name.includes('client-batch')?{BatchClient,DescribeJobsCommand,ListJobsCommand}:name.includes('client-lambda')?{LambdaClient,InvokeCommand}:name==='node:crypto'?{createHash}:{DynamoDBClient},process:{env:{LIBRARY_BUCKET:'test',ANALYSIS_QUEUE:'testqueue',SITE_ORIGIN:'https://test.invalid',REPORT_QUEUE:'reportqueue'}},TextEncoder,Buffer,console});
  const call=async(path,body,headers={})=>{const result=await exports.handler({rawPath:new URL(path,'https://test.invalid').pathname,queryStringParameters:Object.fromEntries(new URL(path,'https://test.invalid').searchParams),requestContext:{http:{method:body?'POST':'GET'}},headers:{'content-type':'application/json',origin:'https://test.invalid',...headers},body:body?JSON.stringify(body):undefined});return {status:result.statusCode,...JSON.parse(result.body)};};
- return {call,files,messages,invocations,event:exports.handler};
+ return {call,files,messages,invocations,batchJobs,failBatch:()=>batchFailure=true,event:exports.handler};
 }
 const id='12345678-1234-1234-1234-123456789abc',sgf='(;GM[1]SZ[19]KM[7.5]GN[API test];B[dd];W[pp])';
 test('deployed library handler allocates a short ID, stores portable files, queues analysis and immediately serves the original record',async()=>{
@@ -83,4 +86,13 @@ test('successful production completion prepares the report before viewing, dedup
  const prepared=JSON.parse(files.get(reportKeys[0]));assert.deepEqual(prepared.availableLanguages,['en','zh']);
  await event(notice('completed-job'));const viewed=await call('/api/library/'+upload.id+'/report');assert.equal(viewed.generatedAt,prepared.generatedAt);assert.equal([...files.keys()].filter(k=>k.includes('/reports/')).length,1);assert.equal(messages.length,3);assert.equal(messages[1].MessageDeduplicationId,messages[2].MessageDeduplicationId);
  meta.analysis.deep.status='running';files.set(prefix+'metadata.json',JSON.stringify(meta));assert.equal((await event(notice('completed-job'))).ignored,true);
+});
+
+test('queued record reads expose a stable queue forecast without changing records or scheduling jobs',async()=>{
+ const h=api(),upload=await h.call('/api/library',{id,sgf,filename:'queue.sgf'}),key='games/'+upload.id+'/metadata.json',m=JSON.parse(h.files.get(key));
+ m.analysis={status:'queued',backend:'primary',jobId:'job',quick:{status:'queued',estimatedSeconds:60},deep:{status:'queued',estimatedSeconds:3000}};h.files.set(key,JSON.stringify(m));
+ h.batchJobs.set('job',{jobId:'job',jobName:'weiqi-'+upload.id+'-a1-1234abcd',jobQueue:'gpu-queue',status:'RUNNABLE',createdAt:Date.now()});
+ const original=h.files.get(key),first=await h.call('/api/library/'+upload.id),second=await h.call('/api/library/'+upload.id);
+ assert.equal(first.status,200);assert.equal(first.metadata.analysis.queueStatus.jobsAhead,0);assert.equal(first.metadata.analysis.queueStatus.basis,'typical_startup');assert.deepEqual(first.metadata.analysis.queueStatus.startsAt,second.metadata.analysis.queueStatus.startsAt);assert.equal(h.files.get(key),original);assert.equal(h.messages.length,1);
+ h.failBatch();assert.equal((await h.call('/api/library/'+upload.id)).metadata.analysis.queueStatus.state,'unavailable');assert.equal(h.files.get(key),original);
 });
