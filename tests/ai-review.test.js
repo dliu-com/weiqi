@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readSgf,kataCandidates,kataQuery} from '../src/sgf.js';
-import {reviewMove,nextMoveSuggestions,recommendedLine,gtpPoint} from '../src/ai-review.js';
+import {reviewMove,nextMoveSuggestions,nextMoveComparison,recommendedLine,gtpPoint} from '../src/ai-review.js';
 
 const candidate=(move,order,lead,visits=100,pv=[move])=>({move,order,blackLead:lead,blackWinrate:.5,visits,pv});
 test('next-move suggestions use the displayed board, retain its stones and alternate players',()=>{
@@ -55,4 +55,22 @@ test('candidate storage is bounded, preserves an otherwise omitted played move a
  const moves=['A1','B1','C1','D1','E1','F1','G1','H1','J1','K1'];
  const raw=moves.map((move,order)=>({move,order,scoreLead:order,winrate:.5,visits:10,pv:[move,'pass','I19','Q4']})).reverse();
  const saved=kataCandidates(raw,'K1');assert.equal(saved.length,9);assert.equal(saved[0].move,'A1');assert.equal(saved.at(-1).move,'K1');assert.deepEqual(saved[0].pv,['A1','pass']);assert.equal(kataQuery(readSgf('(;SZ[19])'),'test').analysisPVLen,11);
+});
+
+test('comparison retains and highlights a poor recorded next move with a side-correct fallback estimate',()=>{
+ const r=readSgf('(;SZ[19];B[dd];W[pp])');
+ const a=new Map([[1,{candidates:[candidate('D4',0,-3),candidate('Q4',4,4,1)]}],[2,{blackLead:4,blackWinrate:.8}]]);
+ const original=JSON.stringify(r),next=nextMoveComparison(r,1,a,'deep');
+ assert.deepEqual(next.rows.map(row=>row.move),['D4','Q4']);
+ const played=next.rows.find(row=>row.actual);assert.equal(played.actualNode,2);assert.equal(played.quality,'blunder');assert.equal(played.loss,7);assert.equal(played.estimated,true);assert.equal(played.blackWinrate,.8);assert.equal(JSON.stringify(r),original);
+});
+test('a recorded best move is highlighted once, with zero loss, including a pass',()=>{
+ const r=readSgf('(;SZ[19];B[])'),a=new Map([[0,{candidates:[candidate('pass',0,2,1)]}],[1,{blackLead:1}]]);
+ const next=nextMoveComparison(r,0,a,'quick');assert.equal(next.rows.length,1);assert.equal(next.rows[0].actual,true);assert.equal(next.rows[0].move,'pass');assert.equal(next.rows[0].loss,0);assert.equal(next.rows[0].quality,'best');assert.equal(next.rows[0].estimated,false);
+ assert.equal(nextMoveComparison(r,1,a,'deep').rows.length,0);
+});
+test('comparison follows the displayed SGF branch and leaves an unknown played evaluation unrated',()=>{
+ const r=readSgf('(;SZ[19];B[dd](;W[pp])(;W[dp];B[pd]))'),branch=r.nodes[1].children[1];
+ const a=new Map([[branch,{candidates:[candidate('D4',0,3)]}]]),next=nextMoveComparison(r,branch,a,'deep');
+ const played=next.rows.find(row=>row.actual);assert.equal(played.actualNode,r.nodes[branch].children[0]);assert.equal(played.move,'Q16');assert.equal(played.loss,null);assert.equal(played.quality,null);assert.equal(played.blackWinrate,undefined);
 });

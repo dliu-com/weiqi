@@ -1,0 +1,57 @@
+{
+  "verifiedAt": "2026-10-06T14:45:09.640847+00:00",
+  "recordUrl": "https://weiqi.dliu.com/record/2026100620?move=170",
+  "region": "eu-west-1",
+  "deployment": "Static files in existing CloudFormation-managed site; no provisioned resource changes",
+  "columns": [
+    "Move",
+    "Assessment",
+    "Point loss",
+    "Player-to-move win %"
+  ],
+  "recordedRow": {
+    "highlight": "#fff3d6",
+    "badge": "Played / \u5b9e\u6218",
+    "retainedOutsideRecommendedMoves": true,
+    "mergedWhenAlsoRecommended": true,
+    "click": "Advance to next recorded position"
+  },
+  "recommendedRowClick": "Replay saved AI sequence",
+  "estimatedEvaluations": "\u2248 prefix; estimate from following recorded position, not an invented candidate search",
+  "browser": {
+    "desktop": true,
+    "mobileWidths": [
+      320,
+      390
+    ],
+    "languages": [
+      "en",
+      "zh-CN"
+    ],
+    "horizontalOverflow": false,
+    "suggestionSequenceAndArrowReturnVerified": true,
+    "playedRowNavigationVerified": true
+  },
+  "fullGame": {
+    "recordedMovesCompared": 321,
+    "poorRecordedMovesRetained": 38,
+    "estimatedRows": 50,
+    "maxTableRows": 4
+  },
+  "tests": {
+    "passed": 130,
+    "failed": 0,
+    "covers": [
+      "Both player perspectives",
+      "Unsearched and poorly searched recorded moves",
+      "Recorded best move and pass",
+      "SGF branches",
+      "Unknown evaluations"
+    ]
+  },
+  "newAiJobs": 0,
+  "screenshots": [
+    "/private/tmp/weiqi-move-comparison-live.png",
+    "/private/tmp/weiqi-move-comparison-mobile-live.png"
+  ]
+}

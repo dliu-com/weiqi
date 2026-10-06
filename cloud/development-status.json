@@ -112,7 +112,19 @@
       "player": "Player to move",
       "candidateMoveNumber": "N+1",
       "lastMoveRatingRemainsSeparate": true,
-      "validationRecord": "https://weiqi.dliu.com/record/2026100620?move=171"
+      "validationRecord": "https://weiqi.dliu.com/record/2026100620?move=171",
+      "comparisonTable": {
+        "columns": [
+          "Move",
+          "Assessment",
+          "Point loss",
+          "Player-to-move win %"
+        ],
+        "recordedNextMoveHighlighted": true,
+        "badRecordedMovesRetained": true,
+        "verifiedAt": "2026-10-06T14:45:09.640847+00:00",
+        "validation": "cloud/move-comparison-table-validation.json"
+      }
     },
     "variationNavigation": {
       "keyboardAndButtons": true,
