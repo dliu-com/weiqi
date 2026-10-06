@@ -1,9 +1,22 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readSgf,kataCandidates,kataQuery} from '../src/sgf.js';
-import {reviewMove,recommendedLine,gtpPoint} from '../src/ai-review.js';
+import {reviewMove,nextMoveSuggestions,recommendedLine,gtpPoint} from '../src/ai-review.js';
 
 const candidate=(move,order,lead,visits=100,pv=[move])=>({move,order,blackLead:lead,blackWinrate:.5,visits,pv});
+test('next-move suggestions use the displayed board, retain its stones and alternate players',()=>{
+ const r=readSgf('(;SZ[19];B[dd];W[pp])'),original=JSON.stringify(r);
+ const a=new Map([[0,{candidates:[candidate('Q16',0,5)]}],[1,{candidates:[candidate('Q4',0,-3),candidate('D4',1,-2.5)]}],[2,{candidates:[candidate('Q16',0,4)]}]]);
+ const white=nextMoveSuggestions(r,1,a,'deep');assert.equal(white.anchor,1);assert.equal(white.side,'W');assert.equal(white.best.move,'Q4');assert.deepEqual(white.alternatives.map(c=>c.move),['Q4','D4']);
+ const line=recommendedLine(r,white.anchor,white.best);assert.equal(line.frames[1].move.side,'W');assert.equal(line.frames[1].board[gtpPoint('D16')],'B');assert.equal(line.frames[1].board[gtpPoint('Q4')],'W');assert.equal(line.frames[1].depth,2);
+ const black=nextMoveSuggestions(r,2,a,'deep');assert.equal(black.side,'B');assert.equal(black.anchor,2);assert.equal(black.best.move,'Q16');
+ assert.equal(nextMoveSuggestions(r,0,a,'quick').side,'B');assert.equal(nextMoveSuggestions(r,0,a,'quick').preliminary,true);assert.equal(JSON.stringify(r),original);
+});
+test('unanalysed branches never borrow next-move candidates from their analysed parent',()=>{
+ const r=readSgf('(;SZ[19];B[dd](;W[pp])(;W[dp]))'),selected=r.nodes.length-1;
+ const a=new Map([[r.nodes[selected].parent,{candidates:[candidate('Q4',0,-1)]}]]);
+ const next=nextMoveSuggestions(r,selected,a,'deep');assert.equal(next.anchor,selected);assert.equal(next.unavailable,true);assert.deepEqual(next.alternatives,[]);
+});
 test('Black and White move losses use their own perspective, with engine order selecting the best',()=>{
  const r=readSgf('(;SZ[19];B[dd];W[pp])');
  const a=new Map([[0,{candidates:[candidate('Q16',0,5),candidate('D16',1,1),candidate('A1',2,100,1)]}],[1,{blackLead:1,candidates:[candidate('D4',0,-3),candidate('Q4',1,4)]}],[2,{blackLead:4}]]);

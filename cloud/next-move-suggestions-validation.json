@@ -1,0 +1,25 @@
+{
+  "validatedAt": "2026-10-06T11:09:00.149774+00:00",
+  "referenceUrl": "https://online-go.com/game/91320610",
+  "referenceObserved": "At displayed move 22, OGS board markers recommend Black’s next move, 23.",
+  "productionRecord": "https://weiqi.dliu.com/record/2026100620?move=171",
+  "markersAnchor": "Displayed position N; recommendations for the player to move at N+1",
+  "lastMoveRatingAnchor": "Parent position N-1; rates recorded move N",
+  "browserChecks": {
+    "replayedPositions": 101,
+    "replayedMoves": 100,
+    "labelOrMarkerMismatches": 0,
+    "leftRightKeys": true,
+    "clickMarkerAddsNextPlayerMove": true,
+    "originalPositionRetained": true,
+    "recommendationsChangeForNextSide": true,
+    "previewPositionsDoNotShowStaleCandidates": true,
+    "mobileWidth": 390,
+    "horizontalOverflow": false
+  },
+  "tests": {
+    "node": 100
+  },
+  "paidAnalysisJobsStarted": 0,
+  "deployment": "Existing static assets; no infrastructure changes"
+}
