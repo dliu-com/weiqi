@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-10-06T11:09:00.149774+00:00",
+  "updatedAt": "2026-10-06T11:23:42.162729+00:00",
   "awsDevelopmentDebugBudgetUSD": 30,
   "noFurtherPaidBenchmarksPlanned": true,
   "smallServiceAllowanceUSD": 2,
@@ -35,9 +35,9 @@
     }
   },
   "verifiedTests": {
-    "node": 100,
+    "node": 101,
     "python": 10,
-    "cdk": 13
+    "cdk": 14
   },
   "pending": [
     "PDF export testing deferred at user request."
@@ -133,10 +133,9 @@
     "storage": "Versioned JSON in WeiqiStorage S3",
     "newGpuJob": false,
     "newFargateJob": false,
-    "browserPrintAvailable": true,
-    "pdfExportTest": "deferred by user",
-    "validationRecord": "2026100618",
-    "schemaVersion": 4,
+    "pdfExportTest": "Deferred at user request",
+    "validationRecord": "2026100620",
+    "schemaVersion": 5,
     "format": "Five largest point losses per side plus detailed bad-move statistics, move-range summaries, loss distributions and four charts",
     "maximumMovesPerSide": 5,
     "userConfigControls": false,
@@ -154,9 +153,9 @@
       "en",
       "zh"
     ],
-    "languageFormat": "Complete English followed by complete Chinese; same cached analysis",
+    "languageFormat": "English / Chinese switcher; selected language displayed and saved",
     "bilingualBrowserValidation": {
-      "verifiedAt": "2026-10-06T11:00:54.442931+00:00",
+      "verifiedAt": "2026-10-06T11:23:42.162729+00:00",
       "recordUrl": "https://weiqi.dliu.com/record/2026100620",
       "languages": [
         "en",
@@ -171,6 +170,9 @@
       "horizontalOverflow": false,
       "configurationInputs": 0,
       "pdfExportTest": "Deferred at user request"
-    }
+    },
+    "automaticGeneration": "AWS Batch SUCCEEDED event through EventBridge to existing GameHandler Lambda",
+    "savePdfAvailable": true,
+    "pdfFormat": "Fixed A4 portrait, browser download, no user configuration"
   }
 }

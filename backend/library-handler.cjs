@@ -6,6 +6,26 @@ const libraryStore = {
   async get(key) {const value=await libraryS3.send(new GetObjectCommand({Bucket:process.env.LIBRARY_BUCKET,Key:key}));return value.Body.transformToString();},
   async create(key,body,type) {try {await libraryS3.send(new PutObjectCommand({Bucket:process.env.LIBRARY_BUCKET,Key:key,Body:body,ContentType:type,IfNoneMatch:'*'}));return true;}catch(e){if(e.$metadata?.httpStatusCode===412)return false;throw e;}}
 };
+// Versioned reports are prepared by the Batch completion event. The same cache
+// path serves existing records and safely recovers a missed completion event.
+async function storedAiReport(id) {
+  const prefix='games/'+id+'/',metadata=JSON.parse(await libraryStore.get(prefix+'metadata.json'));
+  if(metadata.analysis.available==='quick'||metadata.analysis.status!=='ready')throw Object.assign(Error('The report will be available when deep analysis finishes. Refresh the game page to check.'),{statusCode:409});
+  const analysis=JSON.parse(await libraryStore.get(prefix+'analysis.json'));
+  const hash=reportHash('sha256').update(JSON.stringify([REPORT_SCHEMA_VERSION,analysis.sgfSha256,analysis.modelSha256,analysis.visits,analysis.completedAt])).digest('hex'),key=prefix+'reports/'+hash+'.json';
+  try{return JSON.parse(await libraryStore.get(key));}catch(e){if(e.name!=='NoSuchKey')throw e;}
+  const source=await libraryStore.get(prefix+'original.sgf');
+  if(reportHash('sha256').update(source).digest('hex')!==analysis.sgfSha256)throw Object.assign(Error('Analysis does not match the saved SGF.'),{statusCode:409});
+  const report=buildAiReport(source,analysis,metadata);await libraryStore.create(key,JSON.stringify(report),'application/json');
+  return JSON.parse(await libraryStore.get(key));
+}
+async function completedAnalysisReport(job) {
+  const match=/^weiqi-(\d{10,14})-a\d+-[a-f0-9]{8}$/.exec(job.jobName||'');
+  if(job.status!=='SUCCEEDED'||!match)return {ignored:true};
+  const id=match[1],metadata=JSON.parse(await libraryStore.get('games/'+id+'/metadata.json'));
+  if(metadata.analysis.status!=='ready'||metadata.analysis.deep?.status!=='ready'||metadata.analysis.deep.jobId!==job.jobId)return {ignored:true};
+  await storedAiReport(id);return {id,reportReady:true};
+}
 async function libraryHandler(event) {
   const method=event.requestContext?.http?.method, path=event.rawPath, id=path.slice('/api/library/'.length);
   try {
@@ -19,15 +39,7 @@ async function libraryHandler(event) {
     }
     const reportId=path.match(/^\/api\/library\/([^/]+)\/report$/)?.[1];
     if(method==='GET'&&validRecordId(reportId||'')){
-      const prefix='games/'+reportId+'/',metadata=JSON.parse(await libraryStore.get(prefix+'metadata.json'));
-      if(metadata.analysis.available==='quick'||metadata.analysis.status!=='ready')return response(409,{message:'The report will be available when deep analysis finishes. Refresh the game page to check.'});
-      const analysis=JSON.parse(await libraryStore.get(prefix+'analysis.json'));
-      const hash=reportHash('sha256').update(JSON.stringify([REPORT_SCHEMA_VERSION,analysis.sgfSha256,analysis.modelSha256,analysis.visits,analysis.completedAt])).digest('hex'),key=prefix+'reports/'+hash+'.json';
-      try{return response(200,JSON.parse(await libraryStore.get(key)));}catch(e){if(e.name!=='NoSuchKey')throw e;}
-      const source=await libraryStore.get(prefix+'original.sgf');
-      if(reportHash('sha256').update(source).digest('hex')!==analysis.sgfSha256)return response(409,{message:'Analysis does not match the saved SGF.'});
-      const report=buildAiReport(source,analysis,metadata);await libraryStore.create(key,JSON.stringify(report),'application/json');
-      return response(200,JSON.parse(await libraryStore.get(key)));
+      return response(200,await storedAiReport(reportId));
     }
     if (method==='GET' && validRecordId(id)) {
       const prefix='games/'+id+'/', metadata=JSON.parse(await libraryStore.get(prefix+'metadata.json'));
