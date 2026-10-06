@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-10-06T03:59:55.303971+00:00",
+  "updatedAt": "2026-10-06T04:54:39.178577+00:00",
   "awsDevelopmentDebugBudgetUSD": 30,
   "noFurtherPaidBenchmarksPlanned": true,
   "smallServiceAllowanceUSD": 2,
@@ -18,13 +18,12 @@
     },
     "capacityFallback": {
       "backend": "gpu",
-      "instanceType": "g5.xlarge",
-      "gpu": "NVIDIA A10G",
-      "vCPU": 4,
-      "memoryGB": 16,
+      "primary": "capacity-optimized Spot T4 or A10G",
+      "secondary": "On-Demand A10G",
       "quickVisits": 32,
       "deepVisits": 1000,
-      "afterQueuedSeconds": 180
+      "afterQueuedSeconds": 180,
+      "onDemandCapacityFailureAfterSeconds": 900
     },
     "retries": {
       "maximum": 2,
@@ -37,12 +36,10 @@
   },
   "verifiedTests": {
     "node": 89,
-    "python": 9,
+    "python": 10,
     "cdk": 13
   },
-  "pending": [
-    "Full 321-move deep production validation and GPU retry recovery completing."
-  ],
+  "pending": [],
   "finalProductPerGameCostTargetUSD": 1,
   "quickTargetSeconds": 300,
   "deepTargetSeconds": 3600,
@@ -52,29 +49,31 @@
   "existingDevelopmentRecordsDisposable": true,
   "timingIncludesQueueAndCapacity": true,
   "deepMaximumExpectationSeconds": 7200,
-  "deployment": "GPU-only pipeline deployed in Ireland; storage migrated intact to protected WeiqiStorage; CPU stack removal underway.",
+  "deployment": "GPU-only production validated and deployed; protected WeiqiStorage owns existing data; obsolete CPU stack deleted through CloudFormation.",
   "selectedQuickMeasuredTotalSeconds": 196.64,
-  "selectedDeepMeasuredTotalSeconds": 1120.284,
+  "selectedDeepMeasuredTotalSeconds": 1095.075,
   "resourceCleanup": {
     "removedStacks": [
       "WeiqiBenchmarks",
       "WeiqiCpuBenchmarks",
-      "WeiqiRetainedResourceCleanup"
+      "WeiqiRetainedResourceCleanup",
+      "WeiqiFargate"
     ],
     "retainedEmptyRepositoryRemovedThroughCloudFormation": true,
     "gpuWorkersAutomaticallyReleased": true,
     "modelCacheObjects": 0
   },
   "lastAuditedCpuComputeAndIpEstimateUSD": 5.3739,
-  "lastAuditedGpuAllocationEstimateUSD": 1.4018030892266666,
-  "conservativeDevelopmentTotalIncludingAllowanceUSD": 8.775703089226667,
+  "lastAuditedGpuAllocationEstimateUSD": 2.1058854804766667,
+  "conservativeDevelopmentTotalIncludingAllowanceUSD": 9.579185480476667,
   "selectedCpuFallbackMeasuredTotalSeconds": 2331.479,
   "measuredConcurrentUploads": 2,
   "timingClockOrigin": "Original SQS enqueue; shared by quick and deep, including capacity waits, setup and result saving.",
   "approvedIrelandQuotas": {
     "gVtVcpu": 8,
     "pVcpu": 8,
-    "fargateVcpu": 64
+    "fargateVcpu": 64,
+    "gVtSpotVcpu": 4
   },
   "productionGpuMaximumVcpu": 8,
   "concurrencyBenchmark": {

@@ -22,7 +22,7 @@ export class WeiqiGpuBenchmarkStack extends Stack {
   const launch=new ec2.CfnLaunchTemplate(this,'Launch',{launchTemplateData:{networkInterfaces:[{deviceIndex:0,associatePublicIpAddress:true,groups:[security.securityGroupId]}]}});
   // Ireland's approved eight-vCPU G/VT quota permits two production T4 workers.
   // Benchmark environments retain a one-instance limit for controlled comparisons.
-  let productionCompute:batch.CfnComputeEnvironment,productionQueue:batch.CfnJobQueue,fallbackGpuQueue:batch.CfnJobQueue;
+  let productionCompute:batch.CfnComputeEnvironment,productionQueue:batch.CfnJobQueue,fallbackGpuQueue:batch.CfnJobQueue,spotQueue:batch.CfnJobQueue;
   const variants:readonly (readonly [string,string,number])[]=props.production?[['T4','g4dn.xlarge',8],['A10G','g5.xlarge',4]]:[['T4','g4dn.xlarge',4],['A10G','g5.xlarge',4]];
   for(const [name,type,limit] of variants){
    const compute=new batch.CfnComputeEnvironment(this,name+'Compute',{type:'MANAGED',state:'ENABLED',replaceComputeEnvironment:false,computeResources:{type:'EC2',allocationStrategy:'BEST_FIT_PROGRESSIVE',minvCpus:0,maxvCpus:limit,scalingPolicy:{minScaleDownDelayMinutes:props.production?0:20},instanceTypes:[type],instanceRole:profile.attrArn,subnets:[...vpc.publicSubnets.map(s=>s.subnetId),capacitySubnet.ref],launchTemplate:{launchTemplateId:launch.ref,version:launch.attrLatestVersionNumber},ec2Configuration:[{imageType:'ECS_AL2023_NVIDIA'}],tags:{service:'weiqi-gpu-benchmark',benchmarkGpu:name}}});
@@ -30,6 +30,13 @@ export class WeiqiGpuBenchmarkStack extends Stack {
    const queue=new batch.CfnJobQueue(this,name+'Queue',{priority:name==='T4'&&props.production?100:1,state:'ENABLED',computeEnvironmentOrder:[{computeEnvironment:compute.ref,order:1}]});
    if(name==='T4'){productionCompute=compute;productionQueue=queue;}if(name==='A10G')fallbackGpuQueue=queue;
    new CfnOutput(this,name+'QueueArn',{value:queue.ref});new CfnOutput(this,name+'ComputeArn',{value:compute.ref});
+  }
+  if(props.production){
+   const spotRole=new iam.Role(this,'SpotFleetRole',{assumedBy:new iam.ServicePrincipal('spotfleet.amazonaws.com'),managedPolicies:[iam.ManagedPolicy.fromAwsManagedPolicyName('service-role/AmazonEC2SpotFleetTaggingRole')]});
+   const spot=new batch.CfnComputeEnvironment(this,'A10GSpotCompute',{type:'MANAGED',state:'ENABLED',replaceComputeEnvironment:false,computeResources:{type:'SPOT',allocationStrategy:'SPOT_CAPACITY_OPTIMIZED',minvCpus:0,maxvCpus:4,scalingPolicy:{minScaleDownDelayMinutes:0},instanceTypes:['g4dn.xlarge','g5.xlarge'],instanceRole:profile.attrArn,spotIamFleetRole:spotRole.roleArn,subnets:[...vpc.publicSubnets.map(s=>s.subnetId),capacitySubnet.ref],launchTemplate:{launchTemplateId:launch.ref,version:launch.attrLatestVersionNumber},ec2Configuration:[{imageType:'ECS_AL2023_NVIDIA'}],tags:{service:'weiqi-gpu-benchmark',benchmarkGpu:'A10G'}}});
+   spot.node.addDependency(capacityRoute);
+   spotQueue=new batch.CfnJobQueue(this,'GpuSpotQueue',{priority:1,state:'ENABLED',computeEnvironmentOrder:[{computeEnvironment:spot.ref,order:1}]});
+   new CfnOutput(this,'FallbackSpotComputeArn',{value:spot.ref});
   }
   const jobRole=new iam.Role(this,'JobRole',{assumedBy:new iam.ServicePrincipal('ecs-tasks.amazonaws.com')});bucket.grantReadWrite(jobRole,'benchmarks/*');
   if(props.production){bucket.grantReadWrite(jobRole,'games/*');bucket.grantReadWrite(jobRole,'jobs/*');}
@@ -43,8 +50,8 @@ export class WeiqiGpuBenchmarkStack extends Stack {
    const shared=['src/engine.js','src/sgf.js','backend/library-service.js'].map(file=>fs.readFileSync(path.join(root,file),'utf8').replace(/^import .*;\n/gm,'').replace(/^export /gm,'')).join('\n');
    const modelResolver=fs.readFileSync(path.join(root,'backend/katago-model.cjs'),'utf8').replace(/^module.exports=.*;$/gm,'');
    const code=lambda.Code.fromInline(shared+'\n'+modelResolver+'\n'+fs.readFileSync(path.join(root,'backend/gpu-production.cjs'),'utf8'));
-   const gpuQueues=[productionQueue!.ref,fallbackGpuQueue!.ref];
-   const environment={LIBRARY_BUCKET:bucket.bucketName,JOB_QUEUE:productionQueue!.ref,FALLBACK_GPU_QUEUE:fallbackGpuQueue!.ref,JOB_DEFINITION:job.ref,CONTROL_QUEUE:fallbackQueue.queueUrl,GPU_FALLBACK_WAIT_SECONDS:'180',QUICK_VISITS:'32'};
+   const gpuQueues=[productionQueue!.ref,fallbackGpuQueue!.ref,spotQueue!.ref];
+   const environment={LIBRARY_BUCKET:bucket.bucketName,JOB_QUEUE:productionQueue!.ref,FALLBACK_GPU_QUEUE:fallbackGpuQueue!.ref,FALLBACK_SPOT_QUEUE:spotQueue!.ref,JOB_DEFINITION:job.ref,CONTROL_QUEUE:fallbackQueue.queueUrl,GPU_FALLBACK_WAIT_SECONDS:'180',QUICK_VISITS:'32'};
    const createCoordinator=(name:string)=>{
     const fn=new lambda.Function(this,name,{runtime:lambda.Runtime.NODEJS_22_X,handler:'index.handler',code,timeout:Duration.seconds(30),memorySize:256,environment,logRetention:logs.RetentionDays.ONE_WEEK});
     bucket.grantReadWrite(fn,'games/*');bucket.grantReadWrite(fn,'jobs/*');fallbackQueue.grantSendMessages(fn);

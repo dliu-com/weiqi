@@ -1,0 +1,91 @@
+{
+  "recordUrl": "https://weiqi.dliu.com/record/2026100618",
+  "moves": 321,
+  "positions": 322,
+  "quickTotalSeconds": 196.64,
+  "deepTotalSeconds": 1095.075,
+  "quickEngineSeconds": 41.543,
+  "deepEngineSeconds": 895.599,
+  "quickVisits": 32,
+  "deepVisits": 1000,
+  "model": "kata1-tf3-b11c768-s12252M-d6398M.bin.gz",
+  "modelSha256": "ad279eb0e6aa4ddf52cf24b27241d220043b31f38064b3fc3a43d5a524e6b03d",
+  "compute": {
+    "backend": "gpu",
+    "vCpu": 4,
+    "memoryGB": 16,
+    "gpu": "NVIDIA T4",
+    "gpuCount": 1,
+    "gpuMemoryGB": 16,
+    "instanceType": "g4dn.xlarge"
+  },
+  "sharedGpuAllocation": true,
+  "sgfUnchanged": true,
+  "suggestions": {
+    "quick": 664,
+    "deep": 669
+  },
+  "quality": {
+    "model": "kata1-tf3-b11c768-s12252M-d6398M.bin.gz",
+    "modelSha256": "ad279eb0e6aa4ddf52cf24b27241d220043b31f38064b3fc3a43d5a524e6b03d",
+    "positions": 322,
+    "quickVisits": 32,
+    "referenceVisits": 1000,
+    "meanAbsolutePointDifference": 0.2560148960622048,
+    "meanAbsoluteWinratePercentagePointDifference": 0.9278699878301243,
+    "maxAbsolutePointDifference": 2.7394410000000002,
+    "maxAbsoluteWinratePercentagePointDifference": 13.936228400000001,
+    "recordUrl": "https://weiqi.dliu.com/record/2026100618",
+    "note": "Same-game/model consistency comparison; not independent accuracy validation."
+  },
+  "retryValidation": {
+    "recordUrl": "https://weiqi.dliu.com/record/2026100619",
+    "controlledFirstAttemptFailed": true,
+    "retryAt": "2026-10-06T04:34:15.544Z",
+    "actualRetrySubmittedAt": "2026-10-06T04:34:16.431Z",
+    "scheduledDelaySeconds": 300,
+    "completed": true,
+    "attempt": 2,
+    "actualGpu": {
+      "backend": "gpu",
+      "vCpu": 4,
+      "memoryGB": 16,
+      "gpu": "NVIDIA T4",
+      "gpuCount": 1,
+      "gpuMemoryGB": 15.0,
+      "instanceType": "g4dn.xlarge"
+    },
+    "purchaseOption": "Spot",
+    "errorClearedAfterSuccess": true,
+    "noCpuFallback": true
+  },
+  "estimatedWholeGameComputeIpStorageUSD": 0.28121035809,
+  "browserVerification": {
+    "allBoardsMoves0Through100Match": true,
+    "manualDeepRefreshPreservesMove": true,
+    "keyboardArrows": true,
+    "mobileChartVisibleBelowBoard": true,
+    "libraryPagesTenRecords": true,
+    "retryTimestampTimezoneCountdown": true
+  },
+  "updatedAt": "2026-10-06T04:54:39.178577+00:00",
+  "automatedTests": {
+    "node": 89,
+    "python": 10,
+    "cdk": 13,
+    "total": 112,
+    "passed": true
+  },
+  "deploymentAudit": {
+    "region": "eu-west-1",
+    "stacks": [
+      "WeiqiStorage",
+      "WeiqiSite",
+      "WeiqiGpuBenchmark"
+    ],
+    "storageTerminationProtection": true,
+    "cpuStackRemoved": true,
+    "activeEc2Instances": 0,
+    "allGpuEnvironmentsDesiredVcpus": 0
+  }
+}

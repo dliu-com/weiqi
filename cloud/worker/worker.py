@@ -28,6 +28,7 @@ def update_phase(game_id,phase,patch,token=None):
         metadata=json.loads(obj['Body'].read());state=metadata['analysis']
         if token and (state.get('token')!=token or state.get('status') in ['retry_wait','failed']):raise RuntimeError('Analysis ownership changed')
         state[phase]={**state.get(phase,{}),**patch}
+        if patch.get('compute'):state['compute']=patch['compute']
         quick=state.get('quick',{}).get('status');deep=state.get('deep',{}).get('status')
         if deep=='ready':
             state.update(status='ready',available='deep',visits=state['deep']['visits'])
@@ -53,7 +54,7 @@ def handler(event,context=None):
         metadata=json.loads(obj['Body'].read())
         if event.get('token') and metadata['analysis'].get('token')!=event['token']:return {'status':'skipped'}
         if metadata['analysis']['status'] in ['ready','failed','limited'] or phase and metadata['analysis'].get(phase,{}).get('status') in ['ready','failed']: return {'status':'skipped'}
-        patch={'status':'running','startedAt':datetime.datetime.now(datetime.timezone.utc).isoformat(),'visits':event['query']['maxVisits'],'estimatedSeconds':event.get('estimatedSeconds',300)}
+        patch={'status':'running','startedAt':datetime.datetime.now(datetime.timezone.utc).isoformat(),'visits':event['query']['maxVisits'],'estimatedSeconds':event.get('estimatedSeconds',300),**({'compute':event['compute']} if event.get('compute') else {})}
         if phase:update_phase(event['id'],phase,patch,event.get('token'))
         else:
             metadata['analysis']={**metadata['analysis'],**patch}
@@ -138,9 +139,20 @@ def handler(event,context=None):
         if os.environ.get('BOOT_STARTED_AT'):timings['containerTotalMs']=round((time.time()-float(os.environ['BOOT_STARTED_AT']))*1000)
         s3.put_object(Bucket=BUCKET,Key=('jobs/'+event['id'] if production else prefix)+('/'+phase+'-timings.json' if production and phase else '/timings.json'),Body=json.dumps({'timings':timings,'requestedAt':event['requestedAt'],'workerStartedAt':datetime.datetime.fromtimestamp(worker_started,datetime.timezone.utc).isoformat(),'completedAt':datetime.datetime.now(datetime.timezone.utc).isoformat(),'backend':os.environ.get('BACKEND','cpu')}).encode(),ContentType='application/json')
         return {'key':result_key,'elapsedMs':analysis['elapsedMs']}
+def actual_gpu_compute(compute):
+    if os.environ.get('BACKEND')!='gpu':return compute
+    gpu=subprocess.check_output(['nvidia-smi','--query-gpu=name,memory.total','--format=csv,noheader,nounits'],text=True,timeout=15).strip().splitlines()
+    if len(gpu)!=1:raise RuntimeError('Expected exactly one GPU')
+    name,memory=gpu[0].rsplit(',',1)
+    if 'T4' in name:label,instance='NVIDIA T4','g4dn.xlarge'
+    elif 'A10G' in name:label,instance='NVIDIA A10G','g5.xlarge'
+    else:raise RuntimeError('Unrecognised GPU capacity pool')
+    return {**compute,'gpu':label,'instanceType':instance,'gpuCount':1,'gpuMemoryGB':round(float(memory)/1024,1)}
+
 def pipeline(event):
     # One GPU allocation serves both passes. Each pass still downloads the
     # official model afresh; model files are never persisted in the library.
+    event={**event,'compute':actual_gpu_compute(event['compute'])}
     results=[]
     for phase in ['quick','deep']:
         settings=event['phases'][phase]
