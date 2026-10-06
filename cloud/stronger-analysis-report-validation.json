@@ -1,0 +1,101 @@
+{
+  "validatedAt": "2026-10-06T10:52:49.787Z",
+  "recordUrl": "https://weiqi.dliu.com/record/2026100620",
+  "reportUrl": "https://weiqi.dliu.com/record/2026100620/report",
+  "model": "kata1-tf3-b11c768-s12252M-d6398M.bin.gz",
+  "compute": {
+    "backend": "gpu",
+    "vCpu": 4,
+    "memoryGB": 16,
+    "gpu": "NVIDIA T4",
+    "gpuCount": 1,
+    "gpuMemoryGB": 15,
+    "instanceType": "g4dn.xlarge",
+    "purchaseOption": "On-Demand"
+  },
+  "quick": {
+    "visits": 32,
+    "totalSeconds": 208.402,
+    "engineSeconds": 40.937
+  },
+  "deep": {
+    "visits": 3000,
+    "totalSeconds": 2735.209,
+    "engineSeconds": 2523.268
+  },
+  "coverage": 322,
+  "legalSuggestedLines": 672,
+  "truncatedLines": 0,
+  "quality": {
+    "model": "kata1-tf3-b11c768-s12252M-d6398M.bin.gz",
+    "modelSha256": "ad279eb0e6aa4ddf52cf24b27241d220043b31f38064b3fc3a43d5a524e6b03d",
+    "quickVisits": 32,
+    "referenceVisits": 3000,
+    "positions": 322,
+    "visits": [
+      32,
+      3000
+    ],
+    "meanAbsolutePointDifference": 0.30521280380080734,
+    "meanAbsoluteWinratePercentagePointDifference": 1.2342864607791921,
+    "maxAbsolutePointDifference": 3.57547199,
+    "maxAbsoluteWinratePercentagePointDifference": 18.634091399999996,
+    "recordUrl": "https://weiqi.dliu.com/record/2026100620",
+    "note": "Same-game/model consistency comparison; not independent accuracy validation."
+  },
+  "report": {
+    "ratedMoves": 321,
+    "problems": 10,
+    "firstSeconds": 0.668,
+    "cachedSeconds": 0.255,
+    "cachedVersionReused": true,
+    "handler": "Existing GameHandler Lambda; no new analysis",
+    "pdfExportTest": "Deferred at user request",
+    "languages": [
+      "en",
+      "zh"
+    ],
+    "languageFormat": "Complete English followed by complete Chinese; same cached analysis",
+    "userConfigurationControls": false
+  },
+  "tests": {
+    "node": 98,
+    "python": 10,
+    "cdk": 13
+  },
+  "prior1000Vs3000": {
+    "positions": 322,
+    "visits": [
+      1000,
+      3000
+    ],
+    "meanAbsolutePointDifference": 0.12208645681708065,
+    "meanAbsoluteWinratePercentagePointDifference": 0.5533880340102479,
+    "maxAbsolutePointDifference": 1.4144915099999995,
+    "maxAbsoluteWinratePercentagePointDifference": 8.894126000000002
+  },
+  "allocationCostEstimateUSD": 0.47543747,
+  "automaticWorkerRetirementAt": "2026-10-06T10:54:21.691Z",
+  "resourceAudit": {
+    "checkedAt": "2026-10-06T10:59:18.853659+00:00",
+    "gpuComputeDesiredVcpus": 0,
+    "instanceState": "shutting-down"
+  },
+  "bilingualBrowserValidation": {
+    "verifiedAt": "2026-10-06T11:00:54.442931+00:00",
+    "recordUrl": "https://weiqi.dliu.com/record/2026100620",
+    "languages": [
+      "en",
+      "zh-CN"
+    ],
+    "sheetsPerLanguage": 16,
+    "badMovesPerSidePerLanguage": 5,
+    "chartsPerLanguage": 4,
+    "identicalTableNumbers": true,
+    "desktop": true,
+    "mobileWidth": 390,
+    "horizontalOverflow": false,
+    "configurationInputs": 0,
+    "pdfExportTest": "Deferred at user request"
+  }
+}

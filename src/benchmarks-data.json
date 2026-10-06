@@ -1,17 +1,21 @@
 {
-  "updatedAt": "2026-10-06T10:29:24.272Z",
+  "updatedAt": "2026-10-06T10:53:46.746Z",
   "region": "eu-west-1",
   "quality": {
     "model": "kata1-tf3-b11c768-s12252M-d6398M.bin.gz",
     "modelSha256": "ad279eb0e6aa4ddf52cf24b27241d220043b31f38064b3fc3a43d5a524e6b03d",
-    "positions": 322,
     "quickVisits": 32,
-    "referenceVisits": 1000,
-    "meanAbsolutePointDifference": 0.2560148960622048,
-    "meanAbsoluteWinratePercentagePointDifference": 0.9278699878301243,
-    "maxAbsolutePointDifference": 2.7394410000000002,
-    "maxAbsoluteWinratePercentagePointDifference": 13.936228400000001,
-    "recordUrl": "https://weiqi.dliu.com/record/2026100618",
+    "referenceVisits": 3000,
+    "positions": 322,
+    "visits": [
+      32,
+      3000
+    ],
+    "meanAbsolutePointDifference": 0.30521280380080734,
+    "meanAbsoluteWinratePercentagePointDifference": 1.2342864607791921,
+    "maxAbsolutePointDifference": 3.57547199,
+    "maxAbsoluteWinratePercentagePointDifference": 18.634091399999996,
+    "recordUrl": "https://weiqi.dliu.com/record/2026100620",
     "note": "Same-game/model consistency comparison; not independent accuracy validation."
   },
   "concurrency": {
@@ -1205,6 +1209,7 @@
       "analysisThreads": 16,
       "maxBatchSize": 32,
       "status": "SUCCEEDED",
+      "statusReason": "Essential container in task exited",
       "createdAt": "2026-10-06T10:06:41.198Z",
       "completedAt": "2026-10-06T10:10:05.547338+00:00",
       "recordUrl": "https://weiqi.dliu.com/record/2026100620",
@@ -1233,14 +1238,32 @@
       "gpu": "T4",
       "instanceType": "g4dn.xlarge",
       "moves": 321,
+      "positions": 322,
       "model": "kata1-tf3-b11c768-s12252M-d6398M.bin.gz",
+      "engineVersion": "KataGo v1.18.2",
       "visits": 3000,
-      "status": "RUNNING",
+      "analysisThreads": 16,
+      "maxBatchSize": 32,
+      "status": "SUCCEEDED",
+      "statusReason": "Essential container in task exited",
       "createdAt": "2026-10-06T10:06:41.198Z",
+      "completedAt": "2026-10-06T10:52:12.365042+00:00",
       "recordUrl": "https://weiqi.dliu.com/record/2026100620",
       "archived": false,
+      "totalIncludingQueueSeconds": 2735.411,
+      "queueWaitSeconds": 63.802,
       "triggerSeconds": 4.244,
-      "modelDownloadSeconds": null
+      "instanceStartupSeconds": 44.291,
+      "startupSeconds": 52.355,
+      "imagePullSeconds": 40.348,
+      "setupSeconds": 2.326,
+      "modelDownloadSeconds": 2.247,
+      "engineSeconds": 2523.268,
+      "saveSeconds": 1.197,
+      "totalSeconds": 2667.365,
+      "costUSD": 0.45345204999999994,
+      "coldStart": true,
+      "peakMemoryMB": 1702.2
     }
   ]
 }

@@ -2288,7 +2288,8 @@
     "timingVerified": true,
     "analysisSeconds": 40.937,
     "setupSeconds": 1.384,
-    "saveSeconds": 1.189
+    "saveSeconds": 1.189,
+    "statusReason": "Essential container in task exited"
   },
   {
     "id": "a6bbaa61-3e2d-4f0a-8fd7-bd6a51150fbe-deep",
@@ -2302,7 +2303,7 @@
     "phase": "deep",
     "visits": 3000,
     "enqueuedAt": "2026-10-06T10:06:36.954Z",
-    "status": "RUNNING",
+    "status": "SUCCEEDED",
     "runId": "2026-10-06T10:06:36.954Z",
     "sourceVerified": true,
     "scenario": "GPU-only production pipeline",
@@ -2312,6 +2313,44 @@
     "triggerSeconds": 4.244,
     "startedAt": "2026-10-06T10:09:21.646Z",
     "cpu": 4,
-    "memoryGB": 16
+    "memoryGB": 16,
+    "statusReason": "Essential container in task exited",
+    "positions": 322,
+    "engineVersion": "KataGo v1.18.2",
+    "modelSha256": "ad279eb0e6aa4ddf52cf24b27241d220043b31f38064b3fc3a43d5a524e6b03d",
+    "completedAt": "2026-10-06T10:52:12.365042+00:00",
+    "configuration": {
+      "analysisThreads": 16,
+      "searchThreads": 1,
+      "neuralNetThreads": 1,
+      "maxVisits": 3000,
+      "maxBatchSize": 32,
+      "analysisPVLen": 11
+    },
+    "timings": {
+      "downloadJobRequestMs": 104,
+      "readClaimGameMs": 78,
+      "downloadExtractKataGoMs": 0,
+      "downloadModelMs": 2247,
+      "engineLoadAndAnalysisMs": 2523268,
+      "engineCpuSeconds": 2734.692,
+      "enginePeakRssMB": 1412.4,
+      "containerPeakMemoryMB": 1702.2,
+      "provenanceMs": 995,
+      "saveResultsAndStatusMs": 202,
+      "workerTotalMs": 2526791
+    },
+    "taskStartupSeconds": 52.355,
+    "imagePullSeconds": 40.348,
+    "instanceId": "i-017865f9e047b3746",
+    "coldStart": true,
+    "instanceStartupSeconds": 44.291,
+    "queueWaitSeconds": 63.802,
+    "totalExcludingQueueSeconds": 2667.365,
+    "estimatedComputeUSD": 0.45345204999999994,
+    "timingVerified": true,
+    "analysisSeconds": 2523.268,
+    "setupSeconds": 2.326,
+    "saveSeconds": 1.197
   }
 ]
