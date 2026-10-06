@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-10-06T03:19:55.475276+00:00",
+  "updatedAt": "2026-10-06T03:59:55.303971+00:00",
   "awsDevelopmentDebugBudgetUSD": 30,
   "noFurtherPaidBenchmarksPlanned": true,
   "smallServiceAllowanceUSD": 2,
@@ -28,8 +28,8 @@
     }
   },
   "verifiedTests": {
-    "node": 73,
-    "python": 6,
+    "node": 80,
+    "python": 7,
     "cdk": 13
   },
   "pending": [
@@ -83,5 +83,22 @@
       1056.805
     ],
     "gpuWorkersAutomaticallyRetired": true
+  },
+  "moveReview": {
+    "enabledByDefault": true,
+    "maxCandidates": 8,
+    "maxAdditionalPlayedCandidate": 1,
+    "maxPVLength": 12,
+    "ratingPointLossThresholds": [
+      0.5,
+      2,
+      5
+    ],
+    "validationRecord": "https://weiqi.dliu.com/record/2026100617",
+    "quickTotalSeconds": 178.881,
+    "deepTotalSeconds": 1111.45,
+    "quickSuggestedLines": 588,
+    "deepSuggestedLines": 672,
+    "gpuWorkerAutomaticallyRetired": true
   }
 }
