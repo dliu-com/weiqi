@@ -160,7 +160,7 @@
     ],
     "languageFormat": "English / Chinese switcher; selected language displayed and saved",
     "bilingualBrowserValidation": {
-      "verifiedAt": "2026-10-06T14:09:02.799384+00:00",
+      "verifiedAt": "2026-10-06T14:35:17.072Z",
       "recordUrl": "https://weiqi.dliu.com/record/2026100620",
       "languages": [
         "en",
@@ -197,7 +197,9 @@
     "interactionGeneration": false,
     "performanceRankEstimate": false,
     "firstContentPage": "Game-wide point advantage on page 3",
-    "renderVersion": "4e74c65cf3f168f7"
+    "renderVersion": "abed6cf5a21a9dc1",
+    "graphPalette": "Replay grey canvas; dark Black / outlined white White; filled score and win graphs; quality categories retain green/yellow/orange/red",
+    "viewerHeader": "App navigation and saved language preference; Save PDF is the only extra header action"
   },
   "queueEstimate": {
     "deployed": true,

@@ -15,3 +15,16 @@
 .report-graph-reading{font-size:15px;line-height:1.6;margin:16px 0 18px;color:#26343d}.report-graph-maths h4{font-size:11px;font-weight:600;color:#657078;border-top:1px solid #dbe1e5;padding-top:12px;margin:0 0 8px}.report-graph-maths .report-formula{color:#56626a}@media(max-width:600px){.report-graph-reading{font-size:13px}}
 #save-report{font:inherit;padding:7px 10px;border:1px solid #26343d;border-radius:5px;text-decoration:none;cursor:pointer}#save-report[aria-disabled=true]{opacity:.5;cursor:default}
 .report-reading-path{padding-left:24px;line-height:1.6}.report-reading-path li{margin:12px 0}.report-key-move td:nth-child(3){font-weight:650}.report-key-reviewed{background:#f2f6f8}.report-key-reviewed td:first-child{border-left:3px solid #425d6c}
+
+/* Use the replay chart palette consistently throughout the report. */
+.report-plot{background:#cbd2d6;border:1px solid #94a3ad;border-radius:5px;padding:8px}.report-chart-legend{display:flex;flex-wrap:wrap;gap:8px 18px;margin:10px 0;font-size:12px;color:#23343d}.report-chart-legend span{display:flex;align-items:center;gap:6px}.report-chart-legend i{display:inline-block;width:12px;height:12px;border:1px solid #64748b;border-radius:50%;flex-shrink:0}.report-swatch-black{background:#28323a}.report-swatch-white{background:#f9fafb}
+
+/* Match the app's navigation without changing the printed document styles. */
+.report-site-header{max-width:1320px;margin:auto;padding:25px 36px;display:flex;align-items:center;justify-content:flex-start;flex-wrap:wrap;gap:22px;border-bottom:1px solid #d9dfe2;position:static}
+.report-site-header .logo{display:flex;align-items:center;text-decoration:none}.report-site-header .logo img{display:block;width:42px;height:42px;object-fit:contain}
+.report-site-header .brand{font-family:serif;font-size:23px;color:#202629;text-decoration:none}.report-site-header .brand small{font:12px system-ui;color:#505b61;margin-left:14px}
+.report-site-header .languages{display:flex;gap:5px;margin-left:auto}.report-site-header .languages button{display:flex;align-items:center;gap:6px;padding:9px 11px;font-size:13px;color:#202629;border:1px solid #d9dfe2;border-radius:7px;background:transparent}
+.report-site-header .language-icon{display:grid;place-items:center;width:19px;height:19px;border:1px solid currentColor;border-radius:3px;font-size:12px;font-weight:600}.report-site-header .languages button[aria-pressed=true]{color:#805719;border-color:#805719;background:#f6efe1}
+.report-site-header .back-game{color:#805719;font-size:13px}.report-site-header button:hover{background:#f3f5f6;border-color:#805719}.report-site-header a:focus-visible,.report-site-header button:focus-visible{outline:2px solid #805719;outline-offset:3px}
+@media(max-width:850px){.report-site-header{padding:18px 20px}.report-site-header .brand small{display:none}}@media(max-width:480px){.report-site-header{gap:8px;padding:14px 12px}.report-site-header .brand{font-size:20px}.report-site-header .languages button{padding:8px 6px;font-size:12px;gap:4px}.report-site-header .language-icon{width:16px;height:16px;font-size:10px}}
+@media print{.report-site-header{display:none}}
