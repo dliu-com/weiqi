@@ -3,6 +3,7 @@ import {boardDiagram} from './board-diagram.js';
 import {chartGeometry} from './evaluation-chart.js';
 import {gameResult} from './game-result.js';
 import {reportPagination} from './report-document.js';
+import {comparisonChart,compositionChart,qualityLegend} from './report-stat-charts.js';
 const $=id=>document.getElementById(id),id=location.pathname.match(/^\/record\/([^/]+)\/report\/?$/)?.[1]||new URLSearchParams(location.search).get('game');
 let report=null,reportLanguage=new URLSearchParams(location.search).get('lang')==='zh'?'zh':'en',saving=false;
 const t=(zh,en)=>reportLanguage==='zh'?zh:en;
@@ -31,59 +32,72 @@ function contextChart(mode){
  for(const move of report.problems){const point=g.points.find(p=>p.nodeId===move.nodeId);if(point)add('circle',{cx:point.x,cy:point.y,r:3.5,fill:move.side==='B'?'#26343d':'#bc581b',stroke:'white','stroke-width':1});}
  wrap.append(svg);return wrap;
 }
+function graphReading(title){
+ const guides=[
+  ['各类着法占比','Share of each move quality','绿色越多，保持局面的着法越多；橙色和红色越多，损失较大的着法越多。每一行是一方或全局的全部已评定着法。','More green means more moves kept the position close to the AI recommendation. More orange and red means more costly errors. Each row represents that player’s analysed moves, or both players together.'],
+  ['典型损失与较大失误','Typical loss and bigger errors','点损失表示相比 AI 推荐，这手棋损失了多少优势。数值越低越好。平均值概括全局；中间一手是一半着法损失更小的界线；90% 界线帮助观察较大的失误。','Point loss is how much advantage a move gives up compared with the AI recommendation. Lower is better. Average summarizes all moves; the middle move splits them in half; the 90% cutoff shows the size of bigger errors.'],
+  ['五手占全部损失的比例','Share of loss in the five worst moves','比例越高，越值得先复盘少数关键失误；比例较低，可能需要改善较多分散的着法。','A higher share suggests reviewing a few key mistakes first. A lower share may mean smaller errors were spread across more moves.'],
+  ['胜率损失对比（百分点）','Win-rate losses compared (percentage points)','相比推荐选点，这些着法降低了多少获胜机会？越低越好。例如从 70% 降到 50%，损失为 20 个百分点。','How much did moves reduce the chance of winning compared with the recommendation? Lower is better. Falling from 70% to 50% is a loss of 20 percentage points.'],
+  ['各区间的平均点损失','Average point loss in each range','比较棋局前段、中段和后段的平均损失。越低越好，可帮助找到最需要改进的手数区间。','Compare average losses early, in the middle and later in the game. Lower is better; this helps identify stretches to work on.'],
+  ['各损失区间的着法比例','Share of moves in each loss bin','看大部分着法是零损失、小损失还是大损失。横轴是着法比例，每一手只进入一组。','See whether most moves lost nothing, a little or a lot. Bar length is the share of moves, and each move belongs to just one group.'],
+  ['每手损失在哪里发生？','Where did each move lose points?','尖峰越高，这手棋的损失越大。较大的圆点对应后面有棋盘图的重点失误。','Taller spikes mean more costly moves. Larger dots identify the key errors illustrated on board diagrams later in the report.'],
+  ['黑方胜率','Black win probability','曲线越高，AI 认为黑方越有可能获胜。50% 表示双方机会相当。它是对局面的估计，不是保证。','A higher line means the AI thinks Black is more likely to win. At 50%, both sides have equal chances. This is an estimate, not a guarantee.'],
+  ['点数优势：正为黑，负为白','Point advantage: positive Black, negative White','高于零线表示黑方领先，低于零线表示白方领先。离零线越远，预估优势越大。','Above zero means Black leads; below zero means White leads. Farther from zero means a larger estimated advantage.']
+ ];
+ const reading=guides.find(g=>g[0]===title||g[1]===title);return reading?t(reading[2],reading[3]):'';
+}
+function statisticGraph(title,visual,formula,zh,en){
+ const figure=node('figure',undefined,'report-stat-card'),caption=node('figcaption',undefined,'report-graph-maths');
+ figure.append(node('h3',title),visual);caption.append(node('p',graphReading(title),'report-graph-reading'),node('h4',t('计算细节 · 供技术读者参考','Calculation details · for technical readers')),node('p',formula,'report-formula'),node('p',t(zh,en),'report-note'));figure.append(caption);return figure;
+}
 function addStatistics(sheet){
- const integer=n=>n??'—',percent=n=>Number.isFinite(n)?number(n)+'%':'—',summary=side=>side==='all'?report.overall:report.players[side];
- const sides=['B','W','all'],headers=[t('统计项','Metric'),sideName('B'),sideName('W'),t('全局','Whole game')];
- const value=(key,format=n=>number(n,2))=>sides.map(side=>format(summary(side)[key]));
- const row=(zh,en,key,format)=>[t(zh,en),...value(key,format)];
- const worst=(key,moveKey)=>sides.map(side=>{const s=summary(side);return number(s[key],2)+(s[moveKey]!=null?' · '+t('第 ','Move ')+s[moveKey]:'');});
- const names={best:t('AI 首选','AI first choice'),good:t('好棋','Good'),...qualities()};
- const quality=sheet(t('所有着法：质量与评估覆盖率','All moves: quality and evaluation coverage'));
- quality.append(table(headers,[row('实战手数','Recorded moves','moves',integer),row('已评定手数 N','Rated moves N','ratedMoves',integer),row('未评定手数','Unrated moves','unratedMoves',integer),row('评估覆盖率','Evaluation coverage','coveragePercent',percent),...Object.entries(names).map(([key,label])=>[label,...sides.map(side=>{const s=summary(side);return s.counts[key]+' · '+percent(s.qualityBreakdown.find(m=>m.quality===key).percentage);})]),row('损失 ≤0.5 点','Loss ≤0.5 points','withinHalfPointPercent',percent),row('损失 ≤1 点','Loss ≤1 point','withinOnePointPercent',percent),row('损失 ≤2 点','Loss ≤2 points','withinTwoPointsPercent',percent),row('直接搜索的实战选点','Sufficiently searched played choices','searchedMoves',integer),row('使用后续局面估计的选点','Choices estimated from the following position','estimatedMoves',integer)]));
- quality.append(node('p',t('AI 首选表示坐标与引擎排名第一的选点相同，损失记为 0；不代表客观完美。其余着法按点损失分类：好棋 ≤0.5，不精确 >0.5 至 2，失误 >2 至 5，严重失误 >5。质量百分比的分母是本方已评定着法，不包含未评定着法；全局统计合并双方原始数据，不平均双方百分比。','AI first choice means the played coordinate matches the engine’s top choice; its loss is recorded as zero. It does not establish objective perfection. Other moves are classified by point loss: good ≤0.5; inaccuracy >0.5 to 2; mistake >2 to 5; blunder >5. Quality percentages use that side’s rated moves, excluding unrated moves. Whole-game metrics pool both sides’ move data rather than averaging their percentages.'),'report-note'));
- const stats=sheet(t('所有已评定着法：点损失统计','All rated moves: point-loss statistics'));
- stats.append(table(headers,[row('累计点损失 T','Total point loss T','totalPointLoss'),row('平均点损失 μ','Mean point loss μ','meanPointLoss'),row('点损失中位数 Q₅₀','Median point loss Q₅₀','medianPointLoss'),row('点损失第 90 百分位 Q₉₀','90th percentile loss Q₉₀','p90PointLoss'),row('点损失第 95 百分位 Q₉₅','95th percentile loss Q₉₅','p95PointLoss'),row('总体标准差 σ','Population standard deviation σ','stdPointLoss'),row('均方根损失 RMS','Root mean square loss RMS','rmsPointLoss'),[t('最大点损失 / 手数','Maximum point loss / move'),...worst('maxPointLoss','worstPointLossMove')],row('直接搜索选点的平均损失','Mean loss: searched choices','searchedMeanPointLoss'),row('估计选点的平均损失','Mean loss: estimated choices','estimatedMeanPointLoss'),row('较差着法的累计点损失','Total loss from bad moves','totalBadPointLoss'),row('较差着法的平均点损失','Mean loss among bad moves','meanBadPointLoss'),row('损失最大的五手累计损失','Loss in the five worst moves','topFivePointLoss'),row('损失最大的五手 / 所有着法累计损失','Five worst / total loss across all moves','topFiveLossPercent',percent)]));
- stats.append(node('p',t('均值、分位数、标准差与 RMS 包括所有已评定着法（含 AI 首选和好棋的低损失或零损失）。RMS 更强调大失误，标准差描述损失波动。累计损失相加的是独立局面中的决策损失，不是最终比分；全局“五手”指双方合并后的五手。','Means, quantiles, standard deviation and RMS include every rated move, including small or zero losses for good moves and AI first choices. RMS gives larger errors more weight; standard deviation describes variation. Total loss sums decision losses from separate positions, not the final game score. The whole-game “five worst” are selected from both sides combined.'),'report-note'));
- const win=sheet(t('所有已评定着法：胜率损失与错失机会','All rated moves: win-rate losses and missed opportunities'));
- win.append(table(headers,[row('有胜率损失数据的手数 M','Moves with win-loss data M','winrateRatedMoves',integer),row('缺少胜率数据的已评定手数','Rated moves missing win-loss data','winrateUnratedMoves',integer),row('平均胜率损失（百分点）','Mean win-rate loss (pp)','meanWinrateLoss'),row('胜率损失中位数（百分点）','Median win-rate loss (pp)','medianWinrateLoss'),row('胜率损失第 90 百分位（百分点）','90th percentile win-rate loss (pp)','p90WinrateLoss'),row('胜率损失总体标准差（百分点）','Population SD of win-rate loss (pp)','stdWinrateLoss'),[t('最大胜率损失 / 手数（百分点）','Maximum win-rate loss / move (pp)'),...worst('maxWinrateLoss','worstWinrateLossMove')],row('胜率损失 ≥5 个百分点的手数','Moves losing ≥5 win-rate pp','winrateDrops5pp',integer),row('胜率损失 ≥10 个百分点的手数','Moves losing ≥10 win-rate pp','winrateDrops10pp',integer),row('胜率损失 ≥20 个百分点的手数','Moves losing ≥20 win-rate pp','winrateDrops20pp',integer),row('错失可保留的点数领先','Moves missing an available point lead','availableLeadsLost',integer),row('错失可保留的 >50% 胜率','Moves missing an available >50% win rate','availableWinningChancesLost',integer)]));
- win.append(node('p',t('这些统计包含所有具有相应数据的已评定着法，无论点损失评级。胜率采用落子一方的视角；如 70% 降至 50%，损失为 20 个百分点。胜率损失不会相加为全局输赢概率。错失领先：AI 首选领先 >0 点而实战落后 <0 点；错失胜率：AI 首选 >50% 而实战 <50%。','These metrics include all rated moves with the required data, regardless of point-loss category. Win probability uses the played side’s perspective: a drop from 70% to 50% is 20 percentage points. Losses are not summed into a game-wide win probability. A missed lead means the recommendation leads by >0 points while the played move trails by <0; a missed winning chance crosses from >50% to <50%.'),'report-note'));
- const categories=sheet(t('各类着法的损失与估计数量','Losses and estimates within each move quality'));
- categories.append(table([t('棋手','Side'),t('着法类别','Quality'),t('手数','Moves'),t('平均点损失','Mean point loss'),t('平均胜率损失（百分点）','Mean win loss (pp)'),t('估计手数','Estimated moves')],['B','W'].flatMap(side=>report.players[side].qualityBreakdown.map(q=>[sideName(side),names[q.quality],q.count,number(q.meanPointLoss,2),number(q.meanWinrateLoss,2),q.estimatedMoves]))));
- categories.append(node('p',t('“—”表示该类别没有可用数据，不是 0。某着法若未找到实战候选或候选访问量不足，其评估取自下一实战局面；这些估计仍进入统计，但单独报告数量和均值。直接搜索阈值为 max(2, AI 首选访问量 × 3%)。','“—” means no usable data, not zero. If a played candidate is absent or has insufficient visits, its evaluation comes from the next recorded position. Estimates remain in the metrics and their count/mean are shown separately. The sufficient-search threshold is max(2, top-choice visits × 3%).'),'report-note'));
- const stages=sheet(t('所有着法：手数区间比较','All moves: comparison by move range'));
- stages.append(table([t('棋手 / 区间','Side / range'),t('已评定','Rated'),t('首选率','First-choice %'),t('损失 ≤0.5','Loss ≤0.5 %'),t('平均损失','Mean loss'),t('第 90 百分位','90th percentile'),t('累计损失','Total loss')],['B','W'].flatMap(side=>report.players[side].segments.filter(s=>s.moves).map(s=>[sideName(side)+' '+s.from+'–'+s.to,s.ratedMoves,percent(s.bestMatchPercent),percent(s.withinHalfPointPercent),number(s.meanPointLoss,2),number(s.p90PointLoss,2),number(s.totalPointLoss,2)]))));
- stages.append(node('h3',t('区间内各类着法数量','Move-quality counts within each range')),table([t('棋手 / 区间','Side / range'),...Object.values(names)],['B','W'].flatMap(side=>report.players[side].segments.filter(s=>s.moves).map(s=>[sideName(side)+' '+s.from+'–'+s.to,...Object.keys(names).map(key=>s.counts[key])]))),node('p',t('区间固定为 1–60、61–180 和 181 手以后，不是自动识别的布局、中盘或官子。区间指标包括所有已评定着法。','Ranges are fixed at 1–60, 61–180 and 181 onward, not automatically detected opening, middle game or endgame. Range metrics include every rated move.'),'report-note'));
- const distribution=sheet(t('所有已评定着法：点损失分布','All rated moves: point-loss distribution'));
- const bucketLabel=b=>b.to===0?'0':b.to===null?'>10':'> '+b.from+' – '+b.to;
- distribution.append(table([t('点损失范围','Loss range'),t('黑方手数 / 比例','Black count / %'),t('黑方累计损失','Black total loss'),t('白方手数 / 比例','White count / %'),t('白方累计损失','White total loss')],report.players.B.lossBuckets.map((b,i)=>{const w=report.players.W.lossBuckets[i];return [bucketLabel(b),b.count+' · '+percent(b.percentage),number(b.totalPointLoss,2),w.count+' · '+percent(w.percentage),number(w.totalPointLoss,2)];})));
- distribution.append(node('p',t('分布包含零损失与低损失，六个区间互不重叠并覆盖所有已评定着法。未评定着法不作为零损失加入。百分比独立四舍五入，显示值之和可能略有偏差。','Zero and small losses are included. The six non-overlapping bins cover every rated move. Unrated moves are never counted as zero loss. Independently rounded percentages may not sum to exactly 100%.'),'report-note'));
- const timeline=sheet(t('所有已评定着法：逐手与累计损失','All rated moves: per-move and cumulative losses')),isRated=m=>Object.hasOwn(names,m.quality)&&Number.isFinite(m.pointLoss),series=['B','W'].map(side=>({side,points:report.reviews.filter(m=>m.side===side&&isRated(m)).map(m=>({x:m.move,y:m.pointLoss}))}));
- timeline.append(node('h3',t('逐手点损失（所有已评定着法）','Point loss by move (all rated moves)')),reportPlot(t('逐手点损失','Point loss by move'),series,{stems:true,yMax:Math.max(1,...series.flatMap(s=>s.points.map(p=>p.y)))}));
- const cumulative=['B','W'].map(side=>{let total=0;const points=[{x:0,y:0}];for(const m of report.reviews){if(m.side===side&&isRated(m))total+=m.pointLoss;points.push({x:m.move,y:total});}return {side,points};});
- timeline.append(node('h3',t('所有着法累计点损失','Cumulative point loss across all moves')),reportPlot(t('累计点损失','Cumulative point loss'),cumulative,{yMax:Math.max(1,...cumulative.map(s=>s.points.at(-1).y))}),node('p',t('较大的点标出本报告展示棋盘的五个黑方与五个白方较差着法。图表包含所有已评定着法，零损失位于基线；未评定着法没有点。累计曲线不是实际比分。','Larger dots mark the five Black and five White bad moves with board diagrams. Charts include every rated move, with zero loss on the baseline; unrated moves have no point. Cumulative curves are not actual scores.'),'report-note'));
- const context=sheet(t('全局评估走势','Game-wide evaluation trends'));
- context.append(node('h3',t('黑方胜率','Black win probability')),contextChart('win'),node('h3',t('点数优势：黑方为正，白方为负','Point advantage: positive for Black, negative for White')),contextChart('score'),node('p',t('走势使用所有实战局面的评估，标记表示所列较差着法。走势的相邻变化与单手损失不同：单手损失比较同一决策点的 AI 首选与实战选择。','Trends use every recorded position; markers identify the listed bad moves. Adjacent trend changes differ from move loss, which compares the AI recommendation and played choice at one decision point.'),'report-note'));
- const math=sheet(t('计算方法：视角、点损失与胜率','Calculations: perspective, point loss and win probability'));
- const formula=(parent,expression,zh,en)=>{parent.append(node('p',expression,'report-formula'),node('p',t(zh,en),'report-note'));};
- formula(math,'sᵢ = +1 (Black / 黑方), −1 (White / 白方)', '第 i 手取落子方视角。S 是黑方领先点数，P 是黑方胜率（0 至 1）；下标 best 为 AI 首选，played 为实战选点。','For move i, use the played side’s perspective. S is Black’s point lead and P is Black’s win probability (0 to 1); best denotes the AI first choice and played the recorded choice.');
- formula(math,'Lᵢ = max(0, sᵢ × (Sᵢ,best − Sᵢ,played))','点损失 Lᵢ 不小于 0。实战就是 AI 首选时 Lᵢ=0。估计选点使用下一实战局面的评估；不同搜索结果的微小差异不当作收益累加。','Point loss Lᵢ is non-negative; a recorded AI first choice has Lᵢ=0. Estimated played choices use the next recorded position. Small discrepancies between searches are clamped rather than accumulated as gains.');
- formula(math,'Wᵢ = max(0, 100 × sᵢ × (Pᵢ,best − Pᵢ,played))','Wᵢ 的单位是胜率百分点，不是相对百分比。实战为 AI 首选时 Wᵢ=0；缺失胜率数据不计入 M。','Wᵢ is in percentage points, not a relative percentage. A recorded AI first choice has Wᵢ=0; missing win data is excluded from M.');
- formula(math,'Coverage = 100 × N / recorded moves','N 为已评定着法数。未评定着法不计入损失、质量比例或分位数；覆盖率的分母包含全部实战着法。','N counts rated moves. Unrated moves are excluded from loss statistics, quality percentages and quantiles; coverage uses all recorded moves as its denominator.');
- formula(math,'Quality % = 100 × category count / N','AI 首选按坐标匹配优先判定；其他着法按 Lᵢ 分类：好棋 [0,0.5]；不精确 (0.5,2]；失误 (2,5]；严重失误 (5,∞)。','AI first choice is identified by coordinate match first. Other moves use Lᵢ: good [0,0.5]; inaccuracy (0.5,2]; mistake (2,5]; blunder (5,∞).');
- const maths=sheet(t('计算方法：均值、离散程度与分位数','Calculations: averages, spread and quantiles'));
- formula(maths,'T = Σ Lᵢ;   μ = T / N','累计与平均包括所有 N 个已评定着法；零损失也进入均值。','Total and mean include all N rated moves; zero losses remain in the mean.');
- formula(maths,'σ = √(Σ (Lᵢ − μ)² / N)','使用总体标准差，分母为 N，而不是 N−1。报告描述的是已保存的着法集合，不是推断棋力。','Population standard deviation uses N, not N−1. It describes the saved move set, not an inferred playing strength.');
- formula(maths,'RMS = √(Σ Lᵢ² / N) = √(μ² + σ²)','RMS 对大损失给予更高权重。没有已评定着法时，均值、标准差和 RMS 均显示“—”。','RMS weights larger losses more strongly. With no rated moves, mean, SD and RMS display “—”.');
- formula(maths,'h = (N−1)q; k = floor(h); Qq = xₖ + (h−k)(x⌈h⌉ − xₖ)','将损失升序排列为 x₀…xN−1，按线性插值计算 q=0.50、0.90、0.95 的分位数；N=1 时均为唯一的损失值。','Sort losses as x₀…xN−1 and linearly interpolate quantiles q=0.50, 0.90, 0.95. With N=1 each quantile is the sole value.');
- formula(maths,'Mean win loss = Σ Wᵢ / M;   top-five share = 100 × Σ five largest Lᵢ / T','胜率指标使用具有胜率损失数据的 M 手。五手集中度按全部累计点损失 T 计算；T=0 时显示“—”。','Win-loss metrics use the M moves with win data. Top-five concentration uses total loss T across all rated moves; T=0 displays “—”.');
- const example=sheet(t('本局计算示例与解读','Worked calculations from this game'));
- for(const side of ['B','W']){
-  const s=report.players[side];example.append(node('h3',sideName(side)+' · '+(s.name||'—')));
-  formula(example,'μ = '+number(s.totalPointLoss,3)+' / '+s.ratedMoves+' = '+number(s.meanPointLoss,3), '所有已评定着法的平均点损失，含首选与好棋。','Mean point loss over every rated move, including first choices and good moves.');
-  formula(example,'AI first choice % = '+s.counts.best+' / '+s.ratedMoves+' × 100 = '+(Number.isFinite(s.bestMatchPercent)?number(s.bestMatchPercent,2)+'%':'—'),'坐标匹配率与点损失均值测量不同方面；同等优秀的另一选点可能不算首选匹配。','Coordinate-match rate and mean loss measure different aspects; an equally strong alternative may not match the first choice.');
-  formula(example,'RMS = √('+number(s.meanPointLoss,3)+'² + '+number(s.stdPointLoss,3)+'²) ≈ '+number(s.rmsPointLoss,3),'公式使用未四舍五入的数据计算，显示值仅作示例。','Calculations use unrounded data; displayed values are rounded examples.');
- }
- example.append(node('p',t('报告统计描述这一次模型与访问量下的引擎评估，不给出虚构的 Elo、段位或准确率。好棋与首选计入统计，但具体棋盘图仍只展示双方各五个较差着法。','These statistics describe this model and visit setting, without inventing Elo, rank or a calibrated accuracy score. Good moves and first choices count in statistics; exact board diagrams remain limited to five bad moves per side.'),'report-note'));
+ const keys=['best','good','inaccuracy','mistake','blunder'],names={best:t('AI 首选','AI first choice'),good:t('好棋','Good'),...qualities()},sides={B:sideName('B'),W:sideName('W')};
+ const rows=definitions=>definitions.map(([key,zh,en])=>({key,label:t(zh,en),values:['B','W'].map(side=>report.players[side][key])}));
+ const compare=(title,definitions,options={})=>comparisonChart(title,rows(definitions),{names:sides,...options});
+ const graph=(parent,title,svg,formula,zh,en)=>parent.append(statisticGraph(title,svg,formula,zh,en));
+ const quality=sheet(t('着法质量：一眼看清双方表现','Move quality: compare the whole game'));
+ graph(quality,t('各类着法占比','Share of each move quality'),compositionChart(t('着法质量占比','Move-quality composition'),['B','W','all'].map(side=>({label:side==='all'?t('全局','Whole game'):sideName(side),counts:(side==='all'?report.overall:report.players[side]).counts})),{keys,names,emptyLabel:t('无已评定着法','No rated moves')}),'Share = 100 × category count / N',
+ 'N 是该行已评定着法数。AI 首选按坐标匹配优先归类；其他着法按点损失 L 分类：好棋 ≤0.5，不精确 >0.5 至 2，失误 >2 至 5，严重失误 >5。全局行合并双方着法，不平均双方百分比。首选匹配不表示客观完美。',
+ 'N is the rated-move count for that row. A coordinate matching the AI first choice is classified first; other moves use point loss L: good ≤0.5, inaccuracy >0.5 to 2, mistake >2 to 5, blunder >5. Whole game pools the moves rather than averaging side percentages. A first-choice match does not establish objective perfection.');
+ quality.querySelector('.report-stat-card').insertBefore(qualityLegend(names),quality.querySelector('.report-graph-maths'));
+ quality.append(table([t('着法类别','Move quality'),sideName('B'),sideName('W')],keys.map(key=>[names[key],report.players.B.counts[key],report.players.W.counts[key]])));
+ quality.append(node('p',t('统计包含所有已评定着法。没有评估的着法不计为零损失；估计评估会在具体着法页标明。','Statistics include every rated move. Missing evaluations are left out, not treated as zero loss; estimates are labelled on detailed move pages.'),'report-note'));
+ const loss=sheet(t('点损失：典型表现与大失误','Point loss: typical play and large errors'));
+ graph(loss,t('典型损失与较大失误','Typical loss and bigger errors'),compare(t('点损失分位比较','Point-loss comparison'),[['meanPointLoss','平均损失','Average'],['medianPointLoss','中间一手','Middle move'],['p90PointLoss','90% 界线','90% below']],{digits:2}),'Lᵢ = max(0, sᵢ(Sbest − Splayed)); μ = Σ Lᵢ / N; h = (N−1)q; Qq = x⌊h⌋ + (h−⌊h⌋)(x⌈h⌉−x⌊h⌋)',
+ 'S 是黑方领先点数，黑方落子 s=+1、白方 s=−1；实战为 AI 首选时损失记为 0。均值包含所有已评定着法。分位数将损失从小到大排序为 x₀…xN−1 后线性插值；90 百分位刻画较大损失，越低越好。估计选点的 Splayed 来自下一实战局面。',
+ 'S is Black’s point lead; s=+1 for Black and −1 for White. Playing the AI first choice records zero loss. The mean includes all rated moves. Quantiles linearly interpolate sorted losses x₀…xN−1; the 90th percentile describes bigger losses, with lower values better. Estimated Splayed comes from the next recorded position.');
+ const totals=sheet(t('少数失误造成了多少损失？','How much loss came from a few mistakes?'));
+ graph(totals,t('五手占全部损失的比例','Share of loss in the five worst moves'),compare(t('五手损失集中度','Top-five concentration'),[['topFiveLossPercent','损失集中度','Concentration']],{maximum:100,suffix:'%'}),'T₅ = Σ five largest rated Lᵢ; T = Σ all rated Lᵢ; share = 100 × T₅ / T',
+ '比例越高，损失越集中于少数关键失误；较低可能表示失误较分散。T=0 时比例无定义，显示“—”，不是 0%。',
+ 'A larger share means a few errors account for more of the loss; a lower share can indicate more dispersed errors. When T=0, the ratio is undefined and displays “—”, not 0%.');
+ const win=sheet(t('胜率损失：典型与较大变化','Win-rate loss: typical and larger drops'));
+ graph(win,t('胜率损失对比（百分点）','Win-rate losses compared (percentage points)'),compare(t('胜率损失','Win-rate loss'),[['meanWinrateLoss','平均损失','Average'],['medianWinrateLoss','中间一手','Middle move'],['p90WinrateLoss','90% 界线','90% below']],{digits:2}),'Wᵢ = max(0, 100 × sᵢ(Pbest−Pplayed)); mean = Σ Wᵢ / M',
+ 'P 是黑方胜率（0 至 1），s 取落子方视角；M 只包含具有胜率数据的已评定着法。70% 降到 50% 是 20 个百分点。中位数与第 90 百分位使用相同线性插值公式。这些损失不相加成全局输赢概率。',
+ 'P is Black’s win probability (0 to 1), and s uses the played side’s perspective. M includes rated moves with win data. A drop from 70% to 50% is 20 percentage points. Median and 90th percentile use the same linear interpolation formula. Losses are not added into a game-wide win probability.');
+ win.append(table([t('极值与样本量','Extreme value and sample size'),sideName('B'),sideName('W')],[[t('已评定胜率手数 M','Rated win-loss moves M'),report.players.B.winrateRatedMoves,report.players.W.winrateRatedMoves],[t('最大胜率损失（百分点）','Biggest drop (percentage points)'),number(report.players.B.maxWinrateLoss,2),number(report.players.W.maxWinrateLoss,2)],[t('对应手数','Move of maximum loss'),report.players.B.worstWinrateLossMove,report.players.W.worstWinrateLossMove]]));
+ const ranges=report.players.B.segments.filter(s=>s.moves||report.players.W.segments.find(w=>w.from===s.from)?.moves);
+ const rangeRows=metric=>ranges.map(range=>({key:metric+'-'+range.from,label:range.from+'–'+range.to,values:['B','W'].map(side=>report.players[side].segments.find(s=>s.from===range.from)[metric])}));
+ const stages=sheet(t('不同手数区间的损失','Losses across move ranges'));
+ graph(stages,t('各区间的平均点损失','Average point loss in each range'),comparisonChart(t('区间平均损失','Mean loss by range'),rangeRows('meanPointLoss'),{names:sides,digits:2}),'Range mean = Σ Lᵢ in range / rated moves in range',
+ '区间固定为 1–60、61–180 和 181 手以后，不是自动识别的棋局阶段。条形均值使用本方在该区间的所有已评定着法，包括首选与好棋。',
+ 'Ranges are fixed at 1–60, 61–180 and 181 onward, not automatically detected game phases. Each mean uses that side’s rated moves in the range, including first choices and good moves.');
+ const distribution=sheet(t('多少着法损失很小或很大？','How many moves lost a little or a lot?'));
+ const bucketLabel=b=>b.to===0?'0':b.to===null?'>10':'> '+b.from+'–'+b.to;
+ const bucketRows=metric=>report.players.B.lossBuckets.map((b,i)=>({key:metric+'-'+i,label:bucketLabel(b),values:[b[metric],report.players.W.lossBuckets[i][metric]]}));
+ graph(distribution,t('各损失区间的着法比例','Share of moves in each loss bin'),comparisonChart(t('点损失分布','Point-loss distribution'),bucketRows('percentage'),{names:sides,digits:1,suffix:'%',maximum:100}),'Bin share = 100 × moves in bin / N',
+ '区间互不重叠：0、(0,0.5]、(0.5,2]、(2,5]、(5,10]、>10。零与低损失都保留，未评定着法不进入任何区间。该方六个比例之和为 100%（显示值有四舍五入）。',
+ 'Bins are non-overlapping: 0, (0,0.5], (0.5,2], (2,5], (5,10], >10. Zero and small losses remain; unrated moves enter no bin. Each side’s shares sum to 100%, subject to displayed rounding.');
+ const timeline=sheet(t('值得复盘的关键时刻','Key moments to review')),isRated=m=>keys.includes(m.quality)&&Number.isFinite(m.pointLoss),series=['B','W'].map(side=>({side,points:report.reviews.filter(m=>m.side===side&&isRated(m)).map(m=>({x:m.move,y:m.pointLoss}))}));
+ graph(timeline,t('每手损失在哪里发生？','Where did each move lose points?'),reportPlot(t('逐手点损失','Point loss by move'),series,{stems:true,yMax:Math.max(1,...series.flatMap(s=>s.points.map(p=>p.y)))}),'Each stem = Lᵢ = max(0, sᵢ(Sbest−Splayed))',
+ '横轴是实战手数，纵轴是该手点损失。零损失位于基线，未评定着法没有点。较大的圆点标出展示棋盘的五个黑方与五个白方失误。',
+ 'The horizontal axis is the recorded move number; height is that move’s point loss. Zero losses lie on the baseline; unrated moves have no point. Larger dots identify the five Black and five White errors with board diagrams.');
+ const context=sheet(t('全局胜率与点数走势','Game-wide win probability and point advantage'));
+ graph(context,t('黑方胜率','Black win probability'),contextChart('win'),'Displayed Black win % = 100 × P(position)',
+ 'P 为当前实战局面中黑方的引擎胜率，白方胜率为 100% 减去该值。标记为报告列出的失误。相邻局面的变化不是单手损失，单手损失比较同一决策点的首选与实战。',
+ 'P is the engine’s Black win probability at that recorded position; White’s is 100% minus this value. Markers identify listed errors. Adjacent position changes are not move loss, which compares best and played choices at one decision point.');
+ graph(context,t('点数优势：正为黑，负为白','Point advantage: positive Black, negative White'),contextChart('score'),'Displayed point advantage = S(position), from Black’s perspective',
+ 'S>0 表示黑方领先，S<0 表示白方领先；这是该模型与访问量下的预估优势，不是最终结算目数。黑方标记为深色、白方标记为橙色。',
+ 'S>0 means Black leads and S<0 means White leads. This is the estimated advantage under this model and visit setting, not the final scored margin. Dark markers represent Black and orange markers White.');
 }
 function renderLanguage(value){
  reportLanguage=value;
@@ -128,7 +142,7 @@ function renderLanguage(value){
  cover.append(metadata([[t('棋局 ID','Game ID'),id],[t('棋局日期','Game date'),game.date],[t('规则','Rules'),rules],[t('棋盘','Board'),'19 × 19'],[t('贴目','Komi'),String(game.komi)],[t('实战手数','Recorded moves'),String(game.moves)]]));
  const publication=node('div',undefined,'report-cover-analysis');
  publication.append(node('h3',t('分析与报告元数据','ANALYSIS AND REPORT METADATA')),metadata([[t('引擎','Engine'),p.engine],[t('每个局面的访问量','Visits per position'),p.visits.toLocaleString(locale())],[t('模型','Model'),p.model,true],[t('模型 SHA-256','Model SHA-256'),p.modelSha256,true],[t('计算资源','Compute'),[c.gpu,c.instanceType,c.vCpu?c.vCpu+' vCPUs':'',c.memoryGB?c.memoryGB+' GB RAM':''].filter(Boolean).join(' · '),true],[t('总分析时间（含排队与准备）','Analysis total including queue/setup'),duration],[t('报告语言','Report language'),t('中文','English')],[t('分析完成时间','Analysis completed'),timestamp(p.completedAt),true],[t('报告生成时间','Report prepared'),timestamp(report.generatedAt),true]]));
- cover.append(publication,node('p',t('全局着法统计 · 数学方法 · 双方各五个重点失误','All-move statistics / Mathematical methods / Five key errors per side'),'report-cover-scope'));
+ cover.append(publication,node('p',t('图表复盘 · 双方各五个重点失误 · 图下附计算细节','Visual game review / Five key errors per side / Calculations beneath each graph'),'report-cover-scope'));
  const contents=front('contents');contents.id='report-page-2';contents.dataset.reportTitle=t('目录','Table of contents');
  contents.append(node('p','DL / WEIQI','report-running-header'),node('h2',t('目录','Table of contents')),node('p',t('全局统计与数学方法在前，具体失误局面在后。点击条目即可跳转。','Statistics and methods come first, followed by the detailed error positions. Select an entry to jump to its page.'),'report-note'));
  const list=node('ol',undefined,'report-contents-list');
