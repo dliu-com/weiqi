@@ -1,0 +1,8 @@
+AWS Support case 179125023200663 — proposed details (not sent)
+
+Region: EU (Ireland), eu-west-1
+CPU architecture: X86_64
+Operating system: LINUX
+Requested Fargate On-Demand quota: 128 vCPUs
+
+Use case: A public 19 × 19 Go SGF record viewer runs short-lived AWS Batch analysis jobs. Each quick-analysis Fargate task uses 32 vCPUs and 60 GB RAM. When GPU capacity is unavailable, deeper analysis can use another short-lived 32-vCPU Fargate task. The increase allows quick uploads to run while CPU fallback jobs are active, reducing queue delays. Compute is in Ireland, provisioned only through CloudFormation, and has no continuously running workers. Public paid analysis is limited to 20 uploads per day.

@@ -61,8 +61,9 @@ export async function updateBenchmarks({publish=false}={}){
  const destination=root+'src/benchmarks-data.json';
  let previous;try{previous=JSON.parse(await readFile(destination,'utf8'));}catch{}
  let quality;try{quality=JSON.parse(await readFile(root+'cloud/benchmark-quality.json','utf8'));}catch{}
- const unchanged=JSON.stringify(previous?.experiments)===JSON.stringify(publicRecords)&&JSON.stringify(previous?.quality)===JSON.stringify(quality);
- const data={updatedAt:unchanged?previous.updatedAt:new Date().toISOString(),region,quality,experiments:publicRecords};
+ let concurrency;try{concurrency=JSON.parse(await readFile(root+'cloud/benchmark-concurrency-summary.json','utf8'));}catch{}
+ const unchanged=JSON.stringify(previous?.concurrency)===JSON.stringify(concurrency)&&JSON.stringify(previous?.experiments)===JSON.stringify(publicRecords)&&JSON.stringify(previous?.quality)===JSON.stringify(quality);
+ const data={updatedAt:unchanged?previous.updatedAt:new Date().toISOString(),region,quality,concurrency,experiments:publicRecords};
  await writeFile(destination,JSON.stringify(data,null,2)+'\n');
  if(publish&&!unchanged){const stack=await aws(['cloudformation','describe-stacks','--stack-name','WeiqiSite']);const siteBucket=stack.Stacks[0].Outputs.find(o=>o.OutputKey==='SiteBucketName').OutputValue;await execute('aws',['s3','cp',destination,'s3://'+siteBucket+'/benchmarks-data.json','--region',region,'--content-type','application/json','--cache-control','public, max-age=0, must-revalidate','--only-show-errors']);}
  return data;

@@ -1,0 +1,117 @@
+{
+  "scenario": "Two simultaneous cold full-game workflows",
+  "region": "eu-west-1",
+  "gameMoves": 321,
+  "clockOrigin": "Original SQS enqueue, shared by both passes; queue, capacity, setup, analysis and saving are included.",
+  "approvedIrelandGpuVcpuQuota": 8,
+  "records": [
+    {
+      "id": "2026100615",
+      "recordUrl": "https://weiqi.dliu.com/record/2026100615",
+      "enqueuedAt": "2026-10-06T02:57:44.427Z",
+      "quickVisits": 8,
+      "deepVisits": 1000,
+      "quickTotalSeconds": 209.635,
+      "deepTotalSeconds": 1002.557,
+      "quickEngineSeconds": 172.483,
+      "deepEngineSeconds": 856.289,
+      "quickStages": {
+        "triggerSeconds": 1.816,
+        "queueWaitSeconds": 6.044,
+        "instanceStartupSeconds": null,
+        "taskStartupSeconds": 23.454,
+        "imagePullSeconds": 3.613,
+        "setupSeconds": 5.237,
+        "analysisSeconds": 172.483,
+        "saveSeconds": 0.529
+      },
+      "deepStages": {
+        "triggerSeconds": 2.014,
+        "queueWaitSeconds": 53.559,
+        "instanceStartupSeconds": 36.43,
+        "taskStartupSeconds": 52.271,
+        "imagePullSeconds": 38.459,
+        "setupSeconds": 0.696,
+        "analysisSeconds": 856.289,
+        "saveSeconds": 1.11
+      },
+      "model": "kata1-tf3-b11c768-s12252M-d6398M.bin.gz",
+      "modelSha256": "ad279eb0e6aa4ddf52cf24b27241d220043b31f38064b3fc3a43d5a524e6b03d",
+      "gpuInstanceId": "i-06f60d7a3699e8b61",
+      "estimatedQuickComputeAndIpUSD": 0.08924580817777777,
+      "estimatedWholeGameComputeIpStorageUSD": 0.26451896745777775,
+      "qualityAgreement": {
+        "positions": 322,
+        "meanAbsolutePointDifference": 0.3844484404748447,
+        "meanAbsoluteWinratePercentagePointDifference": 1.752617099166149,
+        "note": "Same-game, same-model 8-versus-1000-visit agreement; not independent accuracy."
+      }
+    },
+    {
+      "id": "2026100616",
+      "recordUrl": "https://weiqi.dliu.com/record/2026100616",
+      "enqueuedAt": "2026-10-06T02:57:44.721Z",
+      "quickVisits": 8,
+      "deepVisits": 1000,
+      "quickTotalSeconds": 211.149,
+      "deepTotalSeconds": 1056.805,
+      "quickEngineSeconds": 168.972,
+      "deepEngineSeconds": 893.864,
+      "quickStages": {
+        "triggerSeconds": 2.139,
+        "queueWaitSeconds": 5.479,
+        "instanceStartupSeconds": null,
+        "taskStartupSeconds": 29.526,
+        "imagePullSeconds": 3.484,
+        "setupSeconds": 4.427,
+        "analysisSeconds": 168.972,
+        "saveSeconds": 0.514
+      },
+      "deepStages": {
+        "triggerSeconds": 2.289,
+        "queueWaitSeconds": 63.99,
+        "instanceStartupSeconds": 42.061,
+        "taskStartupSeconds": 52.507,
+        "imagePullSeconds": 39.044,
+        "setupSeconds": 0.675,
+        "analysisSeconds": 893.864,
+        "saveSeconds": 1.203
+      },
+      "model": "kata1-tf3-b11c768-s12252M-d6398M.bin.gz",
+      "modelSha256": "ad279eb0e6aa4ddf52cf24b27241d220043b31f38064b3fc3a43d5a524e6b03d",
+      "gpuInstanceId": "i-05e83d99d66bfc1c4",
+      "estimatedQuickComputeAndIpUSD": 0.08724171255555555,
+      "estimatedWholeGameComputeIpStorageUSD": 0.29183497583555557,
+      "qualityAgreement": {
+        "positions": 322,
+        "meanAbsolutePointDifference": 0.37242589173291923,
+        "meanAbsoluteWinratePercentagePointDifference": 1.6653323439043477,
+        "note": "Same-game, same-model 8-versus-1000-visit agreement; not independent accuracy."
+      }
+    }
+  ],
+  "gpuAllocations": [
+    {
+      "instanceId": "i-05e83d99d66bfc1c4",
+      "type": "g4dn.xlarge",
+      "launchedAt": "2026-10-06T02:58:51+00:00",
+      "state": "shutting-down",
+      "estimatedComputeIpStorageUSD": 0.20459326328000002,
+      "releaseKnown": true,
+      "releasedAt": "2026-10-06T03:18:54.489784+00:00",
+      "releaseSource": "Observed automatic retirement; conservative upper bound."
+    },
+    {
+      "instanceId": "i-06f60d7a3699e8b61",
+      "type": "g4dn.xlarge",
+      "launchedAt": "2026-10-06T02:58:40+00:00",
+      "state": "shutting-down",
+      "estimatedComputeIpStorageUSD": 0.17527315927999998,
+      "releaseKnown": true,
+      "releasedAt": "2026-10-06T03:15:51.018584+00:00",
+      "releaseSource": "Observed automatic retirement; conservative upper bound."
+    }
+  ],
+  "completedAt": "2026-10-06T03:15:42.693Z",
+  "pricingNote": "USD estimates include the CPU task and complete GPU allocation through observed automatic retirement, including IP and GPU storage allowance. Observed release is a conservative upper bound; small API/S3/log usage is additional. Not a final invoice."
+}
