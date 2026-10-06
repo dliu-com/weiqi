@@ -60,10 +60,17 @@ test('illegal corrections are atomic and do not delete later moves',()=>{
  const r=recordingTree('(;SZ[19];B[dd];W[pp])'),before=recordingSgf(r);assert.throws(()=>insertRecordingMove(r,1,300),/later move illegal/);assert.equal(recordingSgf(r),before);
  const capture=recordingTree('(;SZ[19]AB[ab][ba][cb]AW[bb];B[bc];B[bb])'),captured=recordingSgf(capture);assert.throws(()=>deleteRecordingMove(capture,1),/later move illegal/);assert.equal(recordingSgf(capture),captured);
 });
-test('fixed handicap sets setup stones and White to move, then locks once recording begins',()=>{
- for(const count of [0,1,2,3,4,5,6,7,8,9]){const r=setRecordingHandicap(recordingTree(newRecordingSgf()),count),saved=recordingTree(recordingSgf(r));assert.equal([...saved.nodes[0].board].filter(s=>s==='B').length,count);assert.equal(saved.initialPlayer,count?'W':'B');assert.equal(saved.komi,count?0.5:6.5);assert.equal(Number(saved.rootProperties.HA[0]),count);}
+test('handicap 1 is a free Black move while 2–9 use fixed setup, locked after recording begins',()=>{
+ for(const count of [0,1,2,3,4,5,6,7,8,9]){const r=setRecordingHandicap(recordingTree(newRecordingSgf()),count),saved=recordingTree(recordingSgf(r));assert.equal([...saved.nodes[0].board].filter(s=>s==='B').length,count===1?0:count);assert.equal(saved.initialPlayer,count>1?'W':'B');assert.equal(saved.komi,count?0.5:6.5);assert.equal(Number(saved.rootProperties.HA[0]),count);}
+ // Official AGA fixed-placement table: https://www.britgo.org/rules/agarules.html
+ const expected={2:['Q16','D4'],3:['Q16','D4','Q4'],4:['Q16','D4','Q4','D16'],5:['Q16','D4','Q4','D16','K10'],6:['Q16','D4','Q4','D16','Q10','D10'],7:['Q16','D4','Q4','D16','Q10','D10','K10'],8:['Q16','D4','Q4','D16','Q10','D10','K16','K4'],9:['Q16','D4','Q4','D16','Q10','D10','K16','K4','K10']};
+ for(const [count,coordinates]of Object.entries(expected)){
+  const board=setRecordingHandicap(recordingTree(newRecordingSgf()),Number(count)).nodes[0].board;
+  const actual=[...board].flatMap((stone,index)=>stone==='B'?['ABCDEFGHJKLMNOPQRST'[index%19]+(19-Math.floor(index/19))]:[]);
+  assert.deepEqual(actual.sort(),coordinates.sort());
+ }
  const r=setRecordingHandicap(recordingTree(newRecordingSgf()),2);addRecordingMove(r,0,180);assert.throws(()=>setRecordingHandicap(r,4),/before recording/);
- const one=setRecordingHandicap(recordingTree(newRecordingSgf()),1);assert.equal(one.nodes[0].board[180],'B');assert.throws(()=>setRecordingHandicap(recordingTree(newRecordingSgf()),10),/0–9/);
+ const one=setRecordingHandicap(recordingTree(newRecordingSgf()),1);assert.equal(one.nodes[0].board,'.'.repeat(361));const first=addRecordingMove(one,0,60);assert.equal(one.nodes[first].move.side,'B');assert.equal(one.nodes[first].turn,'W');const savedOne=recordingTree(recordingSgf(one));assert.equal(savedOne.nodes[1].move.index,60);assert.equal(savedOne.komi,0.5);assert.throws(()=>setRecordingHandicap(recordingTree(newRecordingSgf()),10),/0–9/);
 });
 
 test('four board views preserve canonical coordinates and round-trip every intersection',()=>{

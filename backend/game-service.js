@@ -39,6 +39,13 @@ export function transition(current, request) {
   } else if (a.type === 'metadata') {
     if (typeof a.name !== 'string' || !a.name.trim() || a.name.trim().length > 80) throw new GameError('名称须为 1–80 个字符。');
     if (!a.players || ['black','white'].some(side => typeof a.players[side] !== 'string' || a.players[side].trim().length > 40)) throw new GameError('棋手姓名不能超过 40 个字符。');
+    if(a.timeControl!==undefined){
+      const clock=a.timeControl;
+      if(clock!==null&&(!clock||!Number.isFinite(clock.mainSeconds)||clock.mainSeconds<0||clock.mainSeconds>864000||typeof clock.overtime!=='string'||clock.overtime.length>200))throw new GameError('操作无效。');
+      next.timeControl=clock===null?null:{mainSeconds:clock.mainSeconds,overtime:clock.overtime.trim()};
+    }
+    if(a.playerRanks!==undefined&&(!a.playerRanks||['black','white'].some(side=>typeof a.playerRanks[side]!=='string'||a.playerRanks[side].trim().length>200)))throw new GameError('操作无效。');
+    if(a.playerRanks!==undefined)next.playerRanks={black:a.playerRanks.black.trim(),white:a.playerRanks.white.trim()};
     if(a.rules!==undefined&&!['Chinese','Japanese'].includes(a.rules))throw new GameError('操作无效。');
     if(a.komi!==undefined&&(!Number.isFinite(a.komi)||Math.abs(a.komi)>100))throw new GameError('操作无效。');
     if(a.date!==undefined&&!/^\d{4}-\d{2}-\d{2}$/.test(a.date))throw new GameError('操作无效。');

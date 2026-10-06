@@ -36,3 +36,14 @@ test('changing integer handicap resets komi appropriately for the chosen rules',
  }
  for(const count of [-1,1.5,10,'2'])assert.throws(()=>setRecordingHandicap(recordingTree(newRecordingSgf()),count),/0–9/);
 });
+
+test('optional player ranks survive import, edits, cloud publication and removal',()=>{
+ const record=recordingTree('(;SZ[19]BR[5d]WR[2k];B[dd])');populateRecordingDetails(record);
+ assert.deepEqual(record.playerRanks,{black:'5d',white:'2k'});
+ record.playerRanks={black:'Professional [3] \\ rank',white:'1 dan'};
+ const published=draftPublication({revision:0,sgf:recordingSgf(record)},request);
+ assert.deepEqual(recordingTree(published.sgf).playerRanks,record.playerRanks);
+ record.playerRanks={black:'',white:''};const source=recordingSgf(record);
+ assert.ok(!source.includes('BR['));assert.ok(!source.includes('WR['));
+ assert.deepEqual(recordingTree(source).playerRanks,{black:'',white:''});
+});

@@ -101,7 +101,7 @@ export function sgf(state) {
   const tree=gameTree(state), children=new Map();
   tree.nodes.forEach((node,id)=>{if(!children.has(node[0]))children.set(node[0],[]);children.get(node[0]).push(id);});
   const coord = i => String.fromCharCode(97+i%19,97+Math.floor(i/19));
-  let root=';GM[1]FF[4]CA[UTF-8]SZ[19]'+prop('RU',state.rules||'Chinese')+prop('KM',state.komi??7.5)+prop('GN',state.gameName || 'Live game')+prop('DT',state.date||state.createdAt?.slice(0,10))+prop('PB',state.players?.black)+prop('PW',state.players?.white);
+  let root=';GM[1]FF[4]CA[UTF-8]SZ[19]'+prop('RU',state.rules||'Chinese')+prop('KM',state.komi??7.5)+prop('GN',state.gameName || 'Live game')+prop('DT',state.date||state.createdAt?.slice(0,10))+prop('PB',state.players?.black)+prop('PW',state.players?.white)+prop('BR',state.playerRanks?.black)+prop('WR',state.playerRanks?.white)+prop('TM',state.timeControl?.mainSeconds)+prop('OT',state.timeControl?.overtime);
   if(state.result)root+=prop('RE',(state.result.winner==='black'?'B':state.result.winner==='white'?'W':'0')+(state.result.winner?'+'+(state.result.reason==='resign'?'R':state.result.reason==='agreed'?'':state.result.margin):''));
   for(const side of ['B','W']) { const points=[...tree.root].flatMap((s,i)=>s===side?[coord(i)]:[]); if(points.length)root+='A'+side+points.map(p=>'['+p+']').join(''); }
   root+=prop('C','Shared Go game. Times are elapsed wall-clock seconds, not a time limit. Move times unavailable for moves made before timing was enabled.');
