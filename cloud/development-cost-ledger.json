@@ -1,10 +1,10 @@
 {
-  "asOf": "2026-10-06T04:54:39.178577+00:00",
+  "asOf": "2026-10-06T10:54:21.691Z",
   "developmentBudgetUSD": 30,
   "cpuComputeIpEstimateUSD": 5.4733,
-  "gpuComputeIpStorageEstimateUSD": 2.1058854804766667,
+  "gpuComputeIpStorageEstimateUSD": 2.581322950476667,
   "smallServicesAllowanceUSD": 2,
-  "conservativeTotalEstimateUSD": 9.579185480476667,
+  "conservativeTotalEstimateUSD": 10.054622950476666,
   "maximumAdditionalActiveCpuJobUSD": 0,
   "note": "Includes failed/stopped tests, conservative full GPU allocations and On-Demand pricing for Spot test, plus the existing $2 small-service/build allowance. Not a final AWS invoice.",
   "gpuInstances": [
@@ -134,6 +134,17 @@
       "releaseSource": "Observed automatic shutdown; estimate deliberately uses higher On-Demand rate.",
       "validationRecord": "2026100619",
       "estimatedComputeIpStorageUSD": 0.07109035809
+    },
+    {
+      "instanceId": "i-017865f9e047b3746",
+      "type": "g4dn.xlarge",
+      "state": "shutting-down",
+      "launchedAt": "2026-10-06T10:07:45+00:00",
+      "releasedAt": "2026-10-06T10:54:21.691Z",
+      "releaseKnown": true,
+      "releaseSource": "Observed automatic retirement; conservative allocation upper bound.",
+      "validationRecord": "2026100620",
+      "estimatedComputeIpStorageUSD": 0.47543747
     }
   ]
 }

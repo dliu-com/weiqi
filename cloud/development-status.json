@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-10-06T10:45:24.856472+00:00",
+  "updatedAt": "2026-10-06T11:00:54.442931+00:00",
   "awsDevelopmentDebugBudgetUSD": 30,
   "noFurtherPaidBenchmarksPlanned": true,
   "smallServiceAllowanceUSD": 2,
@@ -40,7 +40,6 @@
     "cdk": 13
   },
   "pending": [
-    "Full-game 3000-visit validation at /record/2026100620 is running.",
     "PDF export testing deferred at user request."
   ],
   "finalProductPerGameCostTargetUSD": 1,
@@ -53,8 +52,8 @@
   "timingIncludesQueueAndCapacity": true,
   "deepMaximumExpectationSeconds": 7200,
   "deployment": "GPU-only production validated and deployed; protected WeiqiStorage owns existing data; obsolete CPU stack deleted through CloudFormation.",
-  "selectedQuickMeasuredTotalSeconds": 196.64,
-  "selectedDeepMeasuredTotalSeconds": 1095.075,
+  "selectedQuickMeasuredTotalSeconds": 208.402,
+  "selectedDeepMeasuredTotalSeconds": 2735.209,
   "resourceCleanup": {
     "removedStacks": [
       "WeiqiBenchmarks",
@@ -67,8 +66,8 @@
     "modelCacheObjects": 0
   },
   "lastAuditedCpuComputeAndIpEstimateUSD": 5.3739,
-  "lastAuditedGpuAllocationEstimateUSD": 2.1058854804766667,
-  "conservativeDevelopmentTotalIncludingAllowanceUSD": 9.579185480476667,
+  "lastAuditedGpuAllocationEstimateUSD": 2.581322950476667,
+  "conservativeDevelopmentTotalIncludingAllowanceUSD": 10.054622950476666,
   "selectedCpuFallbackMeasuredTotalSeconds": 2331.479,
   "measuredConcurrentUploads": 2,
   "timingClockOrigin": "Original SQS enqueue; shared by quick and deep, including capacity waits, setup and result saving.",
@@ -118,7 +117,9 @@
     "deepVisits": 3000,
     "maximumDeepVisits": 3000,
     "longGameVisitScaling": "floor(3000 * 322 / positions), capped at 3000 and minimum 100",
-    "state": "running"
+    "state": "validated",
+    "deepTotalSeconds": 2735.209,
+    "allocationCostEstimateUSD": 0.47543747
   },
   "aiReport": {
     "handler": "Existing GameHandler Lambda",
@@ -141,6 +142,28 @@
       "Missed available point leads and winning chances",
       "Fixed move-range summaries and loss buckets",
       "Per-move and cumulative loss timelines, game-context charts"
-    ]
+    ],
+    "languages": [
+      "en",
+      "zh"
+    ],
+    "languageFormat": "Complete English followed by complete Chinese; same cached analysis",
+    "bilingualBrowserValidation": {
+      "verifiedAt": "2026-10-06T11:00:54.442931+00:00",
+      "recordUrl": "https://weiqi.dliu.com/record/2026100620",
+      "languages": [
+        "en",
+        "zh-CN"
+      ],
+      "sheetsPerLanguage": 16,
+      "badMovesPerSidePerLanguage": 5,
+      "chartsPerLanguage": 4,
+      "identicalTableNumbers": true,
+      "desktop": true,
+      "mobileWidth": 390,
+      "horizontalOverflow": false,
+      "configurationInputs": 0,
+      "pdfExportTest": "Deferred at user request"
+    }
   }
 }
