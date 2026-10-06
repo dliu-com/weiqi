@@ -102,13 +102,8 @@ function renderLanguage(value){
  reportLanguage=value;
  const fragment=document.createDocumentFragment(),sheets=[];
  const sheet=title=>{const e=node('section',undefined,'report-sheet');e.lang=value==='zh'?'zh-CN':'en';e.dataset.reportLanguage=value;e.append(node('h2',title));sheets.push(e);fragment.append(e);return e;};
- const game=report.game,result=gameResult(game.result),rules=({japanese:t('日本规则','Japanese rules'),chinese:t('中国规则','Chinese rules'),aga:t('AGA 规则','AGA rules'),korean:t('韩国规则','Korean rules')})[game.rules?.toLowerCase()]||game.rules,gameLabel=t('黑方：','Black: ')+(game.players.black||'—')+' · '+t('白方：','White: ')+(game.players.white||'—');
- const overview=sheet(t('棋局概览与重点着法','Game summary and highlighted moves'));overview.append(node('p',report.name,'report-game'),node('p',gameLabel,'report-game'),node('p',[result?t(result.zh,result.en):game.result,game.date,rules,t('贴目 ','Komi ')+game.komi,t('共 '+game.moves+' 手',game.moves+' moves')].filter(Boolean).join(' · ')));
- const p=report.provenance,c=p.compute||{},duration=Number.isFinite(p.endToEndMs)?Math.round(p.endToEndMs/60000)+t(' 分钟',' min'):'—';overview.append(node('p',[p.engine+' · '+p.model,p.visits.toLocaleString(locale())+t(' 次访问 / 局面',' visits / position'),[c.gpu,c.instanceType,c.vCpu?c.vCpu+' vCPUs':'',c.memoryGB?c.memoryGB+' GB RAM':''].filter(Boolean).join(' · '),t('分析总时间（含排队和准备）：','Analysis total including queue/setup: ')+duration,t('分析完成：','Analysis completed: ')+timestamp(p.completedAt)].join('\n'),'report-meta'));
- overview.append(node('h3',t('如何阅读这份报告','How to read this report')));
- const steps=node('ol',undefined,'report-reading-path');
- for(const text of [t('先看全局走势：谁在领先，局势何时转变？','Start with the game story: who led, and when did the balance change?'),t('再看着法质量与点损失：表现是否稳定，失误通常有多大？','Compare move quality and point loss: how consistent was each player, and how costly were their errors?'),t('用手数区间找到需要重点复盘的阶段，再看关键时刻的双方前五个失误。','Find stretches to review using the move-range chart, then read each side’s five worst moves in Key moments.'),t('最后复盘双方各三个最大失误的棋盘图，比较实战与 AI 推荐变化。','Finish with the three detailed errors per side: compare the played board with the numbered AI continuation.')])steps.append(node('li',text));
- overview.append(steps,node('h3',t('这份报告怎样帮助提高','What this report helps you learn')),node('p',t('重点是找到值得理解的决策，而不是只比较谁赢了。先定位损失最大的几手，再回看它们发生前的局面：实战想达成什么，AI 的变化保留了什么？数字帮助选择复盘重点，棋盘变化帮助理解取舍。','Use the numbers to choose decisions worth understanding, then use the board diagrams to study those decisions. Look at the position before a large error: what did the played move try to achieve, and what does the AI continuation preserve? The game result and the quality of individual decisions answer different questions.')));
+ const game=report.game,result=gameResult(game.result),rules=({japanese:t('日本规则','Japanese rules'),chinese:t('中国规则','Chinese rules'),aga:t('AGA 规则','AGA rules'),korean:t('韩国规则','Korean rules')})[game.rules?.toLowerCase()]||game.rules;
+ const p=report.provenance,c=p.compute||{},duration=Number.isFinite(p.endToEndMs)?Math.round(p.endToEndMs/60000)+t(' 分钟',' min'):'—';
 
  addStatistics(sheet);
  for(const side of ['B','W'])for(const [index,m] of report.problems.filter(m=>m.side===side).slice(0,3).entries()){
@@ -125,7 +120,6 @@ function renderLanguage(value){
   if(m.bestLine.truncated)answer.append(node('p',t('无法合法复现的变化已截断。','A continuation that could not be replayed legally has been truncated.'),'report-note'));
   const link=node('a',t('在棋局中复盘这一步','Review this move in the game'));link.href='/record/'+id+'?move='+m.nodeId;answer.append(link);
  }
- overview.append(node('p',t('按棋手视角的估计点损失排序，棋盘图仅列出损失超过 0.5 点的着法，统计包括所有已评定着法。报告复用已保存的深度分析，不启动新分析。','Ranked by estimated point loss from the player’s perspective; board diagrams include only moves losing more than 0.5 points; statistics include all rated moves. The report reuses saved deep analysis and starts no new analysis.'),'report-note'));
  const plan=reportPagination(sheets.map(s=>s.querySelector('h2').textContent));
  for(const [index,s] of sheets.entries()){s.id=plan.contents[index].target;s.dataset.reportTitle=plan.contents[index].title;s.prepend(node('p','DL / WEIQI','report-running-header'));}
  for(const link of fragment.querySelectorAll('[data-review-move]')){
