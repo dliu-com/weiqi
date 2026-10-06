@@ -6,6 +6,9 @@ export function createState() {
   const size = 19;
   return { createdAt: new Date().toISOString(), gameName: null, players: { black: '', white: '' }, revision: 0, size, board: '.'.repeat(size * size), turn: 'black', history: [], captures: { black: 0, white: 0 }, passes: 0, phase: 'play', dead: [], agreed: [], komi: 7.5, result: null, updatedAt: null };
 }
+export function freshLiveGame(completed){
+ const next=createState();next.revision=completed.revision+1;next.generation=next.revision;next.updatedAt=new Date().toISOString();return next;
+}
 export function transition(current, request) {
   const heartbeat = request?.action?.type === 'heartbeat';
   if (!heartbeat && (!request || !Number.isSafeInteger(request.expectedRevision) || request.expectedRevision < 0)) throw new GameError('棋局版本无效。');
@@ -42,8 +45,7 @@ export function transition(current, request) {
     if (typeof a.name !== 'string' || !a.name.trim() || a.name.trim().length > 80) throw new GameError('名称须为 1–80 个字符。');
     next.gameName = a.name.trim();
   } else if (a.type === 'new') {
-    next = createState();
-    next.generation = current.revision + 1;
+    throw new GameError('请结束并保存当前棋局；下一局会自动开始。');
   } else if (a.type === 'undo') {
     const last = next.history.pop(); if (!last) throw new GameError('还没有可以悔棋的记录。');
     const removed = new Set([next.tree.head]), parent = next.tree.nodes[next.tree.head][0];

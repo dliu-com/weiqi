@@ -6,6 +6,7 @@ try { saved = localStorage.getItem('weiqi-language'); } catch {}
 export let language = initialLanguage(saved, navigator.language);
 export const t = (zh,en) => language === 'zh' ? zh : en;
 const messages = {
+  "请结束并保存当前棋局；下一局会自动开始。":"End and save this game; the next game starts automatically.",
   "棋谱库":"Record library", "关于":"About", "使用指南":"How to use",
   "新棋局": "New game", "确认死子": "Confirm dead stones", "请标记所有死子，然后点击确认查看胜负。": "Mark all dead stones, then confirm to see the winner.",
   "下载 SGF": "Download SGF", "暂停计时": "Pause clock", "请先恢复计时。": "Resume the clock before playing.",

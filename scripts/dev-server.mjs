@@ -2,11 +2,11 @@ import http from 'node:http';
 import { readFile,writeFile,mkdir } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { createState, transition, GameError } from '../backend/game-service.js';
+import { createState, transition, GameError, freshLiveGame } from '../backend/game-service.js';
 import vm from 'node:vm';
 import {createHash} from 'node:crypto';
 import {sgf} from '../src/engine.js';
-import {createDraft,draftTransition,draftPublication} from '../backend/draft-service.js';
+import {createDraft,draftTransition,draftPublication,freshSavedDraft} from '../backend/draft-service.js';
 import {mainRecordingSgf} from '../src/recording-tree.js';
 import {localLibrary} from './local-library.mjs';
 const library=localLibrary(process.env.LIBRARY_DIR || '/private/tmp/weiqi-record-library',{model:process.env.KATAGO_MODEL,engine:process.env.KATAGO_BIN || 'katago',visits:Number(process.env.KATAGO_VISITS || 1)});
@@ -16,14 +16,14 @@ const directory=process.env.LIBRARY_DIR||'/private/tmp/weiqi-record-library';awa
 let state=createState(),draft=createDraft();try{state=JSON.parse(await readFile(path.join(directory,'live.json'),'utf8'));}catch{}try{draft=JSON.parse(await readFile(path.join(directory,'draft.json'),'utf8'));}catch{}
 const routeContext={};vm.runInNewContext(await readFile(path.join(root,'routes.cjs'),'utf8'),routeContext);
 async function persist(){await writeFile(path.join(directory,'live.json'),JSON.stringify(state));await writeFile(path.join(directory,'draft.json'),JSON.stringify(draft));}
-async function publishLive(next){if(next.phase!=='ended'||next.libraryId)return next;const hash=createHash('sha256').update('live|'+next.createdAt+'|'+(next.generation||0)).digest('hex'),id=hash.slice(0,8)+'-'+hash.slice(8,12)+'-'+hash.slice(12,16)+'-'+hash.slice(16,20)+'-'+hash.slice(20,32),meta=await library.save(mainRecordingSgf(sgf(next)),'live-game.sgf',id);return {...next,libraryId:meta.id};}
+async function publishLive(next){if(next.phase!=='ended')return next;if(!next.libraryId){const hash=createHash('sha256').update('live|'+next.createdAt+'|'+(next.generation||0)).digest('hex'),id=hash.slice(0,8)+'-'+hash.slice(8,12)+'-'+hash.slice(12,16)+'-'+hash.slice(16,20)+'-'+hash.slice(20,32);await library.save(mainRecordingSgf(sgf(next)),'live-game.sgf',id);}return freshLiveGame(next);}
 const archives = new Map();
 const types = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.svg': 'image/svg+xml', '.json':'application/json', '.pdf':'application/pdf', '.otf':'font/otf' };
 const server = http.createServer(async (request, response) => {
   const pathname = new URL(request.url, 'http://localhost').pathname;
   if(pathname==='/api/draft'){
     const send=(code,value)=>{response.writeHead(code,{'content-type':'application/json','cache-control':'no-store'});response.end(JSON.stringify(value));};
-    try{if(request.method==='GET')return send(200,{draft});if(request.method!=='POST')return send(405,{message:'Method not allowed.'});if(!request.headers['content-type']?.startsWith('application/json'))return send(415,{message:'Use JSON.'});if(request.headers.origin&&request.headers.origin!=='http://'+request.headers.host)return send(403,{message:'Invalid origin.'});let body='';for await(const chunk of request){body+=chunk;if(Buffer.byteLength(body)>1600000)return send(413,{message:'Too large.'});}let data;try{data=JSON.parse(body);}catch{return send(400,{message:'Invalid JSON.'});}if(data.action==='update'){draft=draftTransition(draft,data);await persist();return send(200,{draft});}if(data.action==='save'){if(draft.publication?.id!==data.id){if(draft.publication?.status==='pending')return send(409,{message:'Save pending.'});draft=draftPublication(draft,data);await persist();}if(draft.publication.status==='ready')return send(200,{draft,id:draft.publication.gameId});const meta=await library.save(draft.sgf,'recorded-game.sgf',data.id);draft={...draft,publication:{...draft.publication,status:'ready',gameId:meta.id}};await persist();return send(200,{draft,id:meta.id});}return send(400,{message:'Invalid action.'});}catch(e){return send(e.statusCode||500,{message:e.message,draft});}
+    try{if(request.method==='GET')return send(200,{draft});if(request.method!=='POST')return send(405,{message:'Method not allowed.'});if(!request.headers['content-type']?.startsWith('application/json'))return send(415,{message:'Use JSON.'});if(request.headers.origin&&request.headers.origin!=='http://'+request.headers.host)return send(403,{message:'Invalid origin.'});let body='';for await(const chunk of request){body+=chunk;if(Buffer.byteLength(body)>1600000)return send(413,{message:'Too large.'});}let data;try{data=JSON.parse(body);}catch{return send(400,{message:'Invalid JSON.'});}if(data.action==='update'){draft=draftTransition(draft,data);await persist();return send(200,{draft});}if(data.action==='save'){if(draft.publication?.id!==data.id){if(draft.publication?.status==='pending')return send(409,{message:'Save pending.'});draft=draftPublication(draft,data);await persist();}if(draft.publication.status==='ready')return send(200,{draft,id:draft.publication.gameId});const meta=await library.save(draft.sgf,'recorded-game.sgf',data.id);draft=freshSavedDraft(draft,meta.id);await persist();return send(200,{draft,id:meta.id});}return send(400,{message:'Invalid action.'});}catch(e){return send(e.statusCode||500,{message:e.message,draft});}
   }
   if (pathname === '/api/library' || pathname.startsWith('/api/library/')) {
     const send=(code,value)=>{response.writeHead(code,{'content-type':'application/json; charset=utf-8','cache-control':'no-store'});response.end(JSON.stringify(value));};
