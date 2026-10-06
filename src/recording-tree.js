@@ -25,3 +25,35 @@ export function promoteRecordingBranch(record,id){if(!record.nodes[id])throw Err
 export function deleteRecordingBranch(record,id){if(!id||!record.nodes[id])throw Error('Select a move to delete.');const parent=record.nodes[id].parent;record.nodes[parent].children=record.nodes[parent].children.filter(c=>c!==id);const next=recordingTree(recordingSgf(record));const path=[];for(let n=parent;n!==0;n=record.nodes[n].parent)path.unshift(record.nodes[record.nodes[n].parent].children.indexOf(n));let selected=0;for(const child of path)selected=next.nodes[selected].children[child];return {record:next,selected};}
 export function newRecordingSgf(){return '(;GM[1]FF[4]CA[UTF-8]SZ[19]RU[Japanese]KM[6.5]GN[Recorded game]RE[0])';}
 export function mainRecordingSgf(source){return recordingSgf(recordingTree(source),true);}
+
+// SGF serialization follows child order, which can change after promotion.
+// Store the selected node's serialized index rather than its in-memory ID.
+export function recordingNodeIndex(record,selected){
+ const pending=[0];let index=0;
+ while(pending.length){const id=pending.pop();if(id===selected)return index;index++;for(let i=record.nodes[id].children.length-1;i>=0;i--)pending.push(record.nodes[id].children[i]);}
+ return 0;
+}
+
+export class RecordingNavigation{
+ constructor(){this.continuations=new Map();}
+ remember(record,selected){for(let id=selected;record.nodes[id].parent!==null;id=record.nodes[id].parent)this.continuations.set(record.nodes[id].parent,id);}
+ next(record,id){const children=record.nodes[id].children,preferred=this.continuations.get(id);return children.includes(preferred)?preferred:children[0];}
+ step(record,selected,count){let id=selected;for(let i=0;i<Math.abs(count);i++){const next=count<0?record.nodes[id].parent:this.next(record,id);if(next===null||next===undefined)break;id=next;}return id;}
+}
+
+// Move depth fixes the column. Each alternative starts a new horizontal lane,
+// leaving the shared prefix in place instead of repeating it in a list.
+export function recordingTreeLayout(record,selected=0,continuations=new Map()){
+ const positions=[],edges=[];let lastLane=0;
+ const preferred=new Map(continuations);
+ for(let id=selected;record.nodes[id].parent!==null;id=record.nodes[id].parent)preferred.set(record.nodes[id].parent,id);
+ const pending=[{id:0,lane:0}];
+ while(pending.length){
+  const item=pending.pop(),lane=item.lane??++lastLane,node=record.nodes[item.id];
+  positions.push({id:item.id,column:node.depth,lane});
+  if(node.parent!==null)edges.push({parent:node.parent,child:item.id});
+  const child=preferred.get(item.id),children=node.children.includes(child)?[child,...node.children.filter(id=>id!==child)]:node.children;
+  for(let i=children.length-1;i>=0;i--)pending.push({id:children[i],lane:i===0?lane:null});
+ }
+ return {positions,edges,lanes:lastLane+1,columns:Math.max(...positions.map(p=>p.column))+1};
+}
