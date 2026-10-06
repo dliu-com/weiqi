@@ -1,0 +1,236 @@
+{
+  "verifiedAt": "2026-10-06T14:35:17.072Z",
+  "region": "eu-west-1",
+  "provisioning": "CloudFormation only",
+  "recordUrl": "https://weiqi.dliu.com/record/2026100621/report?lang=en",
+  "renderVersion": "abed6cf5a21a9dc1",
+  "changes": [
+    "Six graphs share the replay grey canvas and axis palette",
+    "Point advantage and win probability use dark Black / white White filled areas around zero / 50%",
+    "Black/White bars and timeline markers use the same colours with white outlines",
+    "Move-quality category colours retained",
+    "App header navigation and language preference; Save PDF is its only extra action"
+  ],
+  "browser": {
+    "languages": [
+      "en",
+      "zh-CN"
+    ],
+    "graphs": 6,
+    "dualFilledAreaGraphs": 2,
+    "greyCanvas": "#cbd2d6",
+    "black": "#28323a",
+    "white": "#f9fafb",
+    "qualityColoursRetained": true,
+    "desktop": true,
+    "mobileWidths": [
+      320,
+      390
+    ],
+    "horizontalOverflow": false,
+    "configurationInputs": 0,
+    "savePdfDirectFileDownload": true
+  },
+  "pdf": {
+    "en": {
+      "pages": 15,
+      "page3Title": "Game-wide point advantage",
+      "contentsDestinations": [
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14,
+        15
+      ],
+      "reviewDestinations": [
+        10,
+        11,
+        12,
+        13,
+        14,
+        15
+      ],
+      "percentageLabelsComplete": true,
+      "sha256": "97a36373a6fc4292bd4325ce1caf80f990904ad2e8854440eba22bc12c3681fc",
+      "bytes": 1211324,
+      "browserDownloadMatchesPreparedFile": true
+    },
+    "zh": {
+      "pages": 15,
+      "page3Title": "全局走势:谁在领先?",
+      "contentsDestinations": [
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14,
+        15
+      ],
+      "reviewDestinations": [
+        10,
+        11,
+        12,
+        13,
+        14,
+        15
+      ],
+      "percentageLabelsComplete": true,
+      "sha256": "14654492ad31c8c3ebf2383fd28579dd01abdee7137de65867b0671628021194",
+      "bytes": 1700343,
+      "browserDownloadMatchesPreparedFile": true
+    }
+  },
+  "migration": {
+    "reports": [
+      {
+        "id": "2026100620",
+        "status": "ready",
+        "version": "abed6cf5a21a9dc1",
+        "languages": [
+          "en",
+          "zh"
+        ],
+        "generatedAt": "2026-10-06T14:31:37.295Z"
+      },
+      {
+        "id": "2026100621",
+        "status": "ready",
+        "version": "abed6cf5a21a9dc1",
+        "languages": [
+          "en",
+          "zh"
+        ],
+        "generatedAt": "2026-10-06T14:31:45.971Z"
+      },
+      {
+        "id": "2026100601",
+        "status": "ready",
+        "version": "abed6cf5a21a9dc1",
+        "languages": [
+          "en",
+          "zh"
+        ],
+        "generatedAt": "2026-10-06T14:31:53.830Z"
+      },
+      {
+        "id": "2026100506",
+        "status": "ready",
+        "version": "abed6cf5a21a9dc1",
+        "languages": [
+          "en",
+          "zh"
+        ],
+        "generatedAt": "2026-10-06T14:32:01.031Z"
+      },
+      {
+        "id": "2026100611",
+        "status": "ready",
+        "version": "abed6cf5a21a9dc1",
+        "languages": [
+          "en",
+          "zh"
+        ],
+        "generatedAt": "2026-10-06T14:32:09.056Z"
+      },
+      {
+        "id": "2026100612",
+        "status": "ready",
+        "version": "abed6cf5a21a9dc1",
+        "languages": [
+          "en",
+          "zh"
+        ],
+        "generatedAt": "2026-10-06T14:32:16.907Z"
+      },
+      {
+        "id": "2026100615",
+        "status": "ready",
+        "version": "abed6cf5a21a9dc1",
+        "languages": [
+          "en",
+          "zh"
+        ],
+        "generatedAt": "2026-10-06T14:32:24.699Z"
+      },
+      {
+        "id": "2026100616",
+        "status": "ready",
+        "version": "abed6cf5a21a9dc1",
+        "languages": [
+          "en",
+          "zh"
+        ],
+        "generatedAt": "2026-10-06T14:32:32.547Z"
+      },
+      {
+        "id": "2026100617",
+        "status": "ready",
+        "version": "abed6cf5a21a9dc1",
+        "languages": [
+          "en",
+          "zh"
+        ],
+        "generatedAt": "2026-10-06T14:32:41.664Z"
+      },
+      {
+        "id": "2026100618",
+        "status": "ready",
+        "version": "abed6cf5a21a9dc1",
+        "languages": [
+          "en",
+          "zh"
+        ],
+        "generatedAt": "2026-10-06T14:32:50.505Z"
+      },
+      {
+        "id": "2026100619",
+        "status": "ready",
+        "version": "abed6cf5a21a9dc1",
+        "languages": [
+          "en",
+          "zh"
+        ],
+        "generatedAt": "2026-10-06T14:32:57.267Z"
+      }
+    ],
+    "queues": {
+      "WeiqiSite-ReportQueueEBFFFAE8-8rlZ2e5wSqGa.fifo": {
+        "ApproximateNumberOfMessages": "0",
+        "ApproximateNumberOfMessagesNotVisible": "0"
+      },
+      "WeiqiSite-ReportDeadLettersD1941892-50ECZBbXDJ7A.fifo": {
+        "ApproximateNumberOfMessages": "0",
+        "ApproximateNumberOfMessagesNotVisible": "0"
+      }
+    }
+  },
+  "sourceAnalysis": {
+    "unchanged": true,
+    "beforeSha256": "6a855766561dac48763029bf2d51faa33761eb496ae329101ef4dc4181e43c8a",
+    "afterSha256": "6a855766561dac48763029bf2d51faa33761eb496ae329101ef4dc4181e43c8a"
+  },
+  "newAiJobs": 0,
+  "tests": {
+    "nodePassed": 127,
+    "nodeFailed": 0
+  },
+  "screenshots": [
+    "/private/tmp/weiqi-report-header-live.png",
+    "/private/tmp/weiqi-report-colour-charts-live.png"
+  ]
+}

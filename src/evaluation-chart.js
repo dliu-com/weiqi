@@ -1,5 +1,5 @@
-export function chartGeometry(positions,width=360,height=150,mode='score') {
-  const left=34,right=12,top=12,bottom=28,last=Math.max(1,positions.at(-1)?.move || 0);
+export function chartGeometry(positions,width=360,height=150,mode='score',{left=34,right=12}={}) {
+  const top=12,bottom=28,last=Math.max(1,positions.at(-1)?.move || 0);
   const max=Math.max(5,...positions.map(p=>Math.abs(p.blackLead)));
   const extent=mode==='win'?50:Math.ceil(max/5)*5, baseline=(height-bottom+top)/2;
   const x=move=>left+move/last*(width-left-right), y=lead=>baseline-lead/extent*(baseline-top);

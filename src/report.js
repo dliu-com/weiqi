@@ -1,12 +1,13 @@
+import {language as preferredLanguage,setLanguage} from './i18n.js';
 // Interaction retrieves files already prepared after deep analysis. No report/PDF generation.
 const $=id=>document.getElementById(id),id=location.pathname.match(/^\/record\/([^/]+)\/report\/?$/)?.[1];
-let language=new URLSearchParams(location.search).get('lang')==='zh'?'zh':'en',manifest=null;
+const requestedLanguage=new URLSearchParams(location.search).get('lang');
+let language=['zh','en'].includes(requestedLanguage)?requestedLanguage:preferredLanguage,manifest=null;
 const t=(zh,en)=>language==='zh'?zh:en;
 const cache=new Map();
 function labels(){
- document.documentElement.lang=language==='zh'?'zh-CN':'en';
+ setLanguage(language);
  document.title=t('AI 棋局报告','AI game report')+' · DL';
- $('back-record').textContent=t('返回棋局','Return to game');$('back-record').href='/record/'+id;
  $('save-report').textContent=t('保存 PDF','Save PDF');
  for(const value of ['en','zh'])$('report-'+value).setAttribute('aria-pressed',String(language===value));
 }
