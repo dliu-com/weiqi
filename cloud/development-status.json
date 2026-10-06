@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-10-06T13:31:20.994376+00:00",
+  "updatedAt": "2026-10-06T13:38:40.654677+00:00",
   "awsDevelopmentDebugBudgetUSD": 30,
   "noFurtherPaidBenchmarksPlanned": true,
   "smallServiceAllowanceUSD": 2,
@@ -35,7 +35,7 @@
     }
   },
   "verifiedTests": {
-    "node": 114,
+    "node": 120,
     "python": 10,
     "cdk": 15
   },
@@ -113,6 +113,13 @@
       "candidateMoveNumber": "N+1",
       "lastMoveRatingRemainsSeparate": true,
       "validationRecord": "https://weiqi.dliu.com/record/2026100620?move=171"
+    },
+    "variationNavigation": {
+      "keyboardAndButtons": true,
+      "manualUndoRedo": true,
+      "automaticReturnAtOrigin": true,
+      "chartFocusRespectsVariation": true,
+      "mobileVerified": true
     }
   },
   "storageStack": "WeiqiStorage",

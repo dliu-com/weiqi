@@ -18,7 +18,7 @@ node --check "$PROJECT_DIR/src/app.js"
 node --check "$PROJECT_DIR/src/engine.js"
 
 # Upload dependencies first and the entrypoint last. Assets are revalidated on reload.
-for filename in report-font.otf report.html report.js report.css board-diagram.js ai-review.js game-result.js analysis-status.js evaluation-chart.js sgf.js library-api.js library.html library.js record.html record.js how-to-use.html how-to-use.js benchmarks-data.json benchmarks.html benchmarks.js about.html about.js rules.html rules.js history.html history.js i18n.js engine.js app.js styles.css favicon.svg 404.html; do
+for filename in report-font.otf report.html report.js report.css board-diagram.js ai-review.js game-result.js analysis-status.js evaluation-chart.js replay-navigation.js sgf.js library-api.js library.html library.js record.html record.js how-to-use.html how-to-use.js benchmarks-data.json benchmarks.html benchmarks.js about.html about.js rules.html rules.js history.html history.js i18n.js engine.js app.js styles.css favicon.svg 404.html; do
   case "$filename" in
     *.otf) mime='font/otf' ;;
     *.js) mime='text/javascript; charset=utf-8' ;;
