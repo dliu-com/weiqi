@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-10-06T10:35:36.484317+00:00",
+  "updatedAt": "2026-10-06T10:45:24.856472+00:00",
   "awsDevelopmentDebugBudgetUSD": 30,
   "noFurtherPaidBenchmarksPlanned": true,
   "smallServiceAllowanceUSD": 2,
@@ -35,7 +35,7 @@
     }
   },
   "verifiedTests": {
-    "node": 96,
+    "node": 98,
     "python": 10,
     "cdk": 13
   },
@@ -128,9 +128,19 @@
     "browserPrintAvailable": true,
     "pdfExportTest": "deferred by user",
     "validationRecord": "2026100618",
-    "schemaVersion": 2,
-    "format": "Five largest point losses per side; played board and numbered AI best continuation",
+    "schemaVersion": 4,
+    "format": "Five largest point losses per side plus detailed bad-move statistics, move-range summaries, loss distributions and four charts",
     "maximumMovesPerSide": 5,
-    "userConfigControls": false
+    "userConfigControls": false,
+    "goodMoveStatistics": false,
+    "statistics": [
+      "Severity counts and error frequency",
+      "Mean, median, 90th percentile, maximum and cumulative point loss",
+      "Top-five loss concentration",
+      "Mean and maximum win-rate drops, 10/20 percentage-point drop counts",
+      "Missed available point leads and winning chances",
+      "Fixed move-range summaries and loss buckets",
+      "Per-move and cumulative loss timelines, game-context charts"
+    ]
   }
 }

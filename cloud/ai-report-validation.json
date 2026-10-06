@@ -1,0 +1,63 @@
+{
+  "validatedAt": "2026-10-06T10:50:35.457813+00:00",
+  "recordUrl": "https://weiqi.dliu.com/record/2026100618",
+  "reportUrl": "https://weiqi.dliu.com/record/2026100618/report",
+  "schemaVersion": 4,
+  "moves": 321,
+  "players": {
+    "B": {
+      "moves": 161,
+      "ratedMoves": 161,
+      "unratedMoves": 0,
+      "badMoves": 56,
+      "badPercent": 34.78260869565217,
+      "counts": {
+        "inaccuracy": 38,
+        "mistake": 14,
+        "blunder": 4
+      },
+      "totalBadPointLoss": 123.07733251522,
+      "meanBadPointLoss": 2.197809509200357,
+      "medianBadPointLoss": 1.4954058650000004,
+      "p90BadPointLoss": 4.518059387,
+      "meanBadWinrateLoss": 9.644440642516075,
+      "maxBadWinrateLoss": 71.08031309900001,
+      "topFiveLossPercent": 31.586170165974785
+    },
+    "W": {
+      "moves": 160,
+      "ratedMoves": 160,
+      "unratedMoves": 0,
+      "badMoves": 48,
+      "badPercent": 30,
+      "counts": {
+        "inaccuracy": 29,
+        "mistake": 16,
+        "blunder": 3
+      },
+      "totalBadPointLoss": 107.5009973265,
+      "meanBadPointLoss": 2.23960411096875,
+      "medianBadPointLoss": 1.634278286,
+      "p90BadPointLoss": 4.229508579999999,
+      "meanBadWinrateLoss": 10.42712976945,
+      "maxBadWinrateLoss": 50.7000699,
+      "topFiveLossPercent": 30.050531234501033
+    }
+  },
+  "highlightedMovesPerSide": 5,
+  "browserChecks": {
+    "desktop": true,
+    "mobileWidth": 390,
+    "horizontalOverflow": false,
+    "charts": 4,
+    "goodMoveStatistics": false,
+    "userConfigurationControls": false
+  },
+  "tests": {
+    "node": 98,
+    "python": 10,
+    "cdk": 13
+  },
+  "pdfExportTest": "Deferred at user request",
+  "newPaidAnalysisJobs": 0
+}
