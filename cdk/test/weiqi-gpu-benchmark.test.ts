@@ -20,7 +20,7 @@ test('production uses T4 across three zones, delayed fallback messages and bound
  prod.hasResourceProperties('AWS::Lambda::Function',{Environment:{Variables:Match.objectLike({QUICK_VISITS:'32',GPU_FALLBACK_WAIT_SECONDS:'180',FALLBACK_GPU_QUEUE:Match.anyValue(),FALLBACK_SPOT_QUEUE:Match.anyValue()})}});
  prod.hasResourceProperties('AWS::Batch::ComputeEnvironment',{ComputeResources:Match.objectLike({MinvCpus:0,MaxvCpus:4,InstanceTypes:['g5.xlarge']})});
  const functions=Object.values(prod.findResources('AWS::Lambda::Function'));for(const fn of functions)expect(JSON.stringify(fn.Properties.Environment||{})).not.toContain('CPU_JOB_DEFINITION');
- prod.hasResourceProperties('AWS::Batch::JobDefinition',{Timeout:{AttemptDurationSeconds:14400}});
+ prod.hasResourceProperties('AWS::Batch::JobDefinition',{Timeout:{AttemptDurationSeconds:7200},ContainerProperties:Match.objectLike({Environment:Match.arrayWith([{Name:'ANALYSIS_TIMEOUT_SECONDS',Value:'7100'}])})});
  const rules=Object.values(prod.findResources('AWS::Events::Rule'));for(const rule of rules)expect(rule.Properties.ScheduleExpression).toBeUndefined();
  prod.hasResourceProperties('AWS::Batch::ComputeEnvironment',{ComputeResources:Match.objectLike({Type:'SPOT',AllocationStrategy:'SPOT_CAPACITY_OPTIMIZED',MinvCpus:0,MaxvCpus:4,InstanceTypes:['g4dn.xlarge','g5.xlarge']})});
  prod.resourceCountIs('AWS::EC2::NatGateway',0);
