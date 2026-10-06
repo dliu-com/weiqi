@@ -10,9 +10,9 @@
 
 .report-cover-link{margin:16px 0 24px;line-height:1.4!important}.report-cover-link span{display:block;font-size:10px;letter-spacing:1px;color:#657078;margin-bottom:5px}.report-cover-link a{font-size:14px;text-decoration:none;border-bottom:1px solid #b7a083;padding-bottom:2px}.report-cover-data{display:grid;grid-template-columns:1fr 1fr;gap:12px 24px;margin:0}.report-cover-data div{min-width:0}.report-cover-data-wide{grid-column:1 / -1}.report-cover-data dt{font-size:10px;color:#657078;margin-bottom:4px}.report-cover-data dd{margin:0;font-size:12px;line-height:1.4;color:#26343d;overflow-wrap:anywhere}@media(max-width:600px){.report-cover-link a{font-size:12px}.report-cover-data{gap:12px 16px}.report-cover-data dd{font-size:11px}}
 
-.report-stat-card{margin:22px 0 28px}.report-stat-card>svg{display:block;width:100%;height:auto}.report-stat-card h3{font-size:17px;margin:0 0 12px}.report-graph-maths .report-formula{font-size:12px;margin:12px 0 8px;padding:9px 11px}.report-graph-maths .report-note{font-size:12px;margin:0;line-height:1.55}.report-quality-legend{display:flex;flex-wrap:wrap;gap:9px 18px;margin:12px 0;font-size:12px}.report-quality-legend span{display:flex;align-items:center;gap:6px}.report-quality-legend i{display:inline-block;width:12px;height:12px;border-radius:2px}.report-stat-card .report-chart{margin:0}.report-stat-card .report-chart svg text{font-size:15px}@media(max-width:600px){.report-stat-card h3{font-size:16px}.report-graph-maths .report-formula{font-size:11px}.report-quality-legend{font-size:11px}}
+.report-stat-card{margin:22px 0 28px}.report-stat-card>svg{display:block;width:100%;height:auto}.report-stat-card h3{font-size:17px;margin:0 0 12px}.report-graph-maths .report-formula{font-size:12px;margin:12px 0 8px;padding:9px 11px}.report-graph-maths .report-note{font-size:12px;margin:0;line-height:1.55}.report-quality-legend{display:flex;flex-wrap:wrap;gap:9px 18px;margin:12px 0;font-size:12px}.report-quality-legend span{display:flex;align-items:center;gap:6px}.report-quality-legend i{display:inline-block;width:12px;height:12px;border-radius:2px}.report-stat-card .report-chart{margin:0}.report-stat-card .report-chart svg text{font-family:inherit}@media(max-width:600px){.report-stat-card h3{font-size:16px}.report-graph-maths .report-formula{font-size:11px}.report-quality-legend{font-size:11px}}
 
-.report-graph-reading{font-size:15px;line-height:1.6;margin:16px 0 18px;color:#26343d}.report-graph-maths h4{font-size:11px;font-weight:600;color:#657078;border-top:1px solid #dbe1e5;padding-top:12px;margin:0 0 8px}.report-graph-maths .report-formula{color:#56626a}@media(max-width:600px){.report-graph-reading{font-size:13px}}
+.report-graph-reading{font-size:14px;line-height:1.45;margin:12px 0;color:#26343d}.report-graph-maths h4{font-size:11px;font-weight:600;color:#657078;border-top:1px solid #dbe1e5;padding-top:12px;margin:0 0 8px}.report-graph-maths .report-formula{color:#56626a}@media(max-width:600px){.report-graph-reading{font-size:13px}}
 #save-report{font:inherit;padding:7px 10px;border:1px solid #26343d;border-radius:5px;text-decoration:none;cursor:pointer}#save-report[aria-disabled=true]{opacity:.5;cursor:default}
 .report-reading-path{padding-left:24px;line-height:1.6}.report-reading-path li{margin:12px 0}.report-key-move td:nth-child(3){font-weight:650}.report-key-reviewed{background:#f2f6f8}.report-key-reviewed td:first-child{border-left:3px solid #425d6c}
 
@@ -28,3 +28,14 @@
 .report-site-header .back-game{color:#805719;font-size:13px}.report-site-header button:hover{background:#f3f5f6;border-color:#805719}.report-site-header a:focus-visible,.report-site-header button:focus-visible{outline:2px solid #805719;outline-offset:3px}
 @media(max-width:850px){.report-site-header{padding:18px 20px}.report-site-header .brand small{display:none}}@media(max-width:480px){.report-site-header{gap:8px;padding:14px 12px}.report-site-header .brand{font-size:20px}.report-site-header .languages button{padding:8px 6px;font-size:12px;gap:4px}.report-site-header .language-icon{width:16px;height:16px;font-size:10px}}
 @media print{.report-site-header{display:none}}
+
+/* Keep the visual explanation primary and calculation notes compact. */
+.report-graph-maths .report-note{font-size:11px;line-height:1.4}.report-graph-maths h4{padding-top:8px;margin-bottom:4px}.report-graph-maths .report-formula{margin:6px 0;padding:7px 9px}.report-quality-legend{gap:8px 16px}
+
+/* Game details are prominent; analysis provenance remains secondary. */
+.report-cover .report-cover-name{font-size:24px;font-weight:650;line-height:1.35;margin-bottom:24px;color:#26343d}.report-cover .report-cover-game-details dt{font-size:12px}.report-cover .report-cover-game-details dd{font-size:16px;font-weight:550}.report-cover-player strong{font-size:23px}
+@media(max-width:600px){.report-cover .report-cover-name{font-size:18px}.report-cover .report-cover-game-details dd{font-size:14px}.report-cover-player strong{font-size:18px}}
+
+.report-cover .report-cover-result{font-size:23px;font-weight:650}
+
+.report-graph-maths .report-formula{white-space:pre-line}
