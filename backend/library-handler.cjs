@@ -48,6 +48,7 @@ async function libraryHandler(event) {
       const prefix='games/'+id+'/', metadata=JSON.parse(await libraryStore.get(prefix+'metadata.json'));
       const sgf=await libraryStore.get(prefix+'original.sgf'); let analysis=null;
       if(metadata.analysis.status==='ready'||metadata.analysis.available) analysis=JSON.parse(await libraryStore.get(prefix+(metadata.analysis.available==='quick'?'analysis-quick.json':'analysis.json')));
+      await attachQueueStatus(metadata);
       return response(200,{metadata,sgf,analysis});
     }
     if (method!=='POST' || path!=='/api/library') return response(404,{message:'Record not found.'});

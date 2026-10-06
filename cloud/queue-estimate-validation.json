@@ -1,0 +1,37 @@
+{
+  "verifiedAt": "2026-10-06T13:56:51.319339+00:00",
+  "region": "eu-west-1",
+  "deployment": "Existing WeiqiSite CloudFormation stack only; no GPU or storage stack changes",
+  "applicationTestsPassed": 127,
+  "infrastructureTestsPassed": 16,
+  "queueForecastTests": [
+    "No jobs ahead: fixed typical startup range",
+    "Busy workers include both quick and deep passes",
+    "Jobs ahead allocated across configured GPU slots",
+    "Unknown, incomplete or overdue workload does not fabricate a rolling forecast",
+    "AWS capacity waits show unavailable start time",
+    "Starting and running worker setup states use actual Batch timestamps",
+    "Record GET does not persist estimates or schedule jobs"
+  ],
+  "browserValidation": {
+    "desktop": true,
+    "mobileWidth": 390,
+    "horizontalOverflow": false,
+    "languages": [
+      "en",
+      "zh-CN"
+    ],
+    "fixedStartAndFinishTimestampsAcrossCountdownAndPoll": true,
+    "capacityUnavailableMessage": true,
+    "expiredRangeMessage": true,
+    "screenshot": "Local queued-state preview; uses a saved full-game SGF without launching compute"
+  },
+  "productionRead": {
+    "record": "2026100620",
+    "status": "ready",
+    "phase": "deep",
+    "positions": 322
+  },
+  "paidAnalysisJobsLaunched": 0,
+  "estimateLimitations": "Workload forecast is approximate; AWS GPU capacity waiting has no reliable future start-time API. Real queue or worker-state changes may revise a forecast."
+}

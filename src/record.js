@@ -1,5 +1,5 @@
 import {t,setLanguage} from './i18n.js';
-import {analysisWait,pendingAnalysis,shouldPollQuick,analysisCompletion,analysisTotalMillis} from './analysis-status.js';
+import {analysisWait,pendingAnalysis,shouldPollQuick,analysisCompletion,analysisTotalMillis,queueWait} from './analysis-status.js';
 import {reviewMove,nextMoveSuggestions,recommendedLine,gtpPoint} from './ai-review.js';
 import {play} from './engine.js';
 import {stepReplay} from './replay-navigation.js';
@@ -47,9 +47,22 @@ function pendingMessage(){
  const wait=analysisWait(stage,data.metadata.moves),completion=analysisCompletion(stage,data.metadata.moves),duration=wait.seconds>=90?t(Math.ceil(wait.seconds/60)+' 分钟',Math.ceil(wait.seconds/60)+' min'):t(wait.seconds+' 秒',wait.seconds+' s');
  const deepName=stage.compute?.instanceType==='g5.xlarge'||stage.fallback?t('深度分析（GPU 后备）','Deep analysis (GPU fallback)'):t('深度分析','Deep analysis');
  const name=deep?(data.analysis?t('当前显示快速结果 · ','Quick results shown · ')+deepName:deepName):t('快速分析','Quick analysis');
- const progress=wait.phase==='queued'?t(' · 排队中 · 处理约 '+duration+'，排队另计。',' · queued · ~'+duration+' processing, plus queue wait.'):wait.phase==='running'?t(' · 预计还需约 '+duration+'。',' · ~'+duration+' remaining.'):t(' · 比预计耗时更长。',' · taking longer than estimated.');
- const estimate=completion?'\n'+(wait.phase==='overdue'?t('原预计完成：','Original estimated finish: '):completion.earliest?t('最早预计完成：','Earliest estimated finish: '):t('预计完成：','Estimated finish: '))+formatAnalysisTime(completion.timestamp):'';
  const check=deep?t('刷新页面查看深度结果。','Refresh the page for deeper results.'):t('每 15 秒检查快速结果。','Quick results are checked every 15 seconds.');
+ if(wait.phase==='queued'){
+  const queue=queueWait(stage),range=queue.seconds;
+  const messages={dispatching:t('正在提交 AI 作业。','Submitting the AI job.'),starting:t('GPU 已分配，正在启动工作进程。','GPU allocated; starting the worker.'),setup:t('GPU 已启动，正在准备分析。','GPU started; preparing analysis.'),between_passes:t('快速分析完成，正在准备深度分析。','Quick analysis finished; preparing the deep pass.'),capacity_wait:t('等待 AWS GPU 容量，暂时无法可靠估计开始时间。','Waiting for AWS GPU capacity; a reliable start time is not available.'),busy_unknown:t('前面的作业或准备阶段比预计更久，暂时无法可靠估计开始时间。','Earlier jobs or setup are taking longer than expected; a reliable start time is not available.'),updating:t('作业状态更新中。','Updating the job status.'),unavailable:t('排队中，暂时无法读取等待时间估计。','Queued; the waiting-time estimate is temporarily unavailable.')};
+  let message=messages[queue.state]||t('排队中。','In queue.');
+  if(Number.isInteger(queue.jobsAhead))message+='\n'+t('前面等待的作业：'+queue.jobsAhead+' · 运行或启动中的作业：'+queue.activeJobs,'Jobs waiting ahead: '+queue.jobsAhead+' · Running or starting: '+queue.activeJobs);
+  if(range){
+   const span=range.latest>=90?Math.ceil(range.earliest/60)+'–'+Math.ceil(range.latest/60)+t(' 分钟',' min'):range.earliest+'–'+range.latest+t(' 秒',' s');
+   const label=queue.basis==='typical_startup'?t('通常开始时段（取决于 GPU 容量）：','Typical start window (capacity permitting): '):t('预计分析开始：','Estimated analysis start: ');
+   message+='\n'+label+formatAnalysisTime(queue.startsAt.earliest)+' – '+formatAnalysisTime(queue.startsAt.latest)+'\n'+t('排队与准备还需约 ','Queue and setup remaining: ~')+span;
+   if(completion)message+='\n'+t('预计结果就绪：','Estimated results ready: ')+formatAnalysisTime(completion.windowStart)+' – '+formatAnalysisTime(completion.timestamp);
+  }else message+='\n'+t('开始后处理约 ','Processing after start: ~')+duration;
+  return name+' · '+message+'\n'+analysisTotal(null)+'\n'+check;
+ }
+ const progress=wait.phase==='running'?t(' · 预计还需约 '+duration+'。',' · ~'+duration+' remaining.'):t(' · 比预计耗时更长。',' · taking longer than estimated.');
+ const estimate=completion?'\n'+(wait.phase==='overdue'?t('原预计完成：','Original estimated finish: '):t('预计完成：','Estimated finish: '))+formatAnalysisTime(completion.timestamp):'';
  const retry=state.attempt>1?t('自动重试 '+(state.attempt-1)+'/2 · ','Automatic retry '+(state.attempt-1)+'/2 · '):'';
  return retry+name+progress+estimate+'\n'+analysisTotal(null)+'\n'+check;
 }

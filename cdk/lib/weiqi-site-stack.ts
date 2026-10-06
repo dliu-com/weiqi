@@ -84,6 +84,8 @@ export class WeiqiSiteStack extends Stack {
     const serviceSource = fs.readFileSync(path.join(root, 'backend/game-service.js'), 'utf8')
       .replace(/^import .*;\n/gm, '').replace(/^export /gm, '');
     const sharedLibrarySource = ['src/sgf.js','src/ai-review.js','src/report-data.js','backend/library-service.js'].map(file => fs.readFileSync(path.join(root,file),'utf8').replace(/^import .*;\n/gm,'').replace(/^export /gm,'')).join('\n');
+    const queueEstimateSource=fs.readFileSync(path.join(root,'src/queue-estimate.js'),'utf8').replace(/^export /gm,'');
+    const queueStatusSource=fs.readFileSync(path.join(root,'backend/queue-status.cjs'),'utf8');
     const libraryHandlerSource = fs.readFileSync(path.join(root,'backend/library-handler.cjs'),'utf8');
     const handlerSource = fs.readFileSync(path.join(root, 'backend/handler.cjs'), 'utf8');
     execFileSync(process.execPath,[path.join(root,'scripts/build-report-renderer.mjs')],{stdio:'inherit'});
@@ -106,9 +108,10 @@ export class WeiqiSiteStack extends Stack {
       memorySize: 256,
       logGroup: new logs.LogGroup(this, 'GameLogs', { retention: logs.RetentionDays.ONE_WEEK, removalPolicy: RemovalPolicy.DESTROY }),
       environment: { LIBRARY_BUCKET:libraryBucket.bucketName, ANALYSIS_QUEUE:analysisQueue.queueUrl, TABLE_NAME: gameTable.tableName, REPORT_QUEUE:reportQueue.queueUrl, SITE_ORIGIN: Fn.join('', ['https://', domainName]) },
-      code: lambda.Code.fromInline([engineSource, serviceSource, sharedLibrarySource, libraryHandlerSource, handlerSource].join('\n')),
+      code: lambda.Code.fromInline([engineSource, serviceSource, sharedLibrarySource, queueEstimateSource, libraryHandlerSource, queueStatusSource, handlerSource].join('\n')),
     });
     reportQueue.grantSendMessages(gameHandler);
+    gameHandler.addToRolePolicy(new iam.PolicyStatement({actions:['batch:DescribeJobs','batch:ListJobs'],resources:['*']}));
     new events.Rule(this,'CompletedGameReport',{
       eventPattern:{source:['aws.batch'],detailType:['Batch Job State Change'],detail:{status:['SUCCEEDED'],jobName:[{prefix:'weiqi-'}]}},
       targets:[new eventTargets.LambdaFunction(gameHandler,{retryAttempts:2,maxEventAge:Duration.hours(1)})],

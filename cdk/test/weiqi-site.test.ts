@@ -111,3 +111,9 @@ test('completed GPU jobs prepare cached reports through an event, without anothe
  template.hasResourceProperties('AWS::Lambda::EventSourceMapping',{BatchSize:1});
  template.hasResourceProperties('AWS::IAM::Policy',{PolicyDocument:{Statement:Match.arrayWith([Match.objectLike({Action:Match.arrayWith(['sqs:SendMessage'])})])}});
  });
+
+test('game status may read Batch queue state without submitting or cancelling analysis jobs',()=>{
+ const policies=Object.values(template.findResources('AWS::IAM::Policy'));const game=policies.find((policy:any)=>JSON.stringify(policy.Properties.Roles).includes('GameHandler')) as any;
+ const actions=game.Properties.PolicyDocument.Statement.flatMap((statement:any)=>Array.isArray(statement.Action)?statement.Action:[statement.Action]);
+ expect(actions).toContain('batch:ListJobs');expect(actions).toContain('batch:DescribeJobs');expect(actions).not.toContain('batch:SubmitJob');expect(actions).not.toContain('batch:CancelJob');
+});

@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-10-06T13:38:40.654677+00:00",
+  "updatedAt": "2026-10-06T13:56:51.319339+00:00",
   "awsDevelopmentDebugBudgetUSD": 30,
   "noFurtherPaidBenchmarksPlanned": true,
   "smallServiceAllowanceUSD": 2,
@@ -35,9 +35,9 @@
     }
   },
   "verifiedTests": {
-    "node": 120,
+    "node": 127,
     "python": 10,
-    "cdk": 15
+    "cdk": 16
   },
   "pending": [],
   "finalProductPerGameCostTargetUSD": 1,
@@ -195,5 +195,14 @@
     "statisticsPresentation": "Six graphs in learning order with expanded examples and technical maths; compact top-five error tables",
     "interactionGeneration": false,
     "performanceRankEstimate": false
+  },
+  "queueEstimate": {
+    "deployed": true,
+    "forecast": "Anchored range based on Batch queue state, jobs ahead, remaining quick-plus-deep work and current GPU slots",
+    "unknownCapacityWait": "Explicit unavailable start time; no rolling deadlines",
+    "statusSnapshotCacheSeconds": 15,
+    "quickPollSeconds": 15,
+    "deepManualRefresh": true,
+    "noAnalysisJobsLaunched": true
   }
 }
