@@ -22,7 +22,7 @@ async function libraryHandler(event) {
       const prefix='games/'+reportId+'/',metadata=JSON.parse(await libraryStore.get(prefix+'metadata.json'));
       if(metadata.analysis.available==='quick'||metadata.analysis.status!=='ready')return response(409,{message:'The report will be available when deep analysis finishes. Refresh the game page to check.'});
       const analysis=JSON.parse(await libraryStore.get(prefix+'analysis.json'));
-      const hash=reportHash('sha256').update(JSON.stringify([1,analysis.sgfSha256,analysis.modelSha256,analysis.visits,analysis.completedAt])).digest('hex'),key=prefix+'reports/'+hash+'.json';
+      const hash=reportHash('sha256').update(JSON.stringify([REPORT_SCHEMA_VERSION,analysis.sgfSha256,analysis.modelSha256,analysis.visits,analysis.completedAt])).digest('hex'),key=prefix+'reports/'+hash+'.json';
       try{return response(200,JSON.parse(await libraryStore.get(key)));}catch(e){if(e.name!=='NoSuchKey')throw e;}
       const source=await libraryStore.get(prefix+'original.sgf');
       if(reportHash('sha256').update(source).digest('hex')!==analysis.sgfSha256)return response(409,{message:'Analysis does not match the saved SGF.'});
