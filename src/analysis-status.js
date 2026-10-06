@@ -2,6 +2,8 @@ export function estimatedAnalysisSeconds(positions,visits=10) {
   // Approximate local debug-engine timing, with headroom; queue wait is separate.
   return Math.max(10,Math.ceil((3+positions*.1*visits/10)*1.5));
 }
+export const QUICK_POLL_INTERVAL_MS=60000;
+export const conservativeMinute=timestamp=>Math.ceil(timestamp/60000)*60000;
 export function analysisWait(analysis,moves,now=Date.now()) {
   const seconds=analysis.estimatedSeconds || estimatedAnalysisSeconds(moves+1);
   if(analysis.status!=='running')return {phase:'queued',seconds};
