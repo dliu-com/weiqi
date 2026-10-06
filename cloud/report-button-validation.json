@@ -1,0 +1,16 @@
+{
+  "verifiedAt": "2026-10-06T14:16:21.873345+00:00",
+  "recordUrl": "https://weiqi.dliu.com/record/2026100620",
+  "labels": {
+    "en": "View AI report",
+    "zh": "查看 AI 报告"
+  },
+  "style": "Filled dark report button next to outlined Download SGF; grouped on same row",
+  "desktop": true,
+  "mobileWidth": 320,
+  "mobileTouchHeight": 44,
+  "horizontalOverflow": false,
+  "pendingReportHasNoLink": true,
+  "applicationTestsPassed": 127,
+  "newAiJobsStarted": 0
+}
