@@ -11,6 +11,7 @@ export function analysisWait(analysis,moves,now=Date.now()) {
 export function pendingAnalysis(analysis) {
   if(analysis.quick||analysis.deep){
     if(analysis.deep?.status==='ready')return null;
+    if(analysis.status==='retry_wait')return {...analysis,phase:analysis.quick?.status==='ready'?'deep':'quick'};
     for(const phase of ['quick','deep']){const stage=analysis[phase];if(stage&&['queued','running'].includes(stage.status))return {...stage,phase};}
     return null;
   }
@@ -19,7 +20,7 @@ export function pendingAnalysis(analysis) {
 
 export function shouldPollQuick(analysis,benchmark=null){
   if(benchmark?.queueKind==='deep'||analysis.phase==='deep'||analysis.available||analysis.status==='ready')return false;
-  if(analysis.quick)return ['queued','running'].includes(analysis.quick.status)&&analysis.deep?.status!=='ready';
+  if(analysis.quick)return ['queued','running','retry_wait'].includes(analysis.quick.status)&&analysis.deep?.status!=='ready';
   return !analysis.deep&&['queued','running'].includes(analysis.status);
 }
 

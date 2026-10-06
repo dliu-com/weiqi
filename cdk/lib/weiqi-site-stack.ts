@@ -22,7 +22,7 @@ import {
 } from 'aws-cdk-lib';
 
 export class WeiqiSiteStack extends Stack {
-  constructor(scope: Construct, id: string, props: StackProps & {analysisQueueArnOverride?:string;keepLegacyAnalysisQueue?:boolean} = {}) {
+  constructor(scope: Construct, id: string, props: StackProps & {analysisQueueArnOverride?:string;keepLegacyAnalysisQueue?:boolean;storage?:{gameTable:dynamodb.ITable;libraryBucket:s3.IBucket}} = {}) {
     super(scope, id, props);
 
     const rootDomain = Fn.importValue('MainDomain');
@@ -66,17 +66,8 @@ export class WeiqiSiteStack extends Stack {
       },
     });
 
-    const gameTable = new dynamodb.Table(this, 'GameState', {
-      partitionKey: { name: 'gameId', type: dynamodb.AttributeType.STRING },
-      billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
-      encryption: dynamodb.TableEncryption.AWS_MANAGED,
-      removalPolicy: RemovalPolicy.RETAIN,
-    });
-    const libraryBucket = new s3.Bucket(this, 'RecordLibrary', {
-      blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL, encryption:s3.BucketEncryption.S3_MANAGED,
-      enforceSSL:true, removalPolicy:RemovalPolicy.RETAIN, versioned:true,
-      lifecycleRules:[{noncurrentVersionExpiration:Duration.days(30),abortIncompleteMultipartUploadAfter:Duration.days(1)}],
-    });
+    const gameTable = props.storage!.gameTable;
+    const libraryBucket = props.storage!.libraryBucket;
     const legacyAnalysisQueue = props.keepLegacyAnalysisQueue!==false?new sqs.Queue(this,'AnalysisQueue',{
       retentionPeriod:Duration.days(14), visibilityTimeout:Duration.minutes(3),
     }):undefined;

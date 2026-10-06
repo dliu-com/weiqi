@@ -1,8 +1,11 @@
 import { App } from 'aws-cdk-lib';
 import { Match, Template } from 'aws-cdk-lib/assertions';
+import { WeiqiStorageStack } from '../lib/weiqi-storage-stack';
 import { WeiqiSiteStack } from '../lib/weiqi-site-stack';
 
-const template = Template.fromStack(new WeiqiSiteStack(new App(), 'TestWeiqi'));
+const app=new App();const storage=new WeiqiStorageStack(app,'WeiqiStorage',{terminationProtection:true});const site=new WeiqiSiteStack(app,'TestWeiqi',{storage});
+const template=Template.fromStack(site),retained=Template.fromStack(storage);
+function makeSite(id:string,props:any){const app=new App(),storage=new WeiqiStorageStack(app,'WeiqiStorage',{env:props.env});return new WeiqiSiteStack(app,id,{...props,storage});}
 
 test('static site storage stays private and encrypted', () => {
   template.hasResourceProperties('AWS::S3::Bucket', {
@@ -34,7 +37,7 @@ test('serves only the Weiqi subdomain over HTTPS, without always-on infrastructu
   template.resourceCountIs('AWS::Route53::RecordSet', 2);
   template.resourceCountIs('AWS::ECS::Service', 0);
   template.resourceCountIs('AWS::ApiGateway::RestApi', 0);
-  template.resourceCountIs('AWS::DynamoDB::Table', 1);
+  template.resourceCountIs('AWS::DynamoDB::Table', 0);
   template.resourceCountIs('AWS::EC2::NatGateway', 0);
   template.resourceCountIs('AWS::EC2::Instance', 0);
   template.resourceCountIs('AWS::RDS::DBInstance', 0);
@@ -45,13 +48,13 @@ test('serves only the Weiqi subdomain over HTTPS, without always-on infrastructu
 });
 
 test('game persistence is on-demand and requests reach Lambda only through CloudFront', () => {
-  template.hasResourceProperties('AWS::DynamoDB::Table', {
+  retained.hasResourceProperties('AWS::DynamoDB::Table', {
     BillingMode: 'PAY_PER_REQUEST',
     KeySchema: [{ AttributeName: 'gameId', KeyType: 'HASH' }],
     ProvisionedThroughput: Match.absent(),
-    PointInTimeRecoverySpecification: Match.absent(),
+    PointInTimeRecoverySpecification: {PointInTimeRecoveryEnabled:true},DeletionProtectionEnabled:true,
   });
-  template.hasResource('AWS::DynamoDB::Table', { DeletionPolicy: 'Retain' });
+  retained.hasResource('AWS::DynamoDB::Table', { DeletionPolicy: 'Retain' });
   template.hasResourceProperties('AWS::Lambda::Url', { AuthType: 'AWS_IAM' });
   template.hasResourceProperties('AWS::CloudFront::OriginAccessControl', {
     OriginAccessControlConfig: Match.objectLike({ OriginAccessControlOriginType: 'lambda', SigningBehavior: 'always' }),
@@ -74,7 +77,7 @@ function cloudfrontNoCache() {
 }
 
 test('record library uses a separate retained private bucket and a queue without paid workers',()=>{
- template.resourceCountIs('AWS::S3::Bucket',2);
+ template.resourceCountIs('AWS::S3::Bucket',1);retained.resourceCountIs('AWS::S3::Bucket',1);
  template.hasResourceProperties('AWS::SQS::Queue',{MessageRetentionPeriod:1209600,VisibilityTimeout:180});
  template.resourceCountIs('AWS::Batch::ComputeEnvironment',0);
  template.resourceCountIs('AWS::Lambda::EventSourceMapping',0);
@@ -83,7 +86,7 @@ test('record library uses a separate retained private bucket and a queue without
 
 test('validated upload queue can be selected while retaining the old queue for draining',()=>{
  const selected='arn:aws:sqs:eu-west-1:123456789012:validated-uploads';
- const cutover=Template.fromStack(new WeiqiSiteStack(new App(),'Cutover',{analysisQueueArnOverride:selected,env:{account:'123456789012',region:'eu-west-1'}}));
+ const cutover=Template.fromStack(makeSite('Cutover',{analysisQueueArnOverride:selected,env:{account:'123456789012',region:'eu-west-1'}}));
  cutover.resourceCountIs('AWS::SQS::Queue',1);
  const functions=Object.values(cutover.findResources('AWS::Lambda::Function'));
  const game=functions.find(f=>f.Properties.Environment?.Variables?.ANALYSIS_QUEUE);
@@ -92,7 +95,7 @@ test('validated upload queue can be selected while retaining the old queue for d
 });
 
 test('legacy upload queue can be removed after the selected route is validated',()=>{
- const final=Template.fromStack(new WeiqiSiteStack(new App(),'Final',{analysisQueueArnOverride:'arn:aws:sqs:eu-west-1:123456789012:validated-uploads',keepLegacyAnalysisQueue:false,env:{account:'123456789012',region:'eu-west-1'}}));
+ const final=Template.fromStack(makeSite('Final',{analysisQueueArnOverride:'arn:aws:sqs:eu-west-1:123456789012:validated-uploads',keepLegacyAnalysisQueue:false,env:{account:'123456789012',region:'eu-west-1'}}));
  final.resourceCountIs('AWS::SQS::Queue',0);
- expect(()=>new WeiqiSiteStack(new App(),'Invalid',{keepLegacyAnalysisQueue:false})).toThrow('queue');
+ expect(()=>makeSite('Invalid',{keepLegacyAnalysisQueue:false})).toThrow('queue');
 });

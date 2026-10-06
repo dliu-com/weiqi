@@ -5,35 +5,43 @@
   "smallServiceAllowanceUSD": 2,
   "billingIsEstimate": true,
   "selectedWorker": {
-    "quick": {
-      "backend": "fargate-cpu",
-      "vCPU": 32,
-      "memoryGB": 60,
-      "visits": 8
-    },
-    "deep": {
+    "pipeline": {
       "backend": "gpu",
       "instanceType": "g4dn.xlarge",
       "gpu": "NVIDIA T4",
-      "visits": 1000,
+      "vCPU": 4,
+      "memoryGB": 16,
+      "quickVisits": 32,
+      "deepVisits": 1000,
       "analysisThreads": 16,
       "nnMaxBatchSize": 32
     },
     "capacityFallback": {
-      "backend": "fargate-cpu",
-      "vCPU": 32,
-      "memoryGB": 60,
-      "visits": 96,
-      "afterQueuedSeconds": 1200
+      "backend": "gpu",
+      "instanceType": "g5.xlarge",
+      "gpu": "NVIDIA A10G",
+      "vCPU": 4,
+      "memoryGB": 16,
+      "quickVisits": 32,
+      "deepVisits": 1000,
+      "afterQueuedSeconds": 180
+    },
+    "retries": {
+      "maximum": 2,
+      "delaysSeconds": [
+        300,
+        900
+      ],
+      "alternateGpuPools": true
     }
   },
   "verifiedTests": {
-    "node": 80,
-    "python": 7,
+    "node": 89,
+    "python": 9,
     "cdk": 13
   },
   "pending": [
-    "Fargate 128-vCPU support case awaits Linux/X86_64 and workload details; reply awaiting user authorization. Effective quota remains 64."
+    "Full 321-move deep production validation and GPU retry recovery completing."
   ],
   "finalProductPerGameCostTargetUSD": 1,
   "quickTargetSeconds": 300,
@@ -44,8 +52,8 @@
   "existingDevelopmentRecordsDisposable": true,
   "timingIncludesQueueAndCapacity": true,
   "deepMaximumExpectationSeconds": 7200,
-  "deployment": "Hybrid public upload route validated and deployed; legacy consumer and queue removed through CloudFormation.",
-  "selectedQuickMeasuredTotalSeconds": 218.904,
+  "deployment": "GPU-only pipeline deployed in Ireland; storage migrated intact to protected WeiqiStorage; CPU stack removal underway.",
+  "selectedQuickMeasuredTotalSeconds": 196.64,
   "selectedDeepMeasuredTotalSeconds": 1120.284,
   "resourceCleanup": {
     "removedStacks": [
@@ -100,5 +108,6 @@
     "quickSuggestedLines": 588,
     "deepSuggestedLines": 672,
     "gpuWorkerAutomaticallyRetired": true
-  }
+  },
+  "storageStack": "WeiqiStorage"
 }

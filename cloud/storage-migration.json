@@ -1,0 +1,16 @@
+{
+  "stack": "WeiqiStorage",
+  "region": "eu-west-1",
+  "method": "CloudFormation stack refactoring",
+  "refactorId": "71d1e560-3e7d-451b-b827-438756c65dd4",
+  "status": "EXECUTE_COMPLETE",
+  "libraryBucket": "weiqisite-recordlibrary34c28f86-bfnqhy6739na",
+  "gameTable": "WeiqiSite-GameState6B815631-1MDYVBCWEL2O2",
+  "existingPhysicalResourcesPreserved": true,
+  "terminationProtection": true,
+  "resourceRetention": true,
+  "stackPolicyPreventsDeletionAndReplacement": true,
+  "s3Versioning": true,
+  "dynamoDbDeletionProtection": true,
+  "dynamoDbPointInTimeRecovery": true
+}
