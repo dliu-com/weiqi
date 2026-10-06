@@ -1,0 +1,18 @@
+{
+  "verifiedAt": "2026-10-06T13:40:09.593711+00:00",
+  "reference": "https://online-go.com/game/91320610",
+  "referenceObserved": "OGS retraces a variation with left/right and follows the recorded first move after returning to the origin.",
+  "record": "2026100620",
+  "manualPreview": "174 -> 173 -> 174 -> 171 -> recorded 172",
+  "aiContinuation": "175 (3/9) -> 174 (2/9) -> recorded 172 -> recorded 173",
+  "chartFocusedArrowFollowsAiLine": true,
+  "mobileWidth": 390,
+  "mobileButtonsUndoRedoAndExit": true,
+  "horizontalOverflow": false,
+  "nodeTests": 120,
+  "newAnalysisJobs": 0,
+  "productionVerified": true,
+  "productionUrl": "https://weiqi.dliu.com/record/2026100620?move=172",
+  "productionManualPreview": "175 -> 176 -> recorded 173",
+  "productionAiReplay": "175 (3/9) -> 174 (2/9) -> recorded 172 -> recorded 173"
+}
