@@ -19,6 +19,7 @@ async function readGame(key = 'current') {
 exports.handler = async event => {
   const method = event.requestContext?.http?.method;
   const requestPath = event.rawPath;
+  if (requestPath === '/api/library' || requestPath.startsWith('/api/library/')) return libraryHandler(event);
   const archiveId = requestPath.startsWith('/api/games/') ? requestPath.slice('/api/games/'.length) : null;
   const key = archiveId ? 'archive#' + archiveId : 'current';
   if (requestPath !== '/api/game' && requestPath !== '/api/games' && !archiveId) return response(404, { message: '页面不存在。' });

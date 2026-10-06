@@ -1,0 +1,11 @@
+import {App} from 'aws-cdk-lib';
+import {Template} from 'aws-cdk-lib/assertions';
+import {mkdtempSync,writeFileSync,rmSync} from 'fs';
+import {tmpdir} from 'os';
+import {join} from 'path';
+import {WeiqiBenchmarkStack} from '../lib/weiqi-benchmark-stack';
+const fixture=mkdtempSync(join(tmpdir(),'weiqi-benchmark-test-'));writeFileSync(join(fixture,'fixture'),'fictional engine');
+const template=Template.fromStack(new WeiqiBenchmarkStack(new App(),'TestBenchmarks',{libraryBucket:'fictional-library',enableGpu:true,engineAssetPath:fixture,env:{account:'123456789012',region:'eu-west-1'}}));
+afterAll(()=>rmSync(fixture,{recursive:true,force:true}));
+test('CPU benchmarking is private, time-limited and has no provisioned capacity',()=>{template.hasResourceProperties('AWS::Lambda::Function',{MemorySize:3008,Timeout:900});template.resourceCountIs('AWS::Lambda::Url',0);template.resourceCountIs('AWS::EC2::NatGateway',0);});
+test('GPU compute scales to zero and job execution is bounded',()=>{template.hasResourceProperties('AWS::Batch::ComputeEnvironment',{ComputeResources:{Type:'SPOT',MinvCpus:0,DesiredvCpus:0,MaxvCpus:4,InstanceTypes:['g4dn.xlarge']}});template.hasResourceProperties('AWS::Batch::JobDefinition',{RetryStrategy:{Attempts:1},Timeout:{AttemptDurationSeconds:900}});});

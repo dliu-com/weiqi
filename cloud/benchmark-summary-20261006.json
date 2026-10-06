@@ -1,0 +1,119 @@
+{
+  "measuredAt": "2026-10-05T23:34:45.826Z",
+  "cpu": 32,
+  "memoryGB": 60,
+  "gameMoves": 321,
+  "model": "kata1-tf3-b11c768-s12252M-d6398M.bin.gz",
+  "modelSha256": "ad279eb0e6aa4ddf52cf24b27241d220043b31f38064b3fc3a43d5a524e6b03d",
+  "engineVersion": "KataGo v1.18.1",
+  "rules": "japanese",
+  "komi": 6.5,
+  "comparisons": [
+    {
+      "visits": 4,
+      "positions": 322,
+      "triggerSeconds": 0.3519414590000001,
+      "startupSeconds": 22.619,
+      "imagePullSeconds": 3.588,
+      "setupSeconds": 4.407,
+      "engineSeconds": 100.736,
+      "saveSeconds": 0.465,
+      "totalExcludingQueueSeconds": 128.578941459,
+      "costUSD": 0.05920004444444445,
+      "peakMemoryMB": 2330.7,
+      "averageBusyCpuCores": 29.705169949174078,
+      "recordUrl": "https://weiqi.dliu.com/record/2026100603",
+      "comparisonTo128": {
+        "meanPointDifference": 0.3527851960118012,
+        "medianPointDifference": 0.18726451000000033,
+        "meanWinProbabilityDifferencePercentagePoints": 1.8630696236372672,
+        "leaderAgreementOutsideTwoPointBand": 0.9955156950672646,
+        "positionsOutsideTwoPointBand": 223,
+        "pointDifference95thPercentile": 1.05734,
+        "maximumPointDifference": 5.57637,
+        "winProbabilityDifference95thPercentilePercentagePoints": 12.3554,
+        "maximumWinProbabilityDifferencePercentagePoints": 44.1732
+      }
+    },
+    {
+      "visits": 8,
+      "positions": 322,
+      "triggerSeconds": 0.3347855840000002,
+      "startupSeconds": 38.907,
+      "imagePullSeconds": 18.589,
+      "setupSeconds": 12.687,
+      "engineSeconds": 170.476,
+      "saveSeconds": 0.464,
+      "totalExcludingQueueSeconds": 222.868785584,
+      "costUSD": 0.09837654444444445,
+      "peakMemoryMB": 2358.4,
+      "averageBusyCpuCores": 30.094265468453038,
+      "recordUrl": "https://weiqi.dliu.com/record/2026100520",
+      "comparisonTo128": {
+        "meanPointDifference": 0.32501476082568354,
+        "medianPointDifference": 0.13094709999999998,
+        "meanWinProbabilityDifferencePercentagePoints": 1.6050894982577653,
+        "leaderAgreementOutsideTwoPointBand": 0.9955156950672646,
+        "positionsOutsideTwoPointBand": 223,
+        "pointDifference95thPercentile": 1.06847,
+        "maximumPointDifference": 5.71842,
+        "winProbabilityDifference95thPercentilePercentagePoints": 10.1598,
+        "maximumWinProbabilityDifferencePercentagePoints": 35.5667
+      }
+    },
+    {
+      "visits": 10,
+      "positions": 322,
+      "triggerSeconds": 0.3566437920000003,
+      "startupSeconds": 25.93,
+      "imagePullSeconds": 3.726,
+      "setupSeconds": 4.473,
+      "engineSeconds": 202.618,
+      "saveSeconds": 0.463,
+      "totalExcludingQueueSeconds": 233.84064379199998,
+      "costUSD": 0.10229419444444446,
+      "peakMemoryMB": 2369.2,
+      "averageBusyCpuCores": 30.287121578536954,
+      "recordUrl": "https://weiqi.dliu.com/record/2026100602",
+      "comparisonTo128": {
+        "meanPointDifference": 0.30978534910621125,
+        "medianPointDifference": 0.11594642000000022,
+        "meanWinProbabilityDifferencePercentagePoints": 1.5050994489680118,
+        "leaderAgreementOutsideTwoPointBand": 0.9955156950672646,
+        "positionsOutsideTwoPointBand": 223,
+        "pointDifference95thPercentile": 0.940645,
+        "maximumPointDifference": 5.69683,
+        "winProbabilityDifference95thPercentilePercentagePoints": 10.0463,
+        "maximumWinProbabilityDifferencePercentagePoints": 33.339
+      }
+    },
+    {
+      "visits": 128,
+      "positions": 322,
+      "triggerSeconds": 0.3396976249999998,
+      "startupSeconds": 27.184,
+      "imagePullSeconds": 6.642,
+      "setupSeconds": 18.296,
+      "engineSeconds": 2168.849,
+      "saveSeconds": 0.464,
+      "totalExcludingQueueSeconds": 2215.132697625,
+      "costUSD": 0.9654830777777779,
+      "peakMemoryMB": 2543.6,
+      "averageBusyCpuCores": 30.389766184736693,
+      "recordUrl": "https://weiqi.dliu.com/record/2026100521",
+      "comparisonTo128": {
+        "meanPointDifference": 0,
+        "medianPointDifference": 0,
+        "meanWinProbabilityDifferencePercentagePoints": 0,
+        "leaderAgreementOutsideTwoPointBand": 1,
+        "positionsOutsideTwoPointBand": 223
+      }
+    }
+  ],
+  "limitations": "Single full-game run per setting. Agreement with the 128-visit reference measures consistency, not proven accuracy. Costs are Ireland Linux/x86 list-price estimates for compute and public IP only, before credits; totals exclude queue time. Image pull is part of startup, not additional.",
+  "selectedConfiguration": {
+    "quickVisits": 10,
+    "deepVisits": 128,
+    "reason": "10 visits improves preliminary win-probability consistency versus 4 visits while remaining below five minutes; 128 visits completes below one hour on the supplied full game."
+  }
+}

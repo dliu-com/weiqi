@@ -1,0 +1,72 @@
+import importlib.util,io,json,os,pathlib,sys,tempfile,types,unittest
+from unittest.mock import patch
+class WorkerTest(unittest.TestCase):
+ def setUp(self):
+  self.directory=tempfile.TemporaryDirectory();self.addCleanup(self.directory.cleanup)
+  os.environ['LIBRARY_BUCKET']='fictional';os.environ['KATAGO_MODEL_PATH']=str(pathlib.Path(self.directory.name)/'model');os.environ.pop('DOWNLOAD_ENGINE',None);os.environ['KATAGO_MODEL_KEY']='models/kata1-tf3-b11c768-s12252M-d6398M.bin.gz';os.environ['KATAGO_MODEL_URL']='https://media.katagotraining.org/uploaded/networks/models/kata1/kata1-tf3-b11c768-s12252M-d6398M.bin.gz'
+  self.files={'games/2026100501/metadata.json':{'body':json.dumps({'analysis':{'status':'queued','jobId':'job'}}),'etag':'1'}}
+  outer=self
+  class Store:
+   def get_object(self,**args):
+    item=outer.files[args['Key']];return {'Body':io.BytesIO(item['body'].encode()),'ETag':item['etag']}
+   def download_file(self,bucket,key,target):raise AssertionError('Models must not be downloaded from S3')
+   def put_object(self,**args):
+    old=outer.files.get(args['Key'],{'etag':'0'})
+    if args.get('IfMatch') and old['etag']!=args['IfMatch']:raise RuntimeError('Lost claim')
+    outer.files[args['Key']]={'body':args['Body'].decode(),'etag':str(int(old['etag'])+1)}
+  self.boto=types.ModuleType('boto3');self.boto.client=lambda _:Store()
+  with patch.dict(sys.modules,{'boto3':self.boto}):
+   spec=importlib.util.spec_from_file_location('worker',pathlib.Path(__file__).resolve().parents[2]/'cloud/worker/worker.py');self.worker=importlib.util.module_from_spec(spec);spec.loader.exec_module(self.worker)
+  self.download=patch.object(self.worker.urllib.request,'urlopen',side_effect=lambda *args,**kwargs:io.BytesIO(b'fictional model')).start();self.addCleanup(patch.stopall)
+  self.event={'id':'2026100501','production':True,'query':{'maxVisits':10,'boardXSize':19,'boardYSize':19,'analyzeTurns':[0,1,2],'rules':'japanese','komi':6.5},'nodeIds':[0,1,2],'outputPrefix':'games/2026100501','sgfSha256':'fictionalhash','requestedAt':'2026-10-05T00:00:00Z'}
+ def test_complete_results_and_timing_are_saved_and_ready_job_is_reused(self):
+  output='\n'.join(json.dumps({'turnNumber':n,'rootInfo':{'scoreLead':n,'winrate':.5,'visits':10}}) for n in [2,0,1])
+  with patch.object(self.worker.subprocess,'run',return_value=types.SimpleNamespace(returncode=0,stdout=output)),patch.object(self.worker.subprocess,'check_output',return_value='KataGo test\n'):
+   self.worker.handler(self.event)
+   data=json.loads(self.files['games/2026100501/analysis.json']['body']);self.assertEqual([p['move'] for p in data['positions']],[0,1,2]);self.assertEqual(data['rules'],'japanese')
+   self.assertEqual(json.loads(self.files['games/2026100501/metadata.json']['body'])['analysis']['status'],'ready')
+   timing=json.loads(self.files['jobs/2026100501/timings.json']['body'])['timings'];self.assertIn('engineLoadAndAnalysisMs',timing);self.assertIn('saveResultsAndStatusMs',timing)
+   self.assertEqual(self.worker.handler(self.event)['status'],'skipped')
+ def test_incomplete_results_never_publish_ready(self):
+  with patch.object(self.worker.subprocess,'run',return_value=types.SimpleNamespace(returncode=0,stdout='')):
+   with self.assertRaisesRegex(RuntimeError,'Incomplete'):self.worker.handler(self.event)
+  self.assertNotIn('games/2026100501/analysis.json',self.files)
+  self.assertEqual(json.loads(self.files['games/2026100501/metadata.json']['body'])['analysis']['status'],'running')
+ def test_quick_is_available_while_deep_runs_then_replaced(self):
+  self.files['games/2026100501/metadata.json']['body']=json.dumps({'analysis':{'status':'queued','quick':{'status':'queued'},'deep':{'status':'running'}}})
+  output='\n'.join(json.dumps({'turnNumber':n,'rootInfo':{'scoreLead':n,'winrate':.5,'visits':1}}) for n in [0,1,2])
+  with patch.object(self.worker.subprocess,'run',return_value=types.SimpleNamespace(returncode=0,stdout=output)),patch.object(self.worker.subprocess,'check_output',return_value='KataGo test\n'):
+   self.worker.handler({**self.event,'phase':'quick'})
+   state=json.loads(self.files['games/2026100501/metadata.json']['body'])['analysis']
+   self.assertEqual(state['available'],'quick');self.assertEqual(state['status'],'running')
+   self.assertIn('games/2026100501/analysis-quick.json',self.files)
+   self.worker.handler({**self.event,'phase':'deep'})
+   state=json.loads(self.files['games/2026100501/metadata.json']['body'])['analysis']
+   self.assertEqual(state['available'],'deep');self.assertEqual(state['status'],'ready')
+   self.assertEqual(json.loads(self.files['games/2026100501/analysis.json']['body'])['phase'],'deep')
+ def test_deep_finishing_first_cannot_be_downgraded_by_quick(self):
+  self.files['games/2026100501/metadata.json']['body']=json.dumps({'analysis':{'status':'running','quick':{'status':'running'},'deep':{'status':'ready','visits':1000},'available':'deep'}})
+  self.worker.update_phase('2026100501','quick',{'status':'ready','visits':1})
+  state=json.loads(self.files['games/2026100501/metadata.json']['body'])['analysis']
+  self.assertEqual(state['available'],'deep');self.assertEqual(state['visits'],1000)
+  self.assertEqual(self.worker.handler({**self.event,'phase':'quick'})['status'],'skipped')
+ def test_gpu_batch_setting_is_applied_and_saved_without_changing_the_cpu_default(self):
+  output='\n'.join(json.dumps({'turnNumber':n,'rootInfo':{'scoreLead':n,'winrate':.5,'visits':10}}) for n in [0,1,2])
+  configs=[]
+  def run(args,**kwargs):
+   configs.append(pathlib.Path(args[-1]).read_text());return types.SimpleNamespace(returncode=0,stdout=output)
+  with patch.dict(os.environ,{'NN_MAX_BATCH_SIZE':'32','ANALYSIS_THREADS':'16'}),patch.object(self.worker.subprocess,'run',side_effect=run),patch.object(self.worker.subprocess,'check_output',return_value='KataGo GPU test\n'):
+   self.worker.handler({**self.event,'compute':{'backend':'gpu','vCpu':4,'memoryGB':16,'gpu':'NVIDIA T4','gpuCount':1,'instanceType':'g4dn.xlarge'}})
+  self.assertIn('nnMaxBatchSize = 32',configs[0]);self.assertIn('numAnalysisThreads = 16',configs[0])
+  saved=json.loads(self.files['games/2026100501/analysis.json']['body']);self.assertEqual(saved['configuration']['maxBatchSize'],32)
+  self.assertEqual(saved['compute']['gpu'],'NVIDIA T4');self.assertEqual(saved['compute']['vCpu'],4);self.assertEqual(saved['compute']['memoryGB'],16)
+ def test_each_pass_downloads_official_model_with_identified_client_and_never_stores_a_model(self):
+  self.files['games/2026100501/metadata.json']['body']=json.dumps({'analysis':{'status':'queued','quick':{'status':'queued'},'deep':{'status':'queued'}}})
+  output='\n'.join(json.dumps({'turnNumber':n,'rootInfo':{'scoreLead':n,'winrate':.5,'visits':10}}) for n in [0,1,2])
+  with patch.object(self.worker.subprocess,'run',return_value=types.SimpleNamespace(returncode=0,stdout=output)),patch.object(self.worker.subprocess,'check_output',return_value='KataGo test\n'):
+   self.worker.handler({**self.event,'phase':'quick'});self.worker.handler({**self.event,'phase':'deep'})
+  self.assertEqual(self.download.call_count,2)
+  request=self.download.call_args.args[0];self.assertEqual(request.full_url,os.environ['KATAGO_MODEL_URL']);self.assertIn('KataGo-analysis-library',request.get_header('User-agent'))
+  self.assertFalse(any(key.startswith('models/') for key in self.files))
+  analysis=json.loads(self.files['games/2026100501/analysis.json']['body']);self.assertEqual(analysis['modelUrl'],request.full_url);self.assertIn('modelSha256',analysis);self.assertIn('configuration',analysis)
+if __name__=='__main__':unittest.main()
