@@ -24,3 +24,6 @@ __pycache__/
 /src/report-pdf.js.LEGAL.txt
 /backend/report-renderer/assets/
 /output/pdf/
+
+# Local release validation may describe private cloud infrastructure.
+/cloud/flow-*.json

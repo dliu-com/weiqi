@@ -10,7 +10,7 @@ export function localLibrary(directory,options={}) {
   };
   const pending=new Set();let running=false;
   async function drain(){if(running||!options.model)return;running=true;try{while(pending.size){const id=pending.values().next().value;pending.delete(id);try{await runLocalJob(directory,id,options);}catch(e){console.error('Local analysis failed:',e.message);}}}finally{running=false;}}
-  return async function handle(request,send,pathname) {
+  const handle=async function(request,send,pathname) {
     const id=pathname.slice('/api/library/'.length);
     try {
       if(request.method==='GET'&&pathname==='/api/library'){
@@ -38,9 +38,11 @@ export function localLibrary(directory,options={}) {
       if(request.headers.origin && request.headers.origin!=='http://'+request.headers.host)return send(403,{message:'Invalid request origin.'});
       let body='';for await(const chunk of request){body+=chunk;if(Buffer.byteLength(body)>1600000)return send(413,{message:'Upload too large.'});}
       let data;try{data=JSON.parse(body);}catch{return send(400,{message:'Invalid upload request.'});}
-      const metadata=await uploadRecord(store,data.sgf,data.filename,data.id);
+      const metadata=await handle.save(data.sgf,data.filename,data.id);
       if(metadata.analysis.status==='queued'&&options.model){pending.add(metadata.id);void drain();}
       return send(200,{id:metadata.id});
     }catch(e){return send(e.code==='ENOENT'?404:e.statusCode||500,{message:e.statusCode?e.message:'The library is unavailable. Please retry.'});}
   };
+  handle.save=async(source,filename,id)=>{const metadata=await uploadRecord(store,source,filename,id);if(metadata.analysis.status==='queued'&&options.model){pending.add(metadata.id);void drain();}return metadata;};
+  return handle;
 }

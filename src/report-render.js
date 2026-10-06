@@ -5,7 +5,7 @@ import {gameResult} from './game-result.js';
 import {reportPagination} from './report-document.js';
 import {selectReportHighlights} from './report-highlights.js';
 import {comparisonChart,compositionChart,qualityLegend,reportChartColours} from './report-stat-charts.js';
-const $=id=>document.getElementById(id),id=location.pathname.match(/^\/record\/([^/]+)\/report\/?$/)?.[1]||new URLSearchParams(location.search).get('game');
+const $=id=>document.getElementById(id),id=location.pathname.match(/^\/(?:record|game)\/([^/]+)\/report\/?$/)?.[1]||new URLSearchParams(location.search).get('game');
 let report=null,reportLanguage=new URLSearchParams(location.search).get('lang')==='zh'?'zh':'en';
 const t=(zh,en)=>reportLanguage==='zh'?zh:en;
 const locale=()=>reportLanguage==='zh'?'zh-CN':'en-GB';
@@ -138,7 +138,7 @@ function addStatistics(sheet){
   if(!moves.length){keyTable.append(node('p',t('未找到损失超过 0.5 目的已评定失误。','No rated errors losing more than 0.5 points were found.'),'report-note'));continue;}
   const grid=table([t('手数','Move'),t('实战','Played'),t('目数损失（目）','Point loss'),t('胜率损失','Win loss'),t('后续复盘','Follow-up review')],moves.map(m=>[m.move,m.played,(m.estimated?'≈ ':'')+number(m.pointLoss),number(m.winrateLoss)+t(' 个百分点',' pp'),reviewed.has(m.nodeId)?t('后文棋盘详解','Detailed board review'):t('棋局回放','Game replay')]));
   for(const [index,row] of [...grid.tBodies[0].rows].entries()){
-   const m=moves[index],link=node('a',String(m.move));row.className='report-key-move'+(reviewed.has(m.nodeId)?' report-key-reviewed':'');link.href='https://weiqi.dliu.com/record/'+id+'?move='+m.nodeId;row.cells[0].replaceChildren(link);
+   const m=moves[index],link=node('a',String(m.move));row.className='report-key-move'+(reviewed.has(m.nodeId)?' report-key-reviewed':'');link.href='https://weiqi.dliu.com/game/'+id+'?move='+m.nodeId;row.cells[0].replaceChildren(link);
    if(reviewed.has(m.nodeId)){const detail=node('a',t('后文棋盘详解','Detailed board review'));detail.dataset.reviewMove=String(m.move);detail.dataset.reviewSide=side;row.cells[4].replaceChildren(detail);}
   }
   keyTable.append(grid);
@@ -166,7 +166,7 @@ function renderLanguage(value){
   answer.append(node('p',t('数字从选点后的第 1 手开始；停一手不标在棋盘上。最多显示 12 手，后续为引擎推荐变化，不是实际棋谱。','Numbers start with the candidate move. Passes have no board label. Up to 12 moves are shown; continuations are engine suggestions, not the recorded game.'),'report-note'));
   if(m.estimated)answer.append(node('p',t('实战着法的搜索不足，其评估来自落子后的局面；数值为估计。','The played move had insufficient search; its evaluation comes from the following position and is estimated.'),'report-note'));
   if(m.bestLine.truncated)answer.append(node('p',t('无法合法复现的变化已截断。','A continuation that could not be replayed legally has been truncated.'),'report-note'));
-  const link=node('a',t('在棋局中复盘这一步','Review this move in the game'));link.href='/record/'+id+'?move='+m.nodeId;answer.append(link);
+  const link=node('a',t('在棋局中复盘这一步','Review this move in the game'));link.href='/game/'+id+'?move='+m.nodeId;answer.append(link);
  }
  const plan=reportPagination(sheets.map(s=>s.querySelector('h2').textContent));
  for(const [index,s] of sheets.entries()){s.id=plan.contents[index].target;s.dataset.reportTitle=plan.contents[index].title;s.prepend(node('p','DL / WEIQI','report-running-header'));}
@@ -180,23 +180,24 @@ function renderLanguage(value){
  const playerCards=node('div',undefined,'report-cover-players');
  for(const side of ['B','W']){const card=node('div',undefined,'report-cover-player report-cover-player-'+side);card.append(node('span',sideName(side),'report-cover-side'),node('strong',game.players[side==='B'?'black':'white']||'—'));playerCards.append(card);}
  cover.append(playerCards,node('p',result?t(result.zh,result.en):game.result||t('结果未记录','Result not recorded'),'report-cover-result'));
- const gameAddress='https://weiqi.dliu.com/record/'+id,gameLinkBox=node('p',undefined,'report-cover-link'),coverLink=node('a',gameAddress);coverLink.href=gameAddress;gameLinkBox.append(node('span',t('在线棋局','ONLINE GAME')),coverLink);cover.append(gameLinkBox);
+ const gameAddress='https://weiqi.dliu.com/game/'+id,gameLinkBox=node('p',undefined,'report-cover-link'),coverLink=node('a',gameAddress);coverLink.href=gameAddress;gameLinkBox.append(node('span',t('在线棋局','ONLINE GAME')),coverLink);cover.append(gameLinkBox);
  const metadata=entries=>{const grid=node('dl',undefined,'report-cover-data');for(const [label,value,wide] of entries){const entry=node('div',undefined,wide?'report-cover-data-wide':undefined);entry.append(node('dt',label),node('dd',value||'—'));grid.append(entry);}return grid;};
  const gameDetails=metadata([[t('棋局 ID','Game ID'),id],[t('棋局日期','Game date'),game.date],[t('规则','Rules'),rules],[t('棋盘','Board'),'19 × 19'],[t('贴目','Komi'),String(game.komi)],[t('实战手数','Recorded moves'),String(game.moves)]]);gameDetails.classList.add('report-cover-game-details');cover.append(gameDetails);
  const publication=node('div',undefined,'report-cover-analysis');
  publication.append(node('h3',t('分析与报告元数据','ANALYSIS AND REPORT METADATA')),metadata([[t('引擎','Engine'),p.engine],[t('每个局面的访问量','Visits per position'),p.visits.toLocaleString(locale())],[t('模型','Model'),p.model,true],[t('模型 SHA-256','Model SHA-256'),p.modelSha256,true],[t('计算资源','Compute'),[c.gpu,c.instanceType,c.vCpu?c.vCpu+' vCPUs':'',c.memoryGB?c.memoryGB+' GB RAM':''].filter(Boolean).join(' · '),true],[t('总分析时间（含排队与准备）','Analysis total including queue/setup'),duration],[t('报告语言','Report language'),t('中文','English')],[t('分析完成时间','Analysis completed'),timestamp(p.completedAt),true],[t('报告生成时间','Report prepared'),timestamp(report.generatedAt),true]]));
+ const credit=node('p',undefined,'report-cover-credit');credit.append(document.createTextNode(t('由 Dewei 围棋生成 · ','Prepared by Dewei Weiqi · ')));const creditLink=node('a','dliu.com');creditLink.href='https://dliu.com';credit.append(creditLink);cover.append(credit);
  cover.append(publication,node('p',t('先看全局走势 · 双方各五手失误统计 · 各三手棋盘详解','Game story first / Five errors per side / Three detailed board reviews each'),'report-cover-scope'));
  const contents=front('contents');contents.id='report-page-2';contents.dataset.reportTitle=t('目录','Table of contents');
  contents.append(node('p','DL / WEIQI','report-running-header'),node('h2',t('目录','Table of contents')),node('p',t('全局统计与数学方法在前，具体失误局面在后。点击条目即可跳转。','Statistics and methods come first, followed by the detailed error positions. Select an entry to jump to its page.'),'report-note'));
  const list=node('ol',undefined,'report-contents-list');
  for(const entry of plan.contents){const item=node('li'),link=node('a');link.href=location.pathname+location.search+'#'+entry.target;link.dataset.reportPage=String(entry.page);link.append(node('span',entry.title,'report-contents-title'),node('span',undefined,'report-contents-leader'),node('span',String(entry.page),'report-contents-page'));item.append(link);list.append(item);}
  contents.append(list);fragment.prepend(cover,contents);sheets.unshift(cover,contents);
- for(const [index,s] of sheets.entries()){s.dataset.reportPage=String(index+1);const footer=node('footer',undefined,'report-footer'),gameLink=node('a','weiqi.dliu.com/record/'+id);gameLink.href='https://weiqi.dliu.com/record/'+id;footer.append(gameLink,node('span',t('中文','English')+' · '+(index+1)+' / '+plan.pageCount));s.append(footer);}
+ for(const [index,s] of sheets.entries()){s.dataset.reportPage=String(index+1);const footer=node('footer',undefined,'report-footer'),gameLink=node('a','weiqi.dliu.com/game/'+id);gameLink.href='https://weiqi.dliu.com/game/'+id;footer.append(gameLink,node('span',t('中文','English')+' · '+(index+1)+' / '+plan.pageCount));s.append(footer);}
  return fragment;
 }
 function render(){
  document.title=t('AI 棋局报告','AI game report')+' · DL';document.documentElement.lang=reportLanguage==='zh'?'zh-CN':'en';
- $('back-record').textContent=t('返回棋局','Return to game');$('back-record').href='/record/'+id;
+ $('back-record').textContent=t('返回棋局','Return to game');$('back-record').href='/game/'+id;
  $('save-report').textContent=t('保存 PDF','Save PDF');
  for(const value of ['en','zh'])$(`report-${value}`).setAttribute('aria-pressed',String(reportLanguage===value));
  if(!report)return;

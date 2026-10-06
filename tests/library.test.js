@@ -34,12 +34,12 @@ test('daily IDs are sequential, concurrent-safe and upload retries reuse their I
 });
 function memoryStore(){const files=new Map();return {files,get:async key=>{if(!files.has(key))throw Object.assign(Error(),{name:'NoSuchKey'});return files.get(key);},create:async(key,value)=>{if(files.has(key))return false;files.set(key,value);return true;}};}
 const uploadId=n=>String(n).padStart(8,'0')+'-1234-1234-1234-123456789abc';
-test('concurrent uploads claim at most 20 paid slots, keeping later records replayable',async()=>{
+test('concurrent uploads claim at most 10 paid slots, keeping later records replayable',async()=>{
  const store=memoryStore(),now=new Date('2026-10-05T15:00:00Z');
  const records=await Promise.all(Array.from({length:21},(_,n)=>uploadRecord(store,sample,'game.sgf',uploadId(n),now)));
- assert.equal(records.filter(r=>r.analysis.status==='queued').length,20);
- const limited=records.find(r=>r.analysis.status==='limited');assert.equal(limited.analysis.dailyLimit,20);assert.equal(await store.get('games/'+limited.id+'/original.sgf'),sample);
- assert.equal([...store.files.keys()].filter(k=>k.startsWith('daily-analysis/')).length,20);
+ assert.equal(records.filter(r=>r.analysis.status==='queued').length,10);
+ const limited=records.find(r=>r.analysis.status==='limited');assert.equal(limited.analysis.dailyLimit,10);assert.equal(await store.get('games/'+limited.id+'/original.sgf'),sample);
+ assert.equal([...store.files.keys()].filter(k=>k.startsWith('daily-analysis/')).length,10);
 });
 test('operator benchmarks do not consume public paid slots; retries and the London day are respected',async()=>{
  const store=memoryStore(),now=new Date('2026-10-05T22:59:59Z');

@@ -10,7 +10,7 @@ import { play, opposite, score, gameTree, reviewPosition, gameClock, sgf } from 
 async function client() {
   const elements = new Map(), intervals = [], calls = [];
   class Element {
-    parentElement = {append(){}}; style = {}; dataset = {}; children = []; attrs = {}; hidden = false; checked = true;
+    parentElement = {append(){},querySelectorAll(){return [];}}; style = {}; dataset = {}; children = []; attrs = {}; hidden = false; checked = true;
     classList = { toggle() {}, contains() { return false; } };
     setAttribute(k,v) { this.attrs[k]=v; }
     append(...nodes) { this.children.push(...nodes); }
@@ -20,8 +20,8 @@ async function client() {
   const get = id => { if(!elements.has(id)) elements.set(id,new Element()); return elements.get(id); };
   let remote = createState(), failAfterSave = false, failGet = false, now = Date.now();
   const context = vm.createContext({
-    play, opposite, score, gameTree, reviewPosition, gameClock, sgf, language:'en', t: (zh,en)=>en, translateError:s=>s, setLanguage(){},
-    location:{search:''},URLSearchParams,
+    localTimestamp:()=> 'test · UTC+1', play, opposite, score, gameTree, reviewPosition, gameClock, sgf, language:'en', t: (zh,en)=>en, translateError:s=>s, setLanguage(){},
+    location:{search:'',assign(){}},URLSearchParams,
     document: {querySelector:()=>new Element(),getElementById:get,createElement:()=>new Element(),createElementNS:()=>new Element(),
       createDocumentFragment:()=>new Element(),querySelectorAll:()=>[],addEventListener(){},visibilityState:'visible',body:new Element()},
     window:{addEventListener(){}},setInterval(fn,ms){intervals.push({fn,ms});},setTimeout(){},clearTimeout(){},
@@ -35,6 +35,8 @@ async function client() {
       return {ok:true,json:async()=>({state:structuredClone(remote)})};
     }
   });
+  vm.runInContext(readFileSync(new URL('../src/board-geometry.js',import.meta.url),'utf8').replace(/^export /gm,''),context);
+  vm.runInContext(readFileSync(new URL('../src/board-view.js',import.meta.url),'utf8').replace(/^import .*;\n/gm,'').replace(/^export /gm,''),context);
   vm.runInContext(readFileSync(new URL('../src/app.js',import.meta.url),'utf8').replace(/^import .*;\n/gm,''),context);
   const run = code=>vm.runInContext(code,context);
   while(run('polling')) await new Promise(resolve=>setImmediate(resolve));

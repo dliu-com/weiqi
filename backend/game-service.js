@@ -30,7 +30,11 @@ export function transition(current, request) {
   } else if (a.type === 'metadata') {
     if (typeof a.name !== 'string' || !a.name.trim() || a.name.trim().length > 80) throw new GameError('名称须为 1–80 个字符。');
     if (!a.players || ['black','white'].some(side => typeof a.players[side] !== 'string' || a.players[side].trim().length > 40)) throw new GameError('棋手姓名不能超过 40 个字符。');
+    if(a.rules!==undefined&&!['Chinese','Japanese'].includes(a.rules))throw new GameError('操作无效。');
+    if(a.komi!==undefined&&(!Number.isFinite(a.komi)||Math.abs(a.komi)>100))throw new GameError('操作无效。');
+    if(a.date!==undefined&&!/^\d{4}-\d{2}-\d{2}$/.test(a.date))throw new GameError('操作无效。');
     next.gameName = a.name.trim(); next.players = {black:a.players.black.trim(),white:a.players.white.trim()};
+    if(a.rules!==undefined)next.rules=a.rules;if(a.komi!==undefined)next.komi=a.komi;if(a.date!==undefined)next.date=a.date;
   } else if (a.type === 'players') {
     if (!a.players || ['black','white'].some(side => typeof a.players[side] !== 'string' || a.players[side].trim().length > 40)) throw new GameError('棋手姓名不能超过 40 个字符。');
     next.players = { black: a.players.black.trim(), white: a.players.white.trim() };
@@ -68,6 +72,9 @@ export function transition(current, request) {
       const s = score(next.board, next.size, next.dead, next.komi);
       next.result = { winner: s.winner, reason: 'score', black: s.black, white: s.white, margin: s.margin }; next.phase = 'ended';
     }
+  } else if(a.type==='result'&&current.phase!=='ended'){
+    if(!['black','white','draw'].includes(a.winner))throw new GameError('请选择执棋方。');
+    next.result={winner:a.winner==='draw'?null:a.winner,reason:'agreed'};next.phase='ended';
   } else if (a.type === 'resign' && current.phase !== 'ended') {
     if (!['black','white'].includes(a.side)) throw new GameError('请选择认输方。');
     next.result = { winner: opposite(a.side), reason: 'resign' }; next.phase = 'ended';

@@ -1,10 +1,13 @@
+import './site-shell.js';
+import {BoardView} from './board-view.js';
+import {localTimestamp} from './site-time.js';
 import { t, language, setLanguage, translateError } from './i18n.js';
 import { play, opposite, score, gameTree, reviewPosition, gameClock, sgf } from './engine.js';
 const $ = id => document.getElementById(id);
 const names = { get black() { return t('黑方','Black'); }, get white() { return t('白方','White'); } };
 const archiveId = new URLSearchParams(location.search).get('game');
 const apiPath = archiveId ? '/api/games/' + encodeURIComponent(archiveId) : '/api/game';
-const gameTitle = s => s.gameName || new Date(s.createdAt || s.updatedAt || Date.now()).toLocaleString(language === 'zh' ? 'zh-CN' : 'en-GB');
+const gameTitle = s => s.gameName || localTimestamp(s.createdAt || s.updatedAt || Date.now(),language);
 const letters = 'ABCDEFGHJKLMNOPQRST';
 const coord = i => letters[i % 19] + (19 - Math.floor(i / 19));
 let syncFailed = false;
@@ -48,12 +51,14 @@ function adopt(next) {
   if (state && gameTree(next).nodes.length < gameTree(state).nodes.length) { reviewing = null; trialMoves = []; treeRenderKey = ''; }
   if (state && (state.generation || 0) !== (next.generation || 0)) reviewing = null;
   if (reviewing !== null && reviewing >= gameTree(next).nodes.length) reviewing = null;
+  const justEnded=state&&((state.phase!=='ended'&&next.phase==='ended')||(state.phase==='ended'&&!state.libraryId&&next.libraryId));
   state = next; render();
+  if(justEnded&&next.libraryId)location.assign('/game/'+next.libraryId);
 }
 async function sync(manual = false) {
   if (busy || polling) return;
   polling = true;
-  try { adopt(await request(!archiveId && automatic && document.visibilityState === 'visible' ? 'POST' : 'GET', !archiveId && automatic && document.visibilityState === 'visible' ? {action:{type:'heartbeat'}} : undefined)); $('sync').textContent = t("已同步 · ","Synced · ") + new Date().toLocaleTimeString(t("zh-CN","en-GB")); }
+  try { adopt(await request(!archiveId && automatic && document.visibilityState === 'visible' ? 'POST' : 'GET', !archiveId && automatic && document.visibilityState === 'visible' ? {action:{type:'heartbeat'}} : undefined)); $('sync').textContent = t("已同步 · ","Synced · ") + localTimestamp(Date.now(),language); }
   catch { showSyncWarning(true); $('sync').textContent = t("连接失败，请重试","Connection failed. Please retry."); if (manual) notice(t("无法读取云端棋局，请检查网络。","Unable to load the game. Check your connection.")); }
   finally { polling = false; }
 }
@@ -69,7 +74,7 @@ async function action(action) {
     if (remote.revision !== revision) { moveStatus = null; $('sync').textContent = t('已同步最新棋局','Latest position synced'); notice(t("对方已更新棋局，已同步。请重新操作。","The game has changed and is now synced. Please try your move again.")); return; }
     adopt(await request('POST', { expectedRevision: revision, action }));
     moveStatus = null;
-    $('sync').textContent = t("已保存 · ","Saved · ") + new Date().toLocaleTimeString(t("zh-CN","en-GB"));
+    $('sync').textContent = t("已保存 · ","Saved · ") + localTimestamp(Date.now(),language);
   } catch (e) {
     if (!e.httpStatus) showSyncWarning(true);
     if (moveStatus) moveStatus.phase = 'failed';
@@ -86,7 +91,7 @@ function render() {
   if (!state) return;
   $('game-name').textContent = gameTitle(state);
   $('player-names').textContent = names.black + (state.players?.black ? ': ' + state.players.black : '') + ' · ' + names.white + (state.players?.white ? ': ' + state.players.white : '');
-  $('edit-game').disabled = busy;
+  $('edit-game').disabled = busy || state.phase==='ended';
   const review = reviewing === null ? null : reviewPosition(state, reviewing);
   const displayed = (review && trialMoves.at(-1)) || review || state;
   $('board').dataset.preview = !busy && (review || canPlay()) ? displayed.turn : '';
@@ -99,7 +104,7 @@ function render() {
     el.setAttribute('aria-disabled',String(busy || (!review && (!!archiveId || ended || (!scoring && !canPlay())))));
   }
   $('turn').textContent = ended ? (state.result.winner ? names[state.result.winner] + t("胜"," wins") : t("和棋","Draw")) : scoring ? t("双方数子","Scoring") : t("轮到","To play: ") + names[state.turn];
-  $('detail').textContent = ended ? (state.result.reason === 'resign' ? t("对方认输，本局结束。","The opponent resigned. Game over.") : t(`胜差 ${state.result.margin} 点 · 白贴 7.5 点`,`Margin: ${state.result.margin} points · White komi: 7.5`)) : scoring ? t("标记所有死子，然后确认胜负。","Mark all dead stones, then confirm the result.") : (canPlay() ? t("点击交叉点落子。","Click an intersection to play.") : t("等待对方落子…","Waiting for the other player…")) + t(" 白贴 7.5 点。"," White komi: 7.5 points.");
+  $('detail').textContent = ended ? (state.result.reason === 'resign' ? t("对方认输，本局结束。","The opponent resigned. Game over.") : state.result.reason==='agreed'?t('双方约定结果，棋局已保存。','Agreed result; game saved.'):t(`胜差 ${state.result.margin} 目 · 白贴 ${state.komi} 目`,`Margin: ${state.result.margin} points · White komi: ${state.komi}`)) : scoring ? t("标记所有死子，然后确认胜负。","Mark all dead stones, then confirm the result.") : (canPlay() ? t("点击交叉点落子。","Click an intersection to play.") : t("等待对方落子…","Waiting for the other player…")) + t(' 白贴 '+state.komi+' 目。',' White komi: '+state.komi+' points.');
   $('black-captures').textContent = displayed.captures.black; $('white-captures').textContent = displayed.captures.white;
   const undoSide = state.history.at(-1)?.side;
   $('undo').textContent = undoSide ? t('悔棋（' + names[undoSide] + '）', 'Undo ' + names[undoSide]) : t('悔棋','Undo');
@@ -112,7 +117,7 @@ function render() {
   $('scoring').hidden = !totals;
   $('scoring-help').hidden = ended;
   $('scoring-actions').hidden = ended || !!archiveId;
-  if (totals) $('score').textContent = t(`黑 ${totals.black} 点 · 白 ${totals.white} + 7.5 点 → ${totals.winner ? names[totals.winner] + '胜 ' + totals.margin + ' 点' : '和棋'}`,`Black ${totals.black} · White ${totals.white} + 7.5 → ${totals.winner ? names[totals.winner] + ' wins by ' + totals.margin + ' points' : 'Draw'}`);
+  if (totals) $('score').textContent = t(`黑 ${totals.black} 目 · 白 ${totals.white} + ${state.komi} 目 → ${totals.winner ? names[totals.winner] + '胜 ' + totals.margin + ' 目' : '和棋'}`,`Black ${totals.black} · White ${totals.white} + ${state.komi} → ${totals.winner ? names[totals.winner] + ' wins by ' + totals.margin + ' points' : 'Draw'}`);
   $('confirm-score').disabled = busy || !!archiveId || reviewing !== null;
   $('resume').disabled = busy;
   $('count').textContent = state.history.length + t(" 手"," moves"); $('empty').hidden = state.history.length > 0;
@@ -127,6 +132,8 @@ function render() {
     $('detail').textContent = moveStatus.phase === 'submitting' ? t('正在核对并保存落子，请稍候。','Checking and saving your move. Please wait.') : t('落子未发送，请检查网络后重试。','Move not sent. Check your connection and try again.');
   }
   $('turn').className = 'turn-label' + (!review && (state.phase === 'play' || state.result?.winner) ? ' turn-' + (moveStatus?.side || state.result?.winner || state.turn) : '');
+  $('saved-game').hidden=!state.libraryId;if(state.libraryId){$('saved-game').href='/game/'+state.libraryId;$('saved-game').textContent=t('查看已保存棋局','View saved game');}
+  $('result-label').textContent=t('结束棋局并自动保存','Finish and save automatically');for(const [key,zh,en] of [['black','黑方获胜','Black wins'],['white','白方获胜','White wins'],['draw','和棋 / 未完成','Draw / unfinished']]){$('result-'+key).textContent=t(zh,en);$('result-'+key).disabled=busy||ended||reviewing!==null;}
   if (review) $('turn').className = 'turn-label turn-' + displayed.turn;
   $('trial-controls').hidden = !review;
   $('trial-undo').disabled = !trialMoves.length;
@@ -166,7 +173,7 @@ function renderTree() {
     button.type = 'button'; button.className = 'tree-node' + (node ? ' tree-' + node[1] : '') + (active.has(id) ? ' active-path' : '');
     button.style.marginLeft = Math.min(branch,6) * 12 + 'px';
     button.setAttribute('aria-pressed', String(selected === id));
-    button.title = node?.[4] ? new Date(node[4]).toLocaleString(language === 'zh' ? 'zh-CN' : 'en-GB') : t('落子时间未记录','Move time not recorded');
+    button.title = node?.[4] ? localTimestamp(node[4],language) : t('落子时间未记录','Move time not recorded');
     const description = (branch ? '↳ ' : '') + (node ? depth + '. ' + names[node[1]] + (state.players?.[node[1]] ? ' (' + state.players[node[1]] + ')' : '') + ' · ' + (node[2] === null ? t('停一手','Pass') : coord(node[2])) : t('初始棋盘','Initial position')) + (id === tree.head ? (archiveId ? t(' · 最后局面',' · Final position') : t(' · 当前',' · Live')) : '');
     const label = document.createElement('span'); label.className = 'tree-label'; label.textContent = description;
     if (node) { const marker = document.createElement('span'); marker.className = 'tree-stone'; marker.setAttribute('aria-hidden','true'); button.append(marker); }
@@ -174,7 +181,7 @@ function renderTree() {
     button.title = description + ' · ' + button.title;
     button.setAttribute('aria-label',button.title);
     button.onclick = () => selectReview(id);
-    if (node?.[4]) { const time = document.createElement('small'); time.textContent = new Date(node[4]).toLocaleTimeString(language === 'zh' ? 'zh-CN' : 'en-GB'); button.append(time); }
+    if (node?.[4]) { const time = document.createElement('small'); time.textContent = localTimestamp(node[4],language); button.append(time); }
     fragment.append(button);
     const next = children.get(id) || [];
     for (let i = next.length - 1; i >= 0; i--) pending.push({id:next[i],depth:depth+1,branch:branch+(next.length > 1 ? 1 : 0)});
@@ -211,33 +218,12 @@ $('download-sgf').onclick = () => {
   const link = document.createElement('a'); link.href=url; link.download=(state.gameName || state.createdAt || 'weiqi').replace(/[^\p{L}\p{N} _-]/gu,'-').slice(0,80)+'.sgf'; link.click(); setTimeout(()=>URL.revokeObjectURL(url),1000);
 };
 setInterval(renderClock,1000);
-const svgNS = 'http://www.w3.org/2000/svg', svg = document.createElementNS(svgNS,'svg'); svg.setAttribute('viewBox','0 0 190 190'); svg.setAttribute('aria-hidden','true');
-for (let i = 0; i < 19; i++) {
-  for (const horizontal of [true,false]) { const line = document.createElementNS(svgNS,'line'); line.setAttribute('x1',horizontal ? 5 : 5+i*10); line.setAttribute('y1',horizontal ? 5+i*10 : 5); line.setAttribute('x2',horizontal ? 185 : 5+i*10); line.setAttribute('y2',horizontal ? 5+i*10 : 185); line.setAttribute('stroke','#634c2b'); line.setAttribute('stroke-width','.35'); svg.append(line); }
-}
-for (const x of [35,95,155]) for (const y of [35,95,155]) { const c = document.createElementNS(svgNS,'circle'); c.setAttribute('cx',x); c.setAttribute('cy',y); c.setAttribute('r',1.1); c.setAttribute('fill','#46351f'); svg.append(c); }
-$('board').append(svg);
-for (const side of ['top','bottom','left','right']) {
-  const rail = document.createElement('div');
-  rail.className = 'coordinates coordinates-' + side;
-  rail.setAttribute('aria-hidden','true');
-  for (let i = 0; i < 19; i++) {
-    const label = document.createElement('span');
-    label.textContent = side === 'top' || side === 'bottom' ? letters[i] : 19 - i;
-    rail.append(label);
-  }
-  $('board').parentElement.append(rail);
-}
-
-const points = Array.from({length:361},(_,i) => {
-  const b = document.createElement('button'); b.className='point'; b.style.left=(i%19+.5)/19*100+'%'; b.style.top=(Math.floor(i/19)+.5)/19*100+'%'; b.tabIndex=i===180?0:-1;
-  b.addEventListener('click',()=>{ if (busy || !state) return; if (reviewing !== null) { previewMove(i); return; } if (archiveId) return; if (state.phase==='scoring') action({type:'dead',index:i}); else if (canPlay()) action({type:'move',index:i}); });
-  b.addEventListener('keydown', e=>{ const offset={ArrowLeft:-1,ArrowRight:1,ArrowUp:-19,ArrowDown:19}[e.key]; if (!offset) return; e.preventDefault(); const n=i+offset; if(n>=0&&n<361 && (Math.abs(offset)===19 || Math.floor(n/19)===Math.floor(i/19))) { b.tabIndex=-1; points[n].tabIndex=0; points[n].focus(); }});
-  $('board').append(b); return b;
-});
+const boardView=new BoardView($('board'),{onPoint:i=>{if(busy||!state)return;if(reviewing!==null){previewMove(i);return;}if(archiveId)return;if(state.phase==='scoring')action({type:'dead',index:i});else if(canPlay())action({type:'move',index:i});}});
+const points=boardView.points;
 function confirmAction(title,text,operation,acceptLabel=t('确认','Confirm')) { $('accept-confirm').textContent=acceptLabel; $('confirm-title').className=''; const revision = state.revision; pendingConfirmation = () => { if (state.revision !== revision) { notice(t('棋局已更新，请重新确认。','The game has changed. Please confirm again.')); return; } operation(); }; $('confirm-title').textContent=title; $('confirm-text').textContent=text; $('confirm-dialog').showModal(); }
 $('cancel-confirm').onclick=()=>$('confirm-dialog').close(); $('accept-confirm').onclick=()=>{ $('confirm-dialog').close(); pendingConfirmation?.(); };
-$('new').onclick=()=>action({type:'new'});
+$('new').onclick=()=>{if(state.phase==='ended'||!state.history.length)action({type:'new'});else confirmAction(t('结束未完成棋局？','Finish the unfinished game?'),t('当前棋局将按和棋自动保存，然后打开已保存棋局。','The current game will automatically save as Draw and open its saved page.'),()=>action({type:'result',winner:'draw'}));};
+for(const winner of ['black','white','draw'])$('result-'+winner).onclick=()=>confirmAction(t('确认结果并保存？','Confirm result and save?'),t('本局结束并自动保存到公共棋谱库。','The game will finish and save automatically to the public library.'),()=>action({type:'result',winner}));
 $('undo').onclick=()=>confirmAction(t('撤回' + names[state.history.at(-1)?.side] + '的上一手？','Undo ' + names[state.history.at(-1)?.side] + '’s last move?'),t("撤回最近一手，双方设备都会更新。请先征得对方同意。","Undo the last move on all devices. Please agree with your opponent first."),()=>action({type:'undo'}));
 for (const side of ['black','white']) $('resign-' + side).onclick=()=>{ confirmAction(names[side]+t("认输？"," resigns?"),t("确认后本局结束。","Confirm to end this game."),()=>action({type:'resign',side})); };
 $('pass').onclick=()=>action({type:'pass'}); $('resume').onclick=()=>action({type:'resume'});
@@ -266,6 +252,7 @@ $('edit-game').onclick = () => {
   $('name-input').value = gameTitle(state);
   $('black-input').value = state.players?.black || '';
   $('white-input').value = state.players?.white || '';
+  $('live-date').value=state.date||state.createdAt?.slice(0,10)||'';$('live-rules').value=state.rules||'Chinese';$('live-komi').value=state.komi;
   $('edit-error').textContent = '';
   $('edit-dialog').showModal();
 };
@@ -275,9 +262,9 @@ $('edit-form').onsubmit = async event => {
   if (busy) return;
   if (editRevision !== state.revision) { $('edit-error').textContent = t('棋局已更新，请关闭后重新编辑。','The game changed. Close and reopen this editor.'); return; }
   const name = $('name-input').value.trim(), players = { black:$('black-input').value.trim(), white:$('white-input').value.trim() };
-  await action({type:'metadata', name, players});
+  await action({type:'metadata', name, players, date:$('live-date').value,rules:$('live-rules').value,komi:Number($('live-komi').value)});
   if (state.gameName === name && state.players?.black === players.black && state.players?.white === players.white) $('edit-dialog').close();
   else $('edit-error').textContent = t('保存失败，请关闭后重试。','Not saved. Close and try again.');
 };
 
-document.querySelectorAll('[data-language]').forEach(button => button.onclick=()=>{setLanguage(button.dataset.language); showSyncWarning(syncFailed); focusBoard(document.body.classList.contains('focus')); $('notice').hidden=true; $('sync').textContent=t('语言已切换','Language updated'); render();});
+window.addEventListener('site-language-change',()=>{ showSyncWarning(syncFailed); focusBoard(document.body.classList.contains('focus')); $('notice').hidden=true; $('sync').textContent=t('语言已切换','Language updated'); render();});

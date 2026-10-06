@@ -10,7 +10,7 @@ function api() {
  class PutItemCommand{constructor(input){this.input=input;}}
  class ScanCommand{constructor(input){this.input=input;}}
  class TransactWriteItemsCommand{constructor(input){this.input=input;}}
- function validate(p){const old=items.get(p.Item.gameId.S);if(old && (!p.ExpressionAttributeValues || (+old.revision.N!==+p.ExpressionAttributeValues[':expected'].N || +(old.clockVersion?.N || 0)!==+p.ExpressionAttributeValues[':clockVersion'].N))){const e=new Error();e.name='ConditionalCheckFailedException';throw e;}}
+ function validate(p){if(p.Item.gameId.S==='mutation-budget')return;const old=items.get(p.Item.gameId.S);if(old && (!p.ExpressionAttributeValues || (+old.revision.N!==+p.ExpressionAttributeValues[':expected'].N || +(old.clockVersion?.N || 0)!==+p.ExpressionAttributeValues[':clockVersion'].N))){const e=new Error();e.name='ConditionalCheckFailedException';throw e;}}
  class DynamoDBClient{async send(c){
   if(c instanceof GetItemCommand)return {Item:structuredClone(items.get(c.input.Key.gameId.S))};
   if(c instanceof ScanCommand)return {Items:[...items.values()]};
@@ -20,18 +20,8 @@ function api() {
  const exports={};vm.runInNewContext(readFileSync(new URL('../backend/handler.cjs',import.meta.url),'utf8'),{require:()=>({DynamoDBClient,GetItemCommand,PutItemCommand,ScanCommand,TransactWriteItemsCommand}),exports,Buffer,console,process:{env:{}},createState,transition,GameError,gameTree,gameClock});
  return async(path,body)=>{const r=await exports.handler({rawPath:path,requestContext:{http:{method:body?'POST':'GET'}},headers:{'content-type':'application/json'},body:body?JSON.stringify(body):undefined});return {status:r.statusCode,...JSON.parse(r.body)};};
 }
-test('new game archives atomically; archived names editable but moves rejected',async()=>{
- const call=api();let s=(await call('/api/game')).state;
- s=(await call('/api/game',{expectedRevision:s.revision,action:{type:'move',index:180}})).state;
- s=(await call('/api/game',{expectedRevision:s.revision,action:{type:'metadata',name:'Test',players:{black:'Alice',white:'Bob'}}})).state;
- const old=s;const results=await Promise.all([1,2].map(()=>call('/api/game',{expectedRevision:s.revision,action:{type:'new'}})));
- assert.deepEqual(results.map(r=>r.status).sort(),[200,409]);
- const list=await call('/api/games');assert.equal(list.games.length,1);
- const path='/api/games/'+list.games[0].id;
- const archived=(await call(path)).state;assert.equal(archived.board,old.board);assert.equal(archived.players.black,'Alice');assert.equal(archived.clock.paused,true);
- assert.equal((await call(path,{expectedRevision:archived.revision,action:{type:'move',index:181}})).status,400);
- const renamed=await call(path,{expectedRevision:archived.revision,action:{type:'metadata',name:'Archived test',players:{black:'A',white:'B'}}});
- assert.equal(renamed.state.gameName,'Archived test');assert.equal((await call('/api/game')).state.history.length,0);
+test('new live games reset current state without creating a second history library',async()=>{
+ const call=api();let s=(await call('/api/game')).state;s=(await call('/api/game',{expectedRevision:s.revision,action:{type:'move',index:180}})).state;const results=await Promise.all([1,2].map(()=>call('/api/game',{expectedRevision:s.revision,action:{type:'new'}})));assert.deepEqual(results.map(r=>r.status).sort(),[200,409]);assert.equal((await call('/api/games')).games.length,0);assert.equal((await call('/api/game')).state.history.length,0);
 });
 test('clock charges the correct player, excludes pauses, and records move timestamps',t=>{
  let now=100000;t.mock.method(Date,'now',()=>now);

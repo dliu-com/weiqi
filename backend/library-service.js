@@ -5,7 +5,7 @@ export function recordMetadata(source, filename, id) {
   const record = readSgf(source);
   return {schemaVersion:1,id,originalFilename:filename,name:record.name || filename.replace(/\.sgf$/i,'').slice(0,200) || 'Uploaded game',players:record.players,size:record.size,komi:record.komi,rules:record.rules,date:record.date,result:record.result,moves:record.mainLine.length-1,uploadedAt:new Date().toISOString(),analysis:{status:'queued'}};
 }
-export const DAILY_ANALYSIS_CAP=20;
+export const DAILY_ANALYSIS_CAP=10;
 export async function saveRecord(store, source, filename, id, analysisAllowed=true) {
   const metadata = recordMetadata(source,filename,id);
   if(!analysisAllowed)metadata.analysis={status:'limited',dailyLimit:DAILY_ANALYSIS_CAP};
@@ -27,7 +27,7 @@ export async function uploadRecord(store,source,filename,uploadId,now=new Date()
   const mapping='uploads/'+uploadId+'.json';
   let existing;try{existing=JSON.parse(await store.get(mapping));}catch(e){if(e.code!=='ENOENT'&&e.name!=='NoSuchKey')throw e;}
   if(existing)return saveRecord(store,source,filename,existing.id,existing.analysisAllowed!==false);
-  for(let n=1;n<=10000;n++) {
+  for(let n=1;n<=100;n++) {
     const id=date+String(n).padStart(2,'0'),key='reservations/'+id+'.json';
     if(await store.create(key,JSON.stringify({uploadId}),'application/json') || JSON.parse(await store.get(key)).uploadId===uploadId) {
       const analysisAllowed=options.analysis===false?false:await reserveAnalysis(store,date,uploadId);
