@@ -30,7 +30,7 @@ def update_phase(game_id,phase,patch,token=None):
     for attempt in range(6):
         obj=s3.get_object(Bucket=BUCKET,Key=key)
         metadata=json.loads(obj['Body'].read());state=metadata['analysis']
-        if token and (state.get('token')!=token or state.get('status') in ['retry_wait','failed']):raise RuntimeError('Analysis ownership changed')
+        if token and (state.get('token')!=token or state.get('status') in ['retry_wait','failed','paused']):raise RuntimeError('Analysis ownership changed')
         state[phase]={**state.get(phase,{}),**patch}
         if patch.get('compute'):state['compute']=patch['compute']
         quick=state.get('quick',{}).get('status');deep=state.get('deep',{}).get('status')
@@ -57,7 +57,7 @@ def handler(event,context=None):
         obj=s3.get_object(Bucket=BUCKET,Key=game_prefix(event['id'])+'/metadata.json')
         metadata=json.loads(obj['Body'].read())
         if event.get('token') and metadata['analysis'].get('token')!=event['token']:return {'status':'skipped'}
-        if metadata['analysis']['status'] in ['ready','failed','limited'] or phase and metadata['analysis'].get(phase,{}).get('status') in ['ready','failed']: return {'status':'skipped'}
+        if metadata['analysis']['status'] in ['ready','failed','limited','paused'] or phase and metadata['analysis'].get(phase,{}).get('status') in ['ready','failed']: return {'status':'skipped'}
         patch={'status':'running','startedAt':datetime.datetime.now(datetime.timezone.utc).isoformat(),'visits':event['query']['maxVisits'],'estimatedSeconds':event.get('estimatedSeconds',300),**({'compute':event['compute']} if event.get('compute') else {})}
         if phase:update_phase(event['id'],phase,patch,event.get('token'))
         else:
@@ -130,7 +130,7 @@ def handler(event,context=None):
         if production:
             if event.get('token'):
                 owned=json.loads(s3.get_object(Bucket=BUCKET,Key=prefix+'/metadata.json')['Body'].read())['analysis']
-                if owned.get('token')!=event['token'] or owned.get('status') in ['retry_wait','failed']:raise RuntimeError('Analysis ownership changed')
+                if owned.get('token')!=event['token'] or owned.get('status') in ['retry_wait','failed','paused']:raise RuntimeError('Analysis ownership changed')
         s3.put_object(Bucket=BUCKET,Key=result_key,Body=json.dumps(analysis).encode(),ContentType='application/json')
         if production:
             if phase:update_phase(event['id'],phase,{'status':'ready','visits':visits,'completedAt':analysis['completedAt']},event.get('token'))

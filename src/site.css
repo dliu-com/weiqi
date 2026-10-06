@@ -18,3 +18,9 @@ button.is-loading:before{content:'';display:inline-block;width:12px;height:12px;
 .next-move-swatch[data-quality=inaccuracy]{background:#d7ad20}
 .next-move-swatch[data-quality=mistake]{background:#df7a19}
 .next-move-swatch[data-quality=blunder]{background:#d33c36}
+
+.editor-upload-box{padding:14px;border:1px solid #b9d8e8;border-radius:10px;background:#edf6fb;margin:0 0 18px}.editor-upload-box button{display:block;width:100%;min-height:56px;padding:14px 18px;font:650 18px system-ui;color:#fff;background:#176b92;border:2px solid #176b92;border-radius:7px}.editor-upload-box button:hover{background:#105575;border-color:#105575}.editor-upload-box button:focus-visible{outline:3px solid #176b92;outline-offset:4px}
+
+.editor-save-help{margin:-3px 0 14px;font-size:13px;line-height:1.5;color:#52636c}
+
+.game-details-editor h2{margin:0;font:600 14px system-ui}

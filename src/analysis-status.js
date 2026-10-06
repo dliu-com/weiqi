@@ -11,6 +11,7 @@ export function analysisWait(analysis,moves,now=Date.now()) {
   return Number.isFinite(elapsed)&&elapsed<seconds?{phase:'running',seconds:Math.ceil(seconds-elapsed)}:{phase:'overdue',seconds};
 }
 export function pendingAnalysis(analysis) {
+  if(analysis.status==='paused')return null;
   if(analysis.quick||analysis.deep){
     if(analysis.deep?.status==='ready')return null;
     if(analysis.status==='retry_wait')return {...analysis,phase:analysis.quick?.status==='ready'?'deep':'quick'};
@@ -21,6 +22,7 @@ export function pendingAnalysis(analysis) {
 }
 
 export function shouldPollQuick(analysis,benchmark=null){
+  if(analysis.status==='paused')return false;
   if(benchmark?.queueKind==='deep'||analysis.phase==='deep'||analysis.available||analysis.status==='ready')return false;
   if(analysis.quick)return ['queued','running','retry_wait'].includes(analysis.quick.status)&&analysis.deep?.status!=='ready';
   return !analysis.deep&&['queued','running'].includes(analysis.status);

@@ -181,6 +181,34 @@ Production PDF validation (2026-10-06): both English and Chinese downloads match
 
 ## Public-site safeguards and release evidence
 
+### Project spending safeguard and administrator commands
+
+Key deployment settings live in [`configs.yml`](configs.yml): Ireland region, project tag, monthly budget, daily AI quota, quick/deep visits, capacity fallback delay and job timeout. After changing them, run `make deploy-infra` (and `make publish` for website changes). No recipient email is configured or stored in the repository; notifications are disabled as requested.
+
+`WeiqiBudget` is a CloudFormation-managed **$50 per calendar month** actual-cost budget. Supported resources across all Weiqi stacks carry `Project=Weiqi`; Batch queues/environments use CloudFormation custom tagging calls to avoid replacement, and GPU instances/volumes receive tags through the launch template. Billing uses the existing `service` tag, including historical Weiqi worker variants. The stack activates that billing tag. Tag activation/reporting can take up to 24 hours; earlier unallocated costs or unsupported/shared resources may not appear. Credit/refund amounts do not hide underlying usage spend.
+
+The budget's private SNS alert, backed by a five-minute reconciliation check, latches `control/ai-spending.json` in the library bucket. The private guard disables the three owned GPU queues and terminates pending/running jobs. API/dispatch guards stop new analysis, capacity fallback and automatic retries; saved games and completed quick/deep results remain available. GPU capacity retires through Batch's existing zero-minimum scaling. Reading/storage charges continue. AWS billing is delayed: this reduces further AI spend, **not a hard $50 bill ceiling**. The $30 development allowance remains separate.
+
+From the project directory, using your AWS CLI credentials:
+
+```sh
+make ai-status   # Show pause status and whether this month's budget is exhausted
+make ai-check    # Read-only check of the budget and active GPU jobs
+make ai-resume   # Re-enable AI for newly saved games
+```
+
+If `ai-resume` reports `monthly_budget_exceeded`, increase `budget.monthlyUsd` in `configs.yml` and run `make deploy-infra`, or wait for the next calendar month. Then run `make ai-resume` again. It refuses to resume above the budget so the next reconciliation does not immediately stop AI again. Resume is manual, including at the start of a new month. Previously stopped analyses are not automatically restarted, avoiding an unexpected paid backlog. These commands invoke an IAM-only Lambda; there is no public pause/resume endpoint.
+
 Production has SGF/body limits, revision-conditioned edits, idempotent publication, ten daily AI slots, 100 new saved records per London day, and a shared 120-mutation/minute limiter using one bounded DynamoDB row. API concurrency uses the account’s regional Lambda quota (currently ten), without a reserved allocation. CloudFront sets CSP/HSTS/frame denial/nosniff on the app and API. Private S3 and IAM-authenticated function URL origins reject unsigned access. These controls do not prevent deliberate public editing, quota consumption or all traffic charges. Source visibility is not authentication; no credentials are shipped to browsers. See `/security` for the threat model and residual risks.
 
 Local validation files record this release’s official Ireland compute prices, production route/security checks, dependency audit, private-origin checks, saved-game AI completion and bilingual PDF validation. These generated files are kept out of the public repository. `npm test` includes draft branch/publication/conflict checks. Local previews now persist live state and the shared draft under `LIBRARY_DIR`, separate from production.
+
+Recording details are required and populated automatically for new drafts and missing SGF metadata: Recorded game, Unnamed black player, Unnamed white player, local date, Japanese rules and 6.5 komi (0.5 for imported handicap records without komi). Existing metadata is preserved. Handicap (0–9 fixed stones) is editable before the first recorded move and sets White to move with handicap stones. There are no setup-tool or initial-player selectors. Clear board keeps metadata; single-move deletion/insertion keeps downstream moves and their recorded colors, replaying every affected variation atomically and rejecting illegal continuations. Selecting a variation automatically promotes it; Save game saves that complete main sequence after confirmation and clears the draft. No draft-download control is shown.
+
+Record-game rotation is a local view preference in 90° steps. Shared BoardView positions and coordinate rails rotate together; board clicks keep canonical SGF indices and keyboard focus follows the visual direction. Rotation does not modify the public draft or saved SGF.
+
+The recording controls sit below the game tree. Reposition move changes the selected node’s coordinate, keeping its color, comments and continuations with atomic replay validation. Pass names the player whose move is being recorded (or corrected while repositioning).
+
+A single prominent Open local SGF file button opens the file chooser; its native duplicate is hidden. Save game is followed by “AI analysis starts after saving”; confirmation explains that only the currently selected branch is saved.
+
+Recording Game details remain visible in a fixed section, without an expand/collapse control.

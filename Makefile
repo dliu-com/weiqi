@@ -2,7 +2,7 @@
 AWS_REGION ?= eu-west-1
 STACK_NAME := WeiqiSite
 
-.PHONY: install serve test synth diff deploy-infra publish deploy
+.PHONY: install serve test synth diff deploy-infra publish deploy ai-status ai-resume ai-check
 
 install:
 	npm ci
@@ -11,6 +11,16 @@ install:
 
 serve:
 	npm start
+
+# Private administrator commands; require your normal AWS CLI credentials.
+ai-status:
+	node scripts/ai-control.mjs status
+
+ai-resume:
+	node scripts/ai-control.mjs resume
+
+ai-check:
+	node scripts/ai-control.mjs dryRun
 
 test:
 	python3 -m unittest discover -s tests/cloud

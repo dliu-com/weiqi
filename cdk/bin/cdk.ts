@@ -1,8 +1,9 @@
 #!/usr/bin/env node
 import 'source-map-support/register';
-import { App } from 'aws-cdk-lib';
+import { App, Tags } from 'aws-cdk-lib';
 import * as fs from 'fs';
 import * as path from 'path';
+import {projectConfig} from '../lib/project-config';
 import { WeiqiStorageStack } from '../lib/weiqi-storage-stack';
 import { WeiqiSiteStack } from '../lib/weiqi-site-stack';
 
@@ -32,5 +33,9 @@ if(context('fargate')==='true'){
 }
 if(context('gpuBenchmark')){
  const {WeiqiGpuBenchmarkStack}=require('../lib/weiqi-gpu-benchmark-stack');
- new WeiqiGpuBenchmarkStack(app,'WeiqiGpuBenchmark',{libraryBucket:context('libraryBucket'),production:context('gpuProduction')==='true',dispatchEnabled:context('gpuDispatch')!=='false',analysisQueueArn:context('analysisQueueArn'),cpuQuickQueue:context('cpuQuickQueue'),cpuDeepQueue:context('cpuDeepQueue'),cpuJobDefinition:context('cpuJobDefinition'),tags:{service:'weiqi-gpu-benchmark'},env:{account:process.env.CDK_DEFAULT_ACCOUNT,region:process.env.CDK_DEFAULT_REGION||'eu-west-1'}});
+ const gpu=new WeiqiGpuBenchmarkStack(app,'WeiqiGpuBenchmark',{libraryBucket:context('libraryBucket'),production:context('gpuProduction')==='true',dispatchEnabled:context('gpuDispatch')!=='false',analysisQueueArn:context('analysisQueueArn'),cpuQuickQueue:context('cpuQuickQueue'),cpuDeepQueue:context('cpuDeepQueue'),cpuJobDefinition:context('cpuJobDefinition'),tags:{service:'weiqi-gpu-benchmark'},env:{account:process.env.CDK_DEFAULT_ACCOUNT,region:process.env.CDK_DEFAULT_REGION||'eu-west-1'}});
+ if(context('spendingGuard')==='true'){const {WeiqiBudgetStack}=require('../lib/weiqi-budget-stack');new WeiqiBudgetStack(app,'WeiqiBudget',{libraryBucket:context('libraryBucket'),jobQueues:gpu.productionJobQueues,tags:{service:'weiqi'},env:{account:process.env.CDK_DEFAULT_ACCOUNT,region:'eu-west-1'}});}
 }
+
+// Stack tags propagate to every supported CloudFormation resource.
+for(const stack of app.node.children)Tags.of(stack).add(projectConfig.project.tagKey,projectConfig.project.tagValue,{excludeResourceTypes:['AWS::Batch::ComputeEnvironment','AWS::Batch::JobQueue']});
