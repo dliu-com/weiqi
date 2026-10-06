@@ -13,7 +13,8 @@ export class RecordingSequenceEdit{
     const parent=r.nodes[node.parent];node.depth=parent.depth+1;node.turn=node.move.side==='B'?'W':'B';node.board=parent.board;
     // After an illegal move, show the last reliable board until it is repaired.
     node.previewIncomplete=Boolean(parent.previewIssue||parent.previewIncomplete);
-    if(!node.previewIncomplete&&node.move.index!==null){try{node.board=play(parent.board,node.move.index,node.move.side==='B'?'black':'white',19).board;}catch(e){node.previewIssue=e.message;this.previewIssues.push(id);}}
+    if(!node.previewIncomplete&&node.move.side!==parent.turn){node.previewIssue='Black and White must alternate.';this.previewIssues.push(id);}
+    if(!node.previewIncomplete&&!node.previewIssue&&node.move.index!==null){try{node.board=play(parent.board,node.move.index,node.move.side==='B'?'black':'white',19).board;}catch(e){node.previewIssue=e.message;this.previewIssues.push(id);}}
    }
    for(let i=node.children.length-1;i>=0;i--)pending.push(node.children[i]);
   }

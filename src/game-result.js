@@ -1,6 +1,8 @@
 export function gameResult(result){
  const raw=String(result||'').trim(),match=raw.match(/^([BW])\+(.*)$/i);
  if(!raw)return null;
+ if(/^void$/i.test(raw))return {winner:null,zh:'无结果 / 中止',en:'No result / suspended'};
+ if(raw==='?')return {winner:null,zh:'结果未知',en:'Unknown result'};
  if(!match)return {winner:null,zh:/^(0|draw|jigo)$/i.test(raw)?'和棋':raw,en:/^(0|draw|jigo)$/i.test(raw)?'Draw':raw};
  const winner=match[1].toUpperCase(),sideZh=winner==='B'?'黑方':'白方',sideEn=winner==='B'?'Black':'White',reason=match[2];
  if(!reason)return {winner,zh:sideZh+'获胜',en:sideEn+' won'};

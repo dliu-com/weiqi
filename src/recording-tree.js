@@ -10,6 +10,38 @@ export function setRecordingRules(record,rules){
  if(record.komi===defaultRecordingKomi(record.rules,handicap))next.komi=defaultRecordingKomi(rules,handicap);
  next.rules=rules;return next;
 }
+export function recordingResultFields(result){
+ const raw=String(result||'').trim(),match=raw.match(/^([BW])\+(.*)$/i);
+ if(/^(?:0|draw|jigo)$/i.test(raw))return {choice:'0',margin:''};
+ if(/^void$/i.test(raw))return {choice:'Void',margin:''};
+ if(raw==='?')return {choice:'?',margin:''};
+ if(match){
+  const side=match[1].toUpperCase(),reason=match[2].trim();
+  if(!reason)return {choice:side+'+',margin:''};
+  if(/^(?:r|res|resign|resignation)$/i.test(reason))return {choice:side+'R',margin:''};
+  if(/^(?:t|time|timeout)$/i.test(reason))return {choice:side+'T',margin:''};
+  if(/^(?:f|forfeit)$/i.test(reason))return {choice:side+'F',margin:''};
+  if(/^\d+(?:\.\d+)?$/.test(reason)&&Number(reason)>0)return {choice:side+'points',margin:reason};
+  return {choice:side+'+',margin:''};
+ }
+ return {choice:'?',margin:''};
+}
+export function recordingResultValue(choice,margin){
+ if(/^[BW]points$/.test(choice)){
+  const text=String(margin??'').trim();if(!/^\d+(?:\.\d+)?$/.test(text)||!Number.isFinite(Number(text))||Number(text)<=0||Number(text)>1000)throw Error('Enter a winning margin greater than zero and no more than 1,000 points.');
+  return choice[0]+'+'+String(Number(text));
+ }
+ if(/^[BW][RTF]$/.test(choice))return choice[0]+'+'+choice[1];
+ if(['0','B+','W+','?','Void'].includes(choice))return choice;
+ throw Error('Choose a game result.');
+}
+export function validateRecordingDetails(record){
+ const required=[record.name,record.players.black,record.players.white,record.date,record.rules,record.result];
+ if(required.some(value=>!String(value??'').trim()))throw Object.assign(Error('Game title, date, both players, rules and result are required.'),{statusCode:400});
+ const handicap=Number(record.rootProperties.HA?.[0]||0),date=String(record.date);
+ if(!/^\d{4}-\d{2}-\d{2}$/.test(date)||!Number.isFinite(Date.parse(date))||new Date(date).toISOString().slice(0,10)!==date)throw Object.assign(Error('Choose a valid game date.'),{statusCode:400});
+ if(!Number.isFinite(record.komi)||Math.abs(record.komi)>100||!Number.isInteger(handicap)||handicap<0||handicap>9)throw Object.assign(Error('Valid komi and handicap are required.'),{statusCode:400});
+}
 export function populateRecordingDetails(record,now=new Date()){
  let changed=false;
  const fill=(object,key,value)=>{if(!String(object[key]??'').trim()){object[key]=value;changed=true;}};
@@ -22,7 +54,7 @@ export function populateRecordingDetails(record,now=new Date()){
 export function recordingSgf(record,mainOnly=false){
  const escape=value=>String(value).replace(/\\/g,'\\\\').replace(/\]/g,'\\]').replace(/\r\n?/g,'\n');
  const coord=i=>String.fromCharCode(97+i%19,97+Math.floor(i/19));
- const props={...record.rootProperties,GM:['1'],FF:['4'],CA:['UTF-8'],SZ:['19'],KM:[String(record.komi)],RU:[record.rules||'Japanese'],GN:[record.name||'Recorded game'],PB:[record.players.black],PW:[record.players.white],DT:[record.date],RE:[mainOnly&&!/^(?:[BW]\+|0$|Draw$|Jigo$)/i.test(record.result||'')?'0':record.result||'0'],PL:[record.initialPlayer]};
+ const props={...record.rootProperties,GM:['1'],FF:['4'],CA:['UTF-8'],SZ:['19'],KM:[String(record.komi)],RU:[record.rules||'Japanese'],GN:[record.name||'Recorded game'],PB:[record.players.black],PW:[record.players.white],DT:[record.date],PC:[record.venue??record.rootProperties.PC?.[0]??''],RE:[record.result||'0'],PL:[record.initialPlayer]};
  for(const [key,side]of [['AB','B'],['AW','W']]){props[key]=[...record.nodes[0].board].flatMap((v,i)=>v===side?[coord(i)]:[]);}delete props.AE;
  const properties=Object.entries(props).filter(([,values])=>values?.length&&values.some(v=>v!==''&&v!==undefined)).map(([key,values])=>key+values.map(v=>'['+escape(v)+']').join('')).join('');
  const nodeText=n=>';'+n.move.side+'['+(n.move.index===null?'':coord(n.move.index))+']'+(n.comment?'C['+escape(n.comment)+']':'');
@@ -76,7 +108,7 @@ export function setRecordingHandicap(record,count){
  for(const [x,y]of placed)board[y*19+x]='B';
  next.nodes[0].board=board.join('');next.initialPlayer=count>0?'W':'B';next.nodes[0].turn=next.initialPlayer;
  next.rootProperties.HA=[String(count)];
- if(next.komi===defaultRecordingKomi(record.rules,record.rootProperties.HA?.[0]))next.komi=defaultRecordingKomi(record.rules,count);
+ if(count!==Number(record.rootProperties.HA?.[0]||0))next.komi=defaultRecordingKomi(record.rules,count);
  return next;
 }
 export function newRecordingSgf(){return '(;GM[1]FF[4]CA[UTF-8]SZ[19]RU[Japanese]KM[6.5]GN[Recorded game]RE[0])';}

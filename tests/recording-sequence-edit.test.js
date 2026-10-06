@@ -17,7 +17,7 @@ test('temporarily illegal corrections are not locally rejected; cloud rejects wi
  edit.insert(1,300);assert.ok(edit.previewIssues.length);const invalid=edit.submission();
  assert.throws(()=>draftTransition(cloud,{expectedRevision:0,...invalid}),/Illegal move at SGF position 3/);assert.deepEqual(cloud,before);
  // Repair the conflicting later move inside the same workspace.
- edit.reposition(2,288);const next=draftTransition(cloud,{expectedRevision:0,...edit.submission()});assert.equal(next.revision,1);assert.equal(recordingTree(next.sgf).nodes.length,5);
+ edit.reposition(2,288);edit.insert(4,181);const next=draftTransition(cloud,{expectedRevision:0,...edit.submission()});assert.equal(next.revision,1);assert.equal(recordingTree(next.sgf).nodes.length,6);
 });
 test('deleting a pair and repositioning it preserves the later continuation without re-entry',()=>{
  const source='(;SZ[19];B[dd];W[dp];B[pd];W[pp];B[qq])',edit=new RecordingSequenceEdit(recordingTree(source),3);
@@ -32,4 +32,11 @@ test('cloud checks every variation and refuses a stale Apply without overwriting
  const source='(;SZ[19];B[dd](;W[pp])(;W[dp]))',edit=new RecordingSequenceEdit(recordingTree(source),1),cloud={...createDraft(),sgf:source};edit.reposition(3,60);
  assert.throws(()=>draftTransition(cloud,{expectedRevision:0,...edit.submission(2)}),/Illegal move/);assert.equal(cloud.sgf,source);
  edit.reposition(3,180);cloud.revision=1;assert.throws(()=>draftTransition(cloud,{expectedRevision:0,...edit.submission(2)}),e=>e.statusCode===409);assert.equal(cloud.sgf,source);
+});
+
+test('cloud rejects a single deleted move until alternation is repaired, including passes and other branches',()=>{
+ const source='(;SZ[19];B[dd];W[dp];B[pd];W[pp])',cloud={...createDraft(),sgf:source},edit=new RecordingSequenceEdit(recordingTree(source),2);
+ edit.delete(2);assert.ok(edit.previewIssues.length);assert.throws(()=>draftTransition(cloud,{expectedRevision:0,...edit.submission()}),e=>e.statusCode===400&&/alternate/.test(e.message));assert.equal(cloud.sgf,source);
+ edit.delete(3);assert.equal(edit.previewIssues.length,0);const next=draftTransition(cloud,{expectedRevision:0,...edit.submission()});assert.deepEqual(recordingTree(next.sgf).mainLine.slice(1).map(id=>recordingTree(next.sgf).nodes[id].move.side),['B','W']);
+ for(const sgf of ['(;SZ[19];B[];B[dd])','(;SZ[19];B[dd](;W[pp])(;B[pd]))'])assert.throws(()=>draftTransition(cloud,{expectedRevision:0,sgf,selected:1}),/alternate/);
 });
