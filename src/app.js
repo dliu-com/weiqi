@@ -119,6 +119,7 @@ function render() {
     $('resign-' + side).disabled = !!archiveId || reviewing !== null || busy || ended;
   }
   $('undo').dataset.side = undoSide || '';
+  $('pass').textContent = names[state.turn] + t('停一手',' passes');
   $('pass').disabled = busy || !canPlay(); $('undo').disabled = !!archiveId || reviewing !== null || busy || !state.history.length; $('new').disabled = !!archiveId || busy || reviewing !== null;
   $('scoring').hidden = !totals;
   $('scoring-help').hidden = ended;
