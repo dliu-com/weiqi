@@ -10,5 +10,5 @@
   "keepLegacyAnalysisQueue": "false",
   "cpuQuickQueue": "arn:aws:batch:eu-west-1:215103618564:job-queue/Queue-iL6htJV0YA45LMXK",
   "cpuDeepQueue": "arn:aws:batch:eu-west-1:215103618564:job-queue/DeepQueue-AfrHKPMBjaCGinZe",
-  "cpuJobDefinition": "arn:aws:batch:eu-west-1:215103618564:job-definition/Job-W0YCk1sx1oEtRNSH:5"
+  "cpuJobDefinition": "arn:aws:batch:eu-west-1:215103618564:job-definition/Job-W0YCk1sx1oEtRNSH"
 }

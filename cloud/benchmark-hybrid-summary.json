@@ -68,5 +68,25 @@
     "estimatedComputeIpStorageUSD": 0.19465,
     "releaseKnown": true
   },
-  "estimatedWholeGameComputeIpStorageUSD": 0.2864044100611111
+  "estimatedWholeGameComputeIpStorageUSD": 0.2864044100611111,
+  "capacityFallbackValidation": {
+    "recordUrl": "https://weiqi.dliu.com/record/2026100612",
+    "gameMoves": 321,
+    "enqueuedAt": "2026-10-06T02:02:02.062Z",
+    "historicalGpuWaitThresholdSeconds": 600,
+    "currentProductionGpuWaitThresholdSeconds": 1200,
+    "quickTotalSeconds": 218.551,
+    "deepTotalSeconds": 2331.479,
+    "deepEngineSeconds": 1691.694,
+    "deepQueueIncludingCapacityWaitSeconds": 610.809,
+    "quickVisits": 8,
+    "deepVisits": 96,
+    "compute": {
+      "backend": "fargate-cpu",
+      "vCpu": 32,
+      "memoryGB": 60
+    },
+    "estimatedWholeGameComputeAndIpUSD": 0.8421519734222221,
+    "note": "Measured under the earlier 10-minute GPU wait policy. The deployed 20-minute policy is tested in code; approximately 49-minute total is an extrapolation, not a second paid benchmark."
+  }
 }
