@@ -1,5 +1,5 @@
 import test from 'node:test';import assert from 'node:assert/strict';import vm from 'node:vm';import {readFileSync} from 'node:fs';
-import {recordingTree,recordingSgf,newRecordingSgf,addRecordingMove,promoteRecordingBranch,deleteRecordingBranch,mainRecordingSgf,RecordingNavigation,recordingTreeLayout,recordingNodeIndex,populateRecordingDetails,deleteRecordingMove,insertRecordingMove,repositionRecordingMove,setRecordingHandicap} from '../src/recording-tree.js';
+import {recordingTree,recordingSgf,newRecordingSgf,addRecordingMove,promoteRecordingBranch,deleteRecordingBranch,mainRecordingSgf,RecordingNavigation,recordingTreeLayout,recordingNodeIndex,populateRecordingDetails,deleteRecordingMove,insertRecordingMove,repositionRecordingMove,setRecordingHandicap,defaultRecordingKomi,setRecordingRules} from '../src/recording-tree.js';
 import {boardDisplayPoint} from '../src/board-geometry.js';
 import {createDraft,draftTransition,draftPublication} from '../backend/draft-service.js';import {readSgf} from '../src/sgf.js';import {createState,transition} from '../backend/game-service.js';import {sgf} from '../src/engine.js';
 test('recording branches promote and prune the selected main line without losing setup, captures or passes',()=>{
@@ -76,4 +76,16 @@ test('repositioning changes only the selected coordinate and replays later branc
  const r=recordingTree('(;SZ[19];B[dd](;W[pp];B[qq])(;W[dp];B[pd]))'),before=recordingSgf(r),changed=repositionRecordingMove(r,1,180);
  assert.equal(changed.record.nodes.length,r.nodes.length);assert.equal(changed.record.nodes[1].move.index,180);assert.equal(changed.record.nodes[1].move.side,'B');assert.equal(changed.record.nodes[1].children.length,2);assert.equal(changed.record.nodes.at(-1).board[60],'.');assert.equal(changed.record.nodes.at(-1).board[180],'B');assert.equal(recordingSgf(r),before);
  assert.throws(()=>repositionRecordingMove(r,1,300),/later move illegal/);assert.equal(recordingSgf(r),before);
+});
+
+
+test('komi defaults follow rules and handicap while preserving explicitly supplied custom values',()=>{
+ for(const [rules,komi]of [['Japanese',6.5],['Korean',6.5],['Chinese',7.5],['AGA',7.5]]){
+  const r=recordingTree('(;SZ[19]RU['+rules+'])');populateRecordingDetails(r);assert.equal(r.komi,komi);assert.equal(defaultRecordingKomi(rules,2),0.5);
+  const handicap=setRecordingHandicap(r,2);assert.equal(handicap.komi,0.5);assert.equal(setRecordingHandicap(handicap,0).komi,komi);
+ }
+ const changed=setRecordingRules(recordingTree(newRecordingSgf()),'Chinese');assert.equal(changed.komi,7.5);assert.equal(setRecordingRules(changed,'Japanese').komi,6.5);
+ const custom=recordingTree('(;SZ[19]RU[Japanese]KM[0])');populateRecordingDetails(custom);assert.equal(custom.komi,0);assert.equal(setRecordingRules(custom,'Chinese').komi,0);assert.equal(setRecordingHandicap(custom,2).komi,0);
+ const sgf=recordingTree('(;SZ[19]RU[Chinese]KM[6.5])');populateRecordingDetails(sgf);assert.equal(sgf.komi,6.5);
+ assert.equal(recordingTree(mainRecordingSgf('(;SZ[19]RU[Chinese];B[dd])')).komi,7.5);
 });
