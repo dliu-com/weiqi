@@ -69,6 +69,28 @@ class WorkerTest(unittest.TestCase):
   self.assertIn('nnMaxBatchSize = 32',configs[0]);self.assertIn('numAnalysisThreads = 16',configs[0])
   saved=json.loads(self.files['games/2026100501/analysis.json']['body']);self.assertEqual(saved['configuration']['maxBatchSize'],32)
   self.assertEqual(saved['compute']['gpu'],'NVIDIA T4');self.assertEqual(saved['compute']['vCpu'],4);self.assertEqual(saved['compute']['memoryGB'],16)
+ def test_pipeline_publishes_quick_before_deep_and_downloads_each_model_pass(self):
+  self.files['games/2026100501/metadata.json']['body']=json.dumps({'analysis':{'status':'queued','token':'owner','quick':{'status':'queued'},'deep':{'status':'queued'}}})
+  event={**self.event,'token':'owner','pipeline':True,'phases':{'quick':{'visits':32,'estimatedSeconds':10},'deep':{'visits':1000,'estimatedSeconds':30}}}
+  calls=[]
+  def run(args,**kwargs):
+   query=json.loads(kwargs['input']);calls.append(query['maxVisits'])
+   if len(calls)==2:
+    current=json.loads(self.files['games/2026100501/metadata.json']['body'])['analysis'];self.assertEqual(current['available'],'quick');self.assertIn('games/2026100501/analysis-quick.json',self.files)
+   return types.SimpleNamespace(returncode=0,stdout='\n'.join(json.dumps({'turnNumber':n,'rootInfo':{'scoreLead':0,'winrate':.5,'visits':query['maxVisits']}}) for n in [0,1,2]))
+  with patch.object(self.worker.subprocess,'run',side_effect=run),patch.object(self.worker.subprocess,'check_output',return_value='KataGo test'):self.worker.pipeline(event)
+  self.assertEqual(calls,[32,1000]);self.assertEqual(self.download.call_count,2)
+  self.assertEqual(json.loads(self.files['games/2026100501/metadata.json']['body'])['analysis']['available'],'deep')
+ def test_pipeline_skips_completed_quick_results_and_preserves_owner(self):
+  self.files['games/2026100501/metadata.json']['body']=json.dumps({'analysis':{'status':'queued','token':'owner','quick':{'status':'ready','visits':32},'deep':{'status':'queued'},'available':'quick'}})
+  event={**self.event,'token':'owner','pipeline':True,'phases':{'quick':{'visits':32,'estimatedSeconds':10},'deep':{'visits':1000,'estimatedSeconds':30}}}
+  output='\n'.join(json.dumps({'turnNumber':n,'rootInfo':{'scoreLead':0,'winrate':.5,'visits':1000}}) for n in [0,1,2])
+  with patch.object(self.worker.subprocess,'run',return_value=types.SimpleNamespace(returncode=0,stdout=output)),patch.object(self.worker.subprocess,'check_output',return_value='KataGo test'):
+   self.assertEqual(self.worker.pipeline(event)[0]['status'],'skipped')
+  self.assertEqual(self.download.call_count,1)
+  self.assertEqual(json.loads(self.files['games/2026100501/analysis.json']['body'])['visits'],1000)
+  self.assertEqual(self.worker.handler({**self.event,'phase':'quick','token':'stale'})['status'],'skipped')
+  with self.assertRaisesRegex(RuntimeError,'ownership'):self.worker.update_phase(self.event['id'],'quick',{'status':'running'},'stale')
  def test_each_pass_downloads_official_model_with_identified_client_and_never_stores_a_model(self):
   self.files['games/2026100501/metadata.json']['body']=json.dumps({'analysis':{'status':'queued','quick':{'status':'queued'},'deep':{'status':'queued'}}})
   output='\n'.join(json.dumps({'turnNumber':n,'rootInfo':{'scoreLead':n,'winrate':.5,'visits':10}}) for n in [0,1,2])

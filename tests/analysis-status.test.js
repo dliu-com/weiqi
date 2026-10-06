@@ -46,3 +46,10 @@ test('total clock begins at SQS enqueue, includes capacity/setup and is fixed af
  assert.equal(analysisTotalMillis({endToEndMs:330100},metadata,Date.parse('2026-10-06T01:00:00Z')),330100);
  assert.equal(analysisTotalMillis(null,{analysis:{}}),null);
 });
+
+test('scheduled retries keep quick polling active while deep retries require manual refresh',()=>{
+ const waiting={status:'retry_wait',attempt:1,retryAt:'2026-10-06T05:00:00Z',quick:{status:'retry_wait'},deep:{status:'retry_wait'}};
+ assert.equal(pendingAnalysis(waiting).phase,'quick');assert.equal(shouldPollQuick(waiting),true);
+ const deep={...waiting,available:'quick',quick:{status:'ready'}};assert.equal(pendingAnalysis(deep).phase,'deep');assert.equal(shouldPollQuick(deep),false);
+ assert.equal(pendingAnalysis({...waiting,status:'failed',quick:{status:'failed'},deep:{status:'failed'}}),null);
+});

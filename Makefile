@@ -23,6 +23,7 @@ diff:
 
 deploy-infra:
 	cd cdk && AWS_REGION=$(AWS_REGION) npm run deploy
+	aws cloudformation set-stack-policy --region $(AWS_REGION) --stack-name WeiqiStorage --stack-policy-body file://cloud/storage-stack-policy.json
 
 publish:
 	AWS_REGION=$(AWS_REGION) STACK_NAME=$(STACK_NAME) bash scripts/publish-site.sh

@@ -21,14 +21,17 @@ def kata_candidates(move_infos,played_move=None):
             pv.append('pass' if p.lower()=='pass' else p.upper())
         result.append({'move':'pass' if m['move'].lower()=='pass' else m['move'].upper(),'order':m['order'],'blackLead':m['scoreLead'],'blackWinrate':m['winrate'],'visits':m['visits'],'pv':pv})
     return result
-def update_phase(game_id,phase,patch):
+def update_phase(game_id,phase,patch,token=None):
     key='games/'+game_id+'/metadata.json'
     for attempt in range(6):
         obj=s3.get_object(Bucket=BUCKET,Key=key)
         metadata=json.loads(obj['Body'].read());state=metadata['analysis']
+        if token and (state.get('token')!=token or state.get('status') in ['retry_wait','failed']):raise RuntimeError('Analysis ownership changed')
         state[phase]={**state.get(phase,{}),**patch}
         quick=state.get('quick',{}).get('status');deep=state.get('deep',{}).get('status')
-        if deep=='ready':state.update(status='ready',available='deep',visits=state['deep']['visits'])
+        if deep=='ready':
+            state.update(status='ready',available='deep',visits=state['deep']['visits'])
+            for field in ['error','retryAt','retrySentAt']:state.pop(field,None)
         elif quick=='ready':state.update(status='running' if deep in ['queued','running'] else 'ready',available='quick',visits=state['quick']['visits'])
         else:state['status']='running' if 'running' in [quick,deep] else 'failed' if quick==deep=='failed' else 'queued'
         try:
@@ -48,9 +51,10 @@ def handler(event,context=None):
     if production:
         obj=s3.get_object(Bucket=BUCKET,Key='games/'+event['id']+'/metadata.json')
         metadata=json.loads(obj['Body'].read())
+        if event.get('token') and metadata['analysis'].get('token')!=event['token']:return {'status':'skipped'}
         if metadata['analysis']['status'] in ['ready','failed','limited'] or phase and metadata['analysis'].get(phase,{}).get('status') in ['ready','failed']: return {'status':'skipped'}
         patch={'status':'running','startedAt':datetime.datetime.now(datetime.timezone.utc).isoformat(),'visits':event['query']['maxVisits'],'estimatedSeconds':event.get('estimatedSeconds',300)}
-        if phase:update_phase(event['id'],phase,patch)
+        if phase:update_phase(event['id'],phase,patch,event.get('token'))
         else:
             metadata['analysis']={**metadata['analysis'],**patch}
             s3.put_object(Bucket=BUCKET,Key='games/'+event['id']+'/metadata.json',Body=json.dumps(metadata).encode(),ContentType='application/json',IfMatch=obj['ETag'])
@@ -118,9 +122,13 @@ def handler(event,context=None):
         timings['provenanceMs']=round((time.time()-provenance_started)*1000)
         upload_started=time.time()
         result_key=prefix+('/analysis-quick.json' if production and phase=='quick' else '/analysis.json')
+        if production:
+            if event.get('token'):
+                owned=json.loads(s3.get_object(Bucket=BUCKET,Key=prefix+'/metadata.json')['Body'].read())['analysis']
+                if owned.get('token')!=event['token'] or owned.get('status') in ['retry_wait','failed']:raise RuntimeError('Analysis ownership changed')
         s3.put_object(Bucket=BUCKET,Key=result_key,Body=json.dumps(analysis).encode(),ContentType='application/json')
         if production:
-            if phase:update_phase(event['id'],phase,{'status':'ready','visits':visits,'completedAt':analysis['completedAt']})
+            if phase:update_phase(event['id'],phase,{'status':'ready','visits':visits,'completedAt':analysis['completedAt']},event.get('token'))
             else:
                 latest=s3.get_object(Bucket=BUCKET,Key=prefix+'/metadata.json')
                 metadata=json.loads(latest['Body'].read());metadata['analysis']={'status':'ready','visits':visits,'completedAt':analysis['completedAt']}
@@ -130,8 +138,17 @@ def handler(event,context=None):
         if os.environ.get('BOOT_STARTED_AT'):timings['containerTotalMs']=round((time.time()-float(os.environ['BOOT_STARTED_AT']))*1000)
         s3.put_object(Bucket=BUCKET,Key=('jobs/'+event['id'] if production else prefix)+('/'+phase+'-timings.json' if production and phase else '/timings.json'),Body=json.dumps({'timings':timings,'requestedAt':event['requestedAt'],'workerStartedAt':datetime.datetime.fromtimestamp(worker_started,datetime.timezone.utc).isoformat(),'completedAt':datetime.datetime.now(datetime.timezone.utc).isoformat(),'backend':os.environ.get('BACKEND','cpu')}).encode(),ContentType='application/json')
         return {'key':result_key,'elapsedMs':analysis['elapsedMs']}
+def pipeline(event):
+    # One GPU allocation serves both passes. Each pass still downloads the
+    # official model afresh; model files are never persisted in the library.
+    results=[]
+    for phase in ['quick','deep']:
+        settings=event['phases'][phase]
+        results.append(handler({**event,'phase':phase,'query':{**event['query'],'maxVisits':settings['visits'],'id':event['id']+'-'+phase},'estimatedSeconds':settings['estimatedSeconds']}))
+    return results
+
 if __name__=='__main__':
     request_started=time.time()
     event=json.loads(s3.get_object(Bucket=BUCKET,Key=os.environ['BENCHMARK_REQUEST_KEY'])['Body'].read())
     boot=json.loads(os.environ.get('BOOT_TIMINGS','{}'));boot['downloadJobRequestMs']=round((time.time()-request_started)*1000);os.environ['BOOT_TIMINGS']=json.dumps(boot)
-    print(json.dumps(handler(event)))
+    print(json.dumps(pipeline(event) if event.get('pipeline') else handler(event)))

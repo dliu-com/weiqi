@@ -14,11 +14,12 @@ test('GPU comparison isolates two instance types with zero idle capacity and no 
 
 test('production uses T4 across three zones, delayed fallback messages and bounded jobs without idle polling',()=>{
  const prod=Template.fromStack(new WeiqiGpuBenchmarkStack(new App(),'GpuProduction',{libraryBucket:'fictional-library',production:true,analysisQueueArn:'arn:aws:sqs:eu-west-1:123456789012:uploads',cpuQuickQueue:'arn:aws:batch:eu-west-1:123456789012:job-queue/cpu-quick',cpuDeepQueue:'arn:aws:batch:eu-west-1:123456789012:job-queue/cpu-deep',cpuJobDefinition:'arn:aws:batch:eu-west-1:123456789012:job-definition/cpu:1',env:{account:'123456789012',region:'eu-west-1'}}));
- prod.resourceCountIs('AWS::Batch::ComputeEnvironment',1);
+ prod.resourceCountIs('AWS::Batch::ComputeEnvironment',2);
  prod.hasResourceProperties('AWS::Batch::ComputeEnvironment',{ComputeResources:Match.objectLike({MinvCpus:0,MaxvCpus:8,InstanceTypes:['g4dn.xlarge'],Subnets:Match.arrayWith([{Ref:'CapacitySubnet'}])})});
  prod.resourceCountIs('AWS::Lambda::EventSourceMapping',2);
- prod.hasResourceProperties('AWS::Lambda::Function',{Environment:{Variables:Match.objectLike({CPU_JOB_DEFINITION:'arn:aws:batch:eu-west-1:123456789012:job-definition/cpu'})}});
- prod.hasResourceProperties('AWS::IAM::Policy',{PolicyDocument:{Statement:Match.arrayWith([Match.objectLike({Action:'batch:SubmitJob',Resource:Match.arrayWith(['arn:aws:batch:eu-west-1:123456789012:job-definition/cpu','arn:aws:batch:eu-west-1:123456789012:job-definition/cpu:*'])})])}});
+ prod.hasResourceProperties('AWS::Lambda::Function',{Environment:{Variables:Match.objectLike({QUICK_VISITS:'32',GPU_FALLBACK_WAIT_SECONDS:'180',FALLBACK_GPU_QUEUE:Match.anyValue()})}});
+ prod.hasResourceProperties('AWS::Batch::ComputeEnvironment',{ComputeResources:Match.objectLike({MinvCpus:0,MaxvCpus:4,InstanceTypes:['g5.xlarge']})});
+ const functions=Object.values(prod.findResources('AWS::Lambda::Function'));for(const fn of functions)expect(JSON.stringify(fn.Properties.Environment||{})).not.toContain('CPU_JOB_DEFINITION');
  prod.hasResourceProperties('AWS::Batch::JobDefinition',{Timeout:{AttemptDurationSeconds:14400}});
  const rules=Object.values(prod.findResources('AWS::Events::Rule'));for(const rule of rules)expect(rule.Properties.ScheduleExpression).toBeUndefined();
  prod.resourceCountIs('AWS::EC2::NatGateway',0);

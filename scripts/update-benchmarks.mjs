@@ -13,14 +13,14 @@ export async function updateBenchmarks({publish=false}={}){
   let summary;try{summary=JSON.parse(await readFile('/private/tmp/'+dir.name+'/summary.json','utf8'));}catch{continue;}
   for(const r of summary.results||[]){const prior=catalog.get(r.jobId),merged={...prior,...r,id:r.jobId,moves:summary.moves,model:summary.model,backend:'gpu',runId:summary.runId,analysisThreads:r.analysisThreads||summary.analysisThreads||16,maxBatchSize:r.maxBatchSize||summary.maxBatchSize||32};if(prior?.timingVerified)for(const key of ['totalExcludingQueueSeconds','estimatedComputeUSD','coldStart','instanceId','instanceStartupSeconds','taskStartupSeconds'])merged[key]=prior[key];catalog.set(r.jobId,merged);}
  }
- const records=[...catalog.values()],jobIds=records.filter(r=>r.jobId).map(r=>r.jobId);
+ const records=[...catalog.values()],jobIds=[...new Set(records.filter(r=>r.jobId).map(r=>r.jobId))];
  const jobs=new Map();for(let n=0;n<jobIds.length;n+=100)for(const j of (await aws(['batch','describe-jobs','--jobs',...jobIds.slice(n,n+100)])).jobs)jobs.set(j.jobId,j);
  const instances=(await aws(['ec2','describe-instances','--filters','Name=tag:service,Values=weiqi-gpu-benchmark'])).Reservations.flatMap(r=>r.Instances);
  for(const r of records){
   const job=jobs.get(r.jobId);
   if(job){r.status=job.status;r.statusReason=job.statusReason;r.createdAt=new Date(job.createdAt).toISOString();if(r.productionPrefix&&r.enqueuedAt&&!r.capacityFallback)r.triggerSeconds=Math.max(0,(job.createdAt-Date.parse(r.enqueuedAt))/1000);r.startedAt=job.startedAt?new Date(job.startedAt).toISOString():null;
    const res=Object.fromEntries((job.container.resourceRequirements||[]).map(x=>[x.type,Number(x.value)]));r.cpu=res.VCPU;r.memoryGB=r.backend==='gpu'?16:res.MEMORY/1024;
-   if(r.productionPrefix&&!r.sourceVerified){const meta=await get(r.productionPrefix+'/metadata.json');if(meta){r.moves=meta.moves;r.enqueuedAt=meta.analysis.enqueuedAt;r.capacityFallback=!!meta.analysis[r.phase]?.fallback&&r.backend==='fargate-cpu';const requestKey=job.container.environment.find(e=>e.name==='BENCHMARK_REQUEST_KEY')?.value;const request=requestKey?await get(requestKey):null;if(request){r.phase=request.phase;r.visits=request.query.maxVisits;r.plannedPositions=request.query.analyzeTurns.length;}}r.sourceVerified=true;}
+   if(r.productionPrefix&&!r.sourceVerified){const meta=await get(r.productionPrefix+'/metadata.json');if(meta){r.moves=meta.moves;r.enqueuedAt=meta.analysis.enqueuedAt;r.capacityFallback=!!meta.analysis[r.phase]?.fallback&&r.backend==='fargate-cpu';const requestKey=job.container.environment.find(e=>e.name==='BENCHMARK_REQUEST_KEY')?.value;const request=requestKey?await get(requestKey):null;if(request){if(!request.pipeline)r.phase=request.phase;r.visits=request.pipeline?request.phases[r.phase]?.visits:request.query.maxVisits;r.plannedPositions=request.query.analyzeTurns.length;}}r.sourceVerified=true;}
    if(job.status==='SUCCEEDED'&&(!r.timings||!r.positions)){
     const prefix=r.productionPrefix||r.prefix;
     const a=await get(prefix+(r.phase==='quick'?'/analysis-quick.json':'/analysis.json'));
@@ -35,7 +35,7 @@ export async function updateBenchmarks({publish=false}={}){
      if(r.backend==='gpu'){
       const c=(await aws(['ecs','describe-container-instances','--cluster',cluster,'--container-instances',job.container.containerInstanceArn])).containerInstances[0];
       const instance=instances.find(i=>i.InstanceId===c?.ec2InstanceId);
-      if(instance){r.instanceId=instance.InstanceId;const previous=records.some(other=>other!==r&&other.instanceId===r.instanceId&&Date.parse(other.completedAt)<Date.parse(r.completedAt));r.coldStart=!previous;r.instanceStartupSeconds=previous?0:(Date.parse(task.createdAt)-Date.parse(instance.LaunchTime))/1000;if(!previous)begin=Date.parse(instance.LaunchTime);}
+      if(instance){r.instanceId=instance.InstanceId;const previous=records.some(other=>other!==r&&other.jobId!==r.jobId&&other.instanceId===r.instanceId&&Date.parse(other.completedAt)<Date.parse(r.completedAt));r.coldStart=!previous;r.instanceStartupSeconds=previous?0:(Date.parse(task.createdAt)-Date.parse(instance.LaunchTime))/1000;if(!previous)begin=Date.parse(instance.LaunchTime);}
      }
      r.queueWaitSeconds=Math.max(0,(begin-job.createdAt)/1000);
      if(r.completedAt)r.totalExcludingQueueSeconds=(r.productionPrefix?0:r.triggerSeconds||0)+(Date.parse(r.completedAt)-begin)/1000;
