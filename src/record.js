@@ -9,14 +9,14 @@ import {readSgf} from './sgf.js';
 import {libraryRequest} from './library-api.js';
 const $=id=>document.getElementById(id),id=location.pathname.match(/^\/(?:record|game)\/([0-9]{10,14}|[a-f0-9-]{36})\/?$/)?.[1] || new URLSearchParams(location.search).get('game');
 let data=null,record=null,selected=restorePosition(),loading=false,points=[],analyses=new Map(),trials=[],trialOffset=0,autoplay=null,chartMode='score',pollTimer=null,statusTimer=null,aiLine=null,suggestions=true;
-const boardCandidates=new Map();
+const boardCandidates=new Map(),boardRecordedMoves=new Map();
 try{suggestions=localStorage.getItem('weiqi.aiSuggestions')!=='off';}catch{}
 function coord(index){return 'ABCDEFGHJKLMNOPQRST'[index%record.size]+(record.size-Math.floor(index/record.size));}
 function drawBoard(){const size=record.size,board=$('board');board.replaceChildren();const ns='http://www.w3.org/2000/svg',svg=document.createElementNS(ns,'svg');svg.setAttribute('viewBox',`0 0 ${size*10} ${size*10}`);for(let i=0;i<size;i++)for(const horizontal of [true,false]){const line=document.createElementNS(ns,'line');line.setAttribute('x1',horizontal?5:5+i*10);line.setAttribute('y1',horizontal?5+i*10:5);line.setAttribute('x2',horizontal?size*10-5:5+i*10);line.setAttribute('y2',horizontal?5+i*10:size*10-5);line.setAttribute('stroke','#634c2b');line.setAttribute('stroke-width','.4');svg.append(line);}
  const stars=size===19?[3,9,15]:size===13?[3,6,9]:[2,4,6];for(const x of stars)for(const y of stars){if(size===9&&x!==y&&x===4||size===9&&x!==y&&y===4)continue;const c=document.createElementNS(ns,'circle');c.setAttribute('cx',5+x*10);c.setAttribute('cy',5+y*10);c.setAttribute('r',1.1);c.setAttribute('fill','#46351f');svg.append(c);}board.append(svg);
  for(const existing of document.querySelectorAll('.coordinates'))existing.remove();
  for(const side of ['top','bottom','left','right']){const rail=document.createElement('div');rail.className='coordinates coordinates-'+side;rail.setAttribute('aria-hidden','true');for(let i=0;i<size;i++){const label=document.createElement('span');label.textContent=side==='top'||side==='bottom'?'ABCDEFGHJKLMNOPQRST'[i]:size-i;rail.append(label);}board.parentElement.append(rail);}
- points=Array.from({length:size*size},(_,i)=>{const p=document.createElement('button');p.type='button';p.className='point';p.tabIndex=i===180?0:-1;p.addEventListener('click',()=>{const choice=boardCandidates.get(i);if(choice)showAiCandidate(choice.review,choice.candidate);else previewMove(i);});p.addEventListener('keydown',event=>{const offset={ArrowUp:-size,ArrowDown:size}[event.key];if(!offset)return;event.preventDefault();event.stopPropagation();const next=i+offset;if(next>=0&&next<size*size&&(Math.abs(offset)===size||Math.floor(next/size)===Math.floor(i/size))){p.tabIndex=-1;points[next].tabIndex=0;points[next].focus();}});p.style.left=(i%size+.5)/size*100+'%';p.style.top=(Math.floor(i/size)+.5)/size*100+'%';p.style.width=100/size+'%';p.style.height=100/size+'%';board.append(p);return p;});
+ points=Array.from({length:size*size},(_,i)=>{const p=document.createElement('button');p.type='button';p.className='point';p.tabIndex=i===180?0:-1;p.addEventListener('click',()=>{const actual=boardRecordedMoves.get(i),choice=boardCandidates.get(i);if(actual!==undefined)selectPosition(actual);else if(choice)showAiCandidate(choice.review,choice.candidate);else previewMove(i);});p.addEventListener('keydown',event=>{const offset={ArrowUp:-size,ArrowDown:size}[event.key];if(!offset)return;event.preventDefault();event.stopPropagation();const next=i+offset;if(next>=0&&next<size*size&&(Math.abs(offset)===size||Math.floor(next/size)===Math.floor(i/size))){p.tabIndex=-1;points[next].tabIndex=0;points[next].focus();}});p.style.left=(i%size+.5)/size*100+'%';p.style.top=(Math.floor(i/size)+.5)/size*100+'%';p.style.width=100/size+'%';p.style.height=100/size+'%';board.append(p);return p;});
 }
 function render(){document.title=(data?.metadata.name || t('棋谱','Game record'))+' · DL';$('library-back').textContent=t('棋谱库','Record library');$('download-original').textContent=t('下载 SGF','Download SGF');$('analysis-title').textContent=t('AI 评估','AI evaluation');$('generate-report').textContent=t('查看 AI 报告','View AI report');const reportReady=data?.analysis?.phase==='deep'&&data.metadata.analysis.status==='ready';$('generate-report').setAttribute('aria-disabled',String(!reportReady));if(reportReady)$('generate-report').href='/record/'+id+'/report';else $('generate-report').removeAttribute('href');$('generate-report').title=reportReady?t('查看已生成的中英文报告并保存 PDF','View the prepared English/Chinese report and save PDF'):t('深度分析完成后自动生成报告','Report prepared automatically after deep analysis');$('record-main').hidden=!record;if(!record)return;
  const base=record.nodes[selected],node=trials[trialOffset-1] || aiLine?.frames[aiLine.offset] || base;
@@ -106,6 +106,7 @@ function arrangeReplayControls(){
 mobileReplay.addEventListener('change',arrangeReplayControls);
 window.addEventListener('resize',arrangeReplayControls);
 arrangeReplayControls();
+if(typeof ResizeObserver!=='undefined')new ResizeObserver(()=>{document.documentElement.style.setProperty('--record-header-height',document.querySelector('header').getBoundingClientRect().height+'px');}).observe(document.querySelector('header'));
 
 function analysisRuntime(a){
  const engineMs=a.benchmark?.engineMs,elapsed=engineMs??a.elapsedMs;
@@ -146,7 +147,7 @@ function renderSuggestions(){
  $('ai-suggestions').checked=suggestions;
  $('ai-suggestions-label').textContent=t('棋步点评与 AI 推荐','Move review & AI suggestions');
  $('ai-review-content').hidden=!suggestions;
- boardCandidates.clear();for(const point of points){delete point.dataset.quality;delete point.dataset.aiCandidate;point.classList.remove('ai-candidate','ai-best','ai-good');point.removeAttribute('title');}
+ boardCandidates.clear();boardRecordedMoves.clear();for(const point of points){delete point.dataset.quality;delete point.dataset.aiCandidate;delete point.dataset.nextQuality;delete point.dataset.recordedMove;point.classList.remove('ai-candidate','ai-best','ai-good','next-recorded-move');point.removeAttribute('title');}
  if(!suggestions)return;
  const review=reviewMove(record,selected,analyses,data.analysis?.phase),next=nextMoveComparison(record,selected,analyses,data.analysis?.phase),quality=$('move-quality');
  quality.hidden=!!aiLine||!!trialOffset||!record.nodes[selected].move;
@@ -165,6 +166,16 @@ function renderSuggestions(){
      const loss=Math.max(0,(next.side==='B'?1:-1)*(next.best.blackLead-candidate.blackLead));
      point.title=label+' · '+candidate.move+' · '+(candidate.order===0?t('最佳','Best'):t('也可','Also good'))+' · '+t('比首选损失 ','Loss versus best: ')+loss.toFixed(1)+t(' 点',' points');point.setAttribute('aria-label',point.title+' · '+t('查看推荐变化','View recommended line'));
    }
+ }
+ const actualNode=record.nodes[selected].children[0],actualMove=record.nodes[actualNode]?.move,actualRow=next.rows.find(row=>row.actual),legend=$('next-recorded-legend');
+ legend.hidden=!!aiLine||!!trialOffset||!actualMove;
+ legend.textContent=actualMove?.index===null?t('下一手实战：停一手（棋盘上不标记）','Next recorded move: Pass (no board marker)'):t('△ 下一手实战 · 绿：最佳/好棋 · 黄：不精确 · 橙：失误 · 红：严重失误 · 灰：未评定','△ Next recorded move · Green: best/good · Yellow: inaccuracy · Orange: mistake · Red: blunder · Grey: unrated');
+ if(!aiLine&&!trialOffset&&actualMove?.index!==null&&actualMove?.index!==undefined&&record.nodes[selected].board[actualMove.index]==='.'){
+   const point=points[actualMove.index],ns='http://www.w3.org/2000/svg',svg=document.createElementNS(ns,'svg'),triangle=document.createElementNS(ns,'polygon');
+   svg.setAttribute('viewBox','0 0 100 100');svg.setAttribute('aria-hidden','true');svg.classList.add('recorded-triangle');triangle.setAttribute('points','50,8 92,88 8,88');svg.append(triangle);point.replaceChildren(svg);
+   if(actualRow?.label){const letter=document.createElement('span');letter.className='recorded-candidate-letter';letter.textContent=actualRow.label;point.append(letter);}
+   point.classList.add('next-recorded-move');point.dataset.nextQuality=actualRow?.quality||'unrated';point.dataset.recordedMove=coord(actualMove.index);boardRecordedMoves.set(actualMove.index,actualNode);
+   point.title=t('下一手实战：','Next recorded move: ')+(actualMove.side==='B'?t('黑方 ','Black '):t('白方 ','White '))+coord(actualMove.index)+' · '+(names[actualRow?.quality]||t('未评定','Unrated'))+(actualRow?.estimated?t('（估计）',' (estimated)'):'');point.setAttribute('aria-label',point.title+' · '+t('前往实战着法','Go to recorded move'));
  }
  if(next.rows.length){
    const table=document.createElement('table');table.className='ai-move-table';

@@ -124,6 +124,18 @@
         "badRecordedMovesRetained": true,
         "verifiedAt": "2026-10-06T14:45:09.640847+00:00",
         "validation": "cloud/move-comparison-table-validation.json"
+      },
+      "recordedBoardMarker": {
+        "shape": "Triangle",
+        "qualityColours": {
+          "bestGood": "green",
+          "inaccuracy": "yellow",
+          "mistake": "orange",
+          "blunder": "red",
+          "unrated": "grey"
+        },
+        "click": "Advance recorded game",
+        "validation": "cloud/next-recorded-move-triangle-validation.json"
       }
     },
     "variationNavigation": {
@@ -221,5 +233,11 @@
     "quickPollSeconds": 15,
     "deepManualRefresh": true,
     "noAnalysisJobsLaunched": true
+  },
+  "recordBoardLayout": {
+    "desktop": "Use viewport height minus measured header and 12 px total margin",
+    "userApprovedSize": true,
+    "mobile": "Board and move controls before AI chart",
+    "validation": "cloud/next-recorded-move-triangle-validation.json"
   }
 }
