@@ -60,7 +60,7 @@ function pendingMessage(){
   }else message+='\n'+t('开始后处理约 ','Processing after start: ~')+duration;
   return showing+name+' · '+message+'\n'+analysisTotal(null)+check;
  }
- const progress=wait.phase==='running'?t('预计 '+duration+' 后完成。',' ready in '+duration+'.'):t('比预计耗时更长。',' is taking longer than expected.');
+ const progress=wait.phase==='running'?t('预计 '+duration.replace(' ','')+'后完成。',' ready in '+duration+'.'):t('比预计耗时更长。',' is taking longer than expected.');
  const started=Number.isFinite(Date.parse(stage.startedAt))?'\n'+t('开始于：','Started: ')+formatAnalysisTime(Date.parse(stage.startedAt)):'';
  const estimate=completion?'\n'+(wait.phase==='overdue'?t('原预计完成：','Original estimated finish: '):t('预计完成：','Estimated finish: '))+formatAnalysisEstimate(completion.timestamp):'';
  const retry=state.attempt>1?t('自动重试 '+(state.attempt-1)+'/2 · ','Automatic retry '+(state.attempt-1)+'/2 · '):'';
