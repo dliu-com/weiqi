@@ -1,6 +1,8 @@
 import * as fs from 'fs';
 import * as path from 'path';
+import {execFileSync} from 'child_process';
 import { Construct } from 'constructs';
+import {SqsEventSource} from 'aws-cdk-lib/aws-lambda-event-sources';
 import {
   aws_certificatemanager as acm,
   aws_cloudfront as cloudfront,
@@ -19,6 +21,7 @@ import {
   Duration,
   Fn,
   RemovalPolicy,
+  Size,
   Stack,
   StackProps,
 } from 'aws-cdk-lib';
@@ -83,15 +86,29 @@ export class WeiqiSiteStack extends Stack {
     const sharedLibrarySource = ['src/sgf.js','src/ai-review.js','src/report-data.js','backend/library-service.js'].map(file => fs.readFileSync(path.join(root,file),'utf8').replace(/^import .*;\n/gm,'').replace(/^export /gm,'')).join('\n');
     const libraryHandlerSource = fs.readFileSync(path.join(root,'backend/library-handler.cjs'),'utf8');
     const handlerSource = fs.readFileSync(path.join(root, 'backend/handler.cjs'), 'utf8');
+    execFileSync(process.execPath,[path.join(root,'scripts/build-report-renderer.mjs')],{stdio:'inherit'});
+    const reportDeadLetters=new sqs.Queue(this,'ReportDeadLetters',{fifo:true,retentionPeriod:Duration.days(14)});
+    const reportQueue=new sqs.Queue(this,'ReportQueue',{fifo:true,visibilityTimeout:Duration.minutes(6),retentionPeriod:Duration.days(1),deadLetterQueue:{queue:reportDeadLetters,maxReceiveCount:3}});
+    const reportRenderer=new lambda.Function(this,'ReportRenderer',{
+      runtime:lambda.Runtime.NODEJS_22_X,handler:'index.handler',memorySize:2048,
+      timeout:Duration.minutes(5),ephemeralStorageSize:Size.gibibytes(1),
+      logGroup:new logs.LogGroup(this,'ReportRendererLogs',{retention:logs.RetentionDays.ONE_WEEK,removalPolicy:RemovalPolicy.DESTROY}),
+      code:lambda.Code.fromAsset(path.join(root,'backend/report-renderer')),
+      environment:{LIBRARY_BUCKET:libraryBucket.bucketName,SITE_BUCKET:bucket.bucketName},
+    });
+    reportRenderer.addEventSource(new SqsEventSource(reportQueue,{batchSize:1}));
+    libraryBucket.grantRead(reportRenderer,'games/*');
+    bucket.grantReadWrite(reportRenderer,'prepared-reports/*');
     const gameHandler = new lambda.Function(this, 'GameHandler', {
       runtime: lambda.Runtime.NODEJS_22_X,
       handler: 'index.handler',
       timeout: Duration.seconds(20),
       memorySize: 256,
       logGroup: new logs.LogGroup(this, 'GameLogs', { retention: logs.RetentionDays.ONE_WEEK, removalPolicy: RemovalPolicy.DESTROY }),
-      environment: { LIBRARY_BUCKET:libraryBucket.bucketName, ANALYSIS_QUEUE:analysisQueue.queueUrl, TABLE_NAME: gameTable.tableName, SITE_ORIGIN: Fn.join('', ['https://', domainName]) },
+      environment: { LIBRARY_BUCKET:libraryBucket.bucketName, ANALYSIS_QUEUE:analysisQueue.queueUrl, TABLE_NAME: gameTable.tableName, REPORT_QUEUE:reportQueue.queueUrl, SITE_ORIGIN: Fn.join('', ['https://', domainName]) },
       code: lambda.Code.fromInline([engineSource, serviceSource, sharedLibrarySource, libraryHandlerSource, handlerSource].join('\n')),
     });
+    reportQueue.grantSendMessages(gameHandler);
     new events.Rule(this,'CompletedGameReport',{
       eventPattern:{source:['aws.batch'],detailType:['Batch Job State Change'],detail:{status:['SUCCEEDED'],jobName:[{prefix:'weiqi-'}]}},
       targets:[new eventTargets.LambdaFunction(gameHandler,{retryAttempts:2,maxEventAge:Duration.hours(1)})],
@@ -149,6 +166,8 @@ export class WeiqiSiteStack extends Stack {
       target: route53.RecordTarget.fromAlias(new targets.CloudFrontTarget(distribution)),
     });
 
+    new CfnOutput(this,'ReportQueueUrl',{value:reportQueue.queueUrl});
+    new CfnOutput(this,'ReportRendererName',{value:reportRenderer.functionName});
     new CfnOutput(this,'LibraryBucketName',{value:libraryBucket.bucketName});
     new CfnOutput(this,'AnalysisQueueUrl',{value:analysisQueue.queueUrl});
     new CfnOutput(this, 'GameTableName', { value: gameTable.tableName });

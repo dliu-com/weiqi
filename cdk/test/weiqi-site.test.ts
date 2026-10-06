@@ -80,14 +80,14 @@ test('record library uses a separate retained private bucket and a queue without
  template.resourceCountIs('AWS::S3::Bucket',1);retained.resourceCountIs('AWS::S3::Bucket',1);
  template.hasResourceProperties('AWS::SQS::Queue',{MessageRetentionPeriod:1209600,VisibilityTimeout:180});
  template.resourceCountIs('AWS::Batch::ComputeEnvironment',0);
- template.resourceCountIs('AWS::Lambda::EventSourceMapping',0);
+ template.resourceCountIs('AWS::Lambda::EventSourceMapping',1);
  template.hasResourceProperties('AWS::Lambda::Function',{Environment:{Variables:Match.objectLike({LIBRARY_BUCKET:Match.anyValue(),ANALYSIS_QUEUE:Match.anyValue()})}});
 });
 
 test('validated upload queue can be selected while retaining the old queue for draining',()=>{
  const selected='arn:aws:sqs:eu-west-1:123456789012:validated-uploads';
  const cutover=Template.fromStack(makeSite('Cutover',{analysisQueueArnOverride:selected,env:{account:'123456789012',region:'eu-west-1'}}));
- cutover.resourceCountIs('AWS::SQS::Queue',1);
+ cutover.resourceCountIs('AWS::SQS::Queue',3);
  const functions=Object.values(cutover.findResources('AWS::Lambda::Function'));
  const game=functions.find(f=>f.Properties.Environment?.Variables?.ANALYSIS_QUEUE);
  expect(JSON.stringify(game?.Properties.Environment.Variables.ANALYSIS_QUEUE)).toContain('validated-uploads');
@@ -96,7 +96,7 @@ test('validated upload queue can be selected while retaining the old queue for d
 
 test('legacy upload queue can be removed after the selected route is validated',()=>{
  const final=Template.fromStack(makeSite('Final',{analysisQueueArnOverride:'arn:aws:sqs:eu-west-1:123456789012:validated-uploads',keepLegacyAnalysisQueue:false,env:{account:'123456789012',region:'eu-west-1'}}));
- final.resourceCountIs('AWS::SQS::Queue',0);
+ final.resourceCountIs('AWS::SQS::Queue',2);
  expect(()=>makeSite('Invalid',{keepLegacyAnalysisQueue:false})).toThrow('queue');
 });
 
@@ -104,3 +104,10 @@ test('completed GPU jobs prepare cached reports through an event, without anothe
  template.hasResourceProperties('AWS::Events::Rule',{EventPattern:{source:['aws.batch'],'detail-type':['Batch Job State Change'],detail:{status:['SUCCEEDED'],jobName:[{prefix:'weiqi-'}]}},Targets:Match.arrayWith([Match.objectLike({RetryPolicy:{MaximumRetryAttempts:2,MaximumEventAgeInSeconds:3600}})])});
  template.hasResourceProperties('AWS::Lambda::Permission',{Principal:'events.amazonaws.com',Action:'lambda:InvokeFunction'});
 });
+
+ test('report files are prepared asynchronously without interaction or another GPU job',()=>{
+ template.hasResourceProperties('AWS::Lambda::Function',{Handler:'index.handler',MemorySize:2048,Timeout:300,Environment:{Variables:Match.objectLike({SITE_BUCKET:Match.anyValue(),LIBRARY_BUCKET:Match.anyValue()})}});
+ template.hasResourceProperties('AWS::SQS::Queue',{FifoQueue:true,VisibilityTimeout:360,RedrivePolicy:Match.objectLike({maxReceiveCount:3})});
+ template.hasResourceProperties('AWS::Lambda::EventSourceMapping',{BatchSize:1});
+ template.hasResourceProperties('AWS::IAM::Policy',{PolicyDocument:{Statement:Match.arrayWith([Match.objectLike({Action:Match.arrayWith(['sqs:SendMessage'])})])}});
+ });

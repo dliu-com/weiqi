@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-10-06T12:14:22.159445+00:00",
+  "updatedAt": "2026-10-06T13:31:20.994376+00:00",
   "awsDevelopmentDebugBudgetUSD": 30,
   "noFurtherPaidBenchmarksPlanned": true,
   "smallServiceAllowanceUSD": 2,
@@ -35,13 +35,11 @@
     }
   },
   "verifiedTests": {
-    "node": 110,
+    "node": 114,
     "python": 10,
-    "cdk": 14
+    "cdk": 15
   },
-  "pending": [
-    "PDF export testing deferred at user request."
-  ],
+  "pending": [],
   "finalProductPerGameCostTargetUSD": 1,
   "quickTargetSeconds": 300,
   "deepTargetSeconds": 3600,
@@ -129,25 +127,25 @@
     "allocationCostEstimateUSD": 0.47543747
   },
   "aiReport": {
-    "handler": "Existing GameHandler Lambda",
-    "storage": "Versioned JSON in WeiqiStorage S3",
+    "handler": "Batch completion -> GameHandler -> FIFO SQS -> ReportRenderer Lambda",
+    "storage": "Versioned JSON in WeiqiStorage; prepared HTML/PDF in retained private site S3",
     "newGpuJob": false,
     "newFargateJob": false,
-    "pdfExportTest": "Deferred at user request",
+    "pdfExportTest": "English and Chinese production downloads verified against stored PDF bytes",
     "validationRecord": "2026100620",
     "schemaVersion": 6,
-    "format": "Nine visual statistics with nontechnical reading guides and separate calculation details; three bad-move boards per side",
+    "format": "Six graphs with examples and calculation details; five worst-move table rows and three detailed bad-move boards per side",
     "maximumMovesPerSide": 3,
     "userConfigControls": false,
     "goodMoveStatistics": true,
     "statistics": [
+      "Game-wide point advantage and win probability",
       "Move-quality proportions and exact counts",
-      "Average, median and 90th-percentile point and win-rate loss",
-      "Three worst bad moves share of total point loss",
+      "Average, median and 90th-percentile point loss",
       "Average point loss in fixed move ranges",
-      "Zero-inclusive point-loss distribution",
-      "Per-move error timeline, Black win probability and point advantage",
-      "Detailed metrics retained in saved JSON; specialist and overlapping summaries omitted from the reader view"
+      "Per-move point-loss timeline",
+      "Five worst errors per side with three detailed board reviews",
+      "Detailed statistics retained in saved JSON"
     ],
     "languages": [
       "en",
@@ -155,28 +153,29 @@
     ],
     "languageFormat": "English / Chinese switcher; selected language displayed and saved",
     "bilingualBrowserValidation": {
-      "verifiedAt": "2026-10-06T12:14:22.159445+00:00",
+      "verifiedAt": "2026-10-06T13:31:20.994376+00:00",
       "recordUrl": "https://weiqi.dliu.com/record/2026100620",
       "languages": [
         "en",
         "zh-CN"
       ],
-      "sheetsPerLanguage": 17,
+      "sheetsPerLanguage": 16,
       "badMovesPerSidePerLanguage": 3,
-      "chartsPerLanguage": 9,
+      "chartsPerLanguage": 6,
       "identicalTableNumbers": true,
       "desktop": true,
       "mobileWidth": 390,
       "horizontalOverflow": false,
       "configurationInputs": 0,
-      "pdfExportTest": "Deferred at user request",
+      "pdfExportTest": "English and Chinese production downloads verified against stored PDF bytes",
       "identicalChartNumbers": true,
       "plainLanguageFirst": true,
-      "mathUnderEveryGraph": true
+      "mathUnderEveryGraph": true,
+      "keyMomentTableRowsPerSide": 5
     },
-    "automaticGeneration": "AWS Batch SUCCEEDED event through EventBridge to existing GameHandler Lambda",
+    "automaticGeneration": "Batch SUCCEEDED -> EventBridge -> GameHandler cached JSON -> FIFO report queue -> ReportRenderer static HTML/PDF",
     "savePdfAvailable": true,
-    "pdfFormat": "Fixed A4 portrait, metadata title page, linked page-numbered contents, running headers/footers and section bookmarks; browser download, no user configuration",
+    "pdfFormat": "Pre-generated fixed A4 portrait; metadata title page, internal page-linked contents, running headers/footers, searchable text, vector graphs and bookmarks; direct download",
     "documentFrontMatter": {
       "titlePage": true,
       "gameLinkOnTitlePage": true,
@@ -184,8 +183,10 @@
       "contentsPage": true,
       "pdfContentsLinksImplemented": true,
       "pdfSectionBookmarksImplemented": true,
-      "actualPdfExportTest": "Deferred at user request"
+      "actualPdfExportTest": "English and Chinese production downloads verified against stored PDF bytes"
     },
-    "statisticsPresentation": "Nine graphs; compact tables only; plain-language explanations first, technical maths below"
+    "statisticsPresentation": "Six graphs in learning order with expanded examples and technical maths; compact top-five error tables",
+    "interactionGeneration": false,
+    "performanceRankEstimate": false
   }
 }

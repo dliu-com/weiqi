@@ -5,10 +5,11 @@ import { fileURLToPath } from 'node:url';
 import { createState, transition, GameError } from '../backend/game-service.js';
 import {localLibrary} from './local-library.mjs';
 const library=localLibrary(process.env.LIBRARY_DIR || '/private/tmp/weiqi-record-library',{model:process.env.KATAGO_MODEL,engine:process.env.KATAGO_BIN || 'katago',visits:Number(process.env.KATAGO_VISITS || 1)});
+const preparedRoot=process.env.PREPARED_REPORT_DIR?path.resolve(process.env.PREPARED_REPORT_DIR):null;
 const root = path.resolve(fileURLToPath(new URL('../src/', import.meta.url)));
 let state = createState();
 const archives = new Map();
-const types = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.svg': 'image/svg+xml' };
+const types = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.svg': 'image/svg+xml', '.json':'application/json', '.pdf':'application/pdf', '.otf':'font/otf' };
 const server = http.createServer(async (request, response) => {
   const pathname = new URL(request.url, 'http://localhost').pathname;
   if (pathname === '/api/library' || pathname.startsWith('/api/library/')) {
@@ -36,8 +37,9 @@ const server = http.createServer(async (request, response) => {
     } catch (error) { return send(error.statusCode || 500, { message: error.message, ...(error.statusCode === 409 ? { state } : {}) }); }
   }
   try {
-    const filename = path.resolve(root, '.' + decodeURIComponent(pathname === '/' ? '/index.html' : /^\/record\/(?:[0-9]{10,14}|[a-f0-9-]{36})\/report\/?$/.test(pathname)?'/report.html':/^\/(?:record|game)\/(?:[0-9]{10,14}|[a-f0-9-]{36})\/?$/.test(pathname)?'/record.html':pathname));
-    if (!filename.startsWith(root + path.sep) && filename !== root) throw new Error('Invalid path');
+    const selectedRoot=pathname.startsWith('/prepared-reports/')&&preparedRoot?preparedRoot:root;
+    const filename = path.resolve(selectedRoot, '.' + decodeURIComponent(pathname === '/' ? '/index.html' : /^\/record\/(?:[0-9]{10,14}|[a-f0-9-]{36})\/report\/?$/.test(pathname)?'/report.html':/^\/(?:record|game)\/(?:[0-9]{10,14}|[a-f0-9-]{36})\/?$/.test(pathname)?'/record.html':pathname));
+    if (!filename.startsWith(selectedRoot + path.sep) && filename !== selectedRoot) throw new Error('Invalid path');
     const data = await readFile(filename);
     response.writeHead(200, { 'content-type': types[path.extname(filename)] || 'application/octet-stream', 'cache-control': 'no-store' });
     response.end(data);

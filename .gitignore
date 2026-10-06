@@ -22,3 +22,5 @@ __pycache__/
 # Rebuilt from pinned npm dependencies before publishing.
 /src/report-pdf.js
 /src/report-pdf.js.LEGAL.txt
+/backend/report-renderer/assets/
+/output/pdf/
