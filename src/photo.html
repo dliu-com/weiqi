@@ -16,8 +16,9 @@
 </section>
 <aside class="workspace-panel">
 <div class="editor-heading"><h1 data-zh="快速 AI 分析">Quick AI analysis</h1></div>
-<ol class="analysis-steps"><li id="step-1"><span>1</span><b data-zh="照片或棋谱">Photo or SGF</b></li><li id="step-2"><span>2</span><b data-zh="检查棋子">Check stones</b></li><li id="step-3"><span>3</span><b data-zh="AI 分析">AI analysis</b></li></ol>
+<ol class="analysis-steps"><li id="step-1"><button type="button" disabled><span>1</span><b data-zh="照片或棋谱">Photo or SGF</b></button></li><li id="step-2"><button type="button" disabled><span>2</span><b data-zh="检查棋子">Check stones</b></button></li><li id="step-3"><button type="button" disabled><span>3</span><b data-zh="AI 分析">AI analysis</b></button></li></ol>
 <div class="editor-upload-box" id="upload-box">
+<p class="upload-back" id="upload-back" hidden><button type="button" class="link-button" id="back-to-board" data-zh="← 返回当前局面">← Back to the current position</button></p>
 <p class="upload-intro" data-zh="拍一张 19 路棋盘的照片，检查识别出的棋子，再让 AI 给出下一手建议。">Take a photo of a 19 × 19 board, check the stones we find, then ask the AI for the best next moves.</p>
 <button type="button" id="photo-button" data-zh="上传或拍摄棋盘照片">Upload or take a board photo</button>
 <input id="photo-file" type="file" accept="image/*" hidden>
@@ -48,7 +49,7 @@
 <p id="lead" class="evaluation"></p>
 <div class="probability"><div class="probability-labels"><span id="black-probability-label"></span><span id="white-probability-label"></span></div><div id="probability-bar" class="probability-bar" role="img"><span id="black-probability" class="probability-black"></span><span class="probability-white"></span></div></div>
 <table class="ai-move-table"><thead><tr><th scope="col" data-zh="选点">Move</th><th scope="col" data-zh="评价">Assessment</th><th scope="col" data-zh="领先（目）">Lead (points)</th><th scope="col" data-zh="胜率（%）">Win %</th></tr></thead><tbody id="suggestions"></tbody></table>
-<p class="note" id="preview-help" data-zh="悬停或点击推荐着法，在棋盘上查看后续变化；也可以直接在棋盘上落子继续分析。">Hover over or tap a suggestion to see its continuation on the board, or play a move on the board to keep analysing.</p>
+<p class="note" id="preview-help" data-zh="在棋盘上落子继续分析，或在表格中选择推荐着法，在棋盘上查看后续变化。">Play a move on the board to keep analysing, or select a suggestion in the table to see its sequence on the board.</p>
 <div class="editor-toolbar"><button type="button" id="play-preview" class="primary" hidden></button><button type="button" id="clear-preview" hidden data-zh="返回当前局面">Back to the position</button></div>
 <p id="analysis-time" class="note"></p>
 </section>
@@ -56,21 +57,18 @@
 <h2 id="settings-title" data-zh="AI 分析">AI analysis</h2>
 <div class="settings-grid">
 <div class="field"><span data-zh="下一手">Next to play</span><div class="actions side-switch" role="group" aria-label="Next to play"><button type="button" id="side-B" data-side="black" data-zh="黑方">Black</button><button type="button" id="side-W" data-side="white" data-zh="白方">White</button></div></div>
-<label class="field"><span data-zh="规则">Rules</span><select id="rules"><option value="japanese" data-zh="日本规则">Japanese</option><option value="chinese" data-zh="中国规则">Chinese</option><option value="korean" data-zh="韩国规则">Korean</option><option value="aga">AGA</option></select></label>
-<label class="field"><span data-zh="贴目">Komi</span><input id="komi" type="number" inputmode="decimal" step="0.5" min="-100" max="100" value="6.5" required></label>
+<div class="field"><span data-zh="规则">Rules</span><p class="fixed-value" data-zh="中国规则 · 贴 7.5 目">Chinese · komi 7.5</p></div>
 </div>
 <div class="analyse-row"><button class="primary" id="analyse" type="submit"></button><button type="button" id="cancel-analysis" hidden data-zh="取消">Cancel</button></div>
 <p class="note" id="analyse-note"></p>
-<p id="history-note" class="note" hidden data-zh="照片无法还原之前的提子与劫争历史；日本 / 韩国规则下目数估计可能相差几目。">A photo cannot show earlier captures or ko history, so under Japanese / Korean rules the score can be a few points off.</p>
+<p id="rules-note" class="note" data-zh="始终按中国规则（数子法）、贴 7.5 目分析：照片看不出之前的提子与劫争，而数子法的结果不受这些影响。">Always analysed under Chinese rules (area scoring) with komi 7.5: a photo cannot show earlier captures or ko history, and area scoring does not depend on them.</p>
 </form>
 <div class="editor-file-actions" id="file-actions" hidden><button type="button" id="edit-stones" data-zh="修改棋子">Edit stones</button><button type="button" id="new-photo" data-zh="新照片">New photo</button><button type="button" id="open-sgf" data-zh="打开 SGF">Open SGF</button><button type="button" id="download" data-zh="下载 SGF">Download SGF</button></div>
 <p id="local-save" class="note"></p>
-<details class="analysis-about"><summary data-zh="隐私、费用与源码">Privacy, cost and source code</summary>
+<div class="analysis-about">
 <p data-zh="照片只在识别时发送到云端一次，局面只在你点击分析时发送一次；两者都不会被保存。你的棋步只保存在此浏览器中。">Your photo is sent to the cloud once to read the stones, and the position is sent once each time you analyse. Neither is stored. Your moves are saved only in this browser.</p>
-<p data-zh="每次分析都是一次短暂的云端请求，没有长时间运行的任务；网站设有每日用量上限。">Each analysis is one short cloud request with no long-running jobs, and the site has a daily usage limit.</p>
-<p><a href="/photo-recognition" data-zh="照片识别原理">How photo recognition works</a></p>
-<p class="licence">Quick AI analysis © 2026 DL. <a href="/photo-assets/LICENSE.txt">AGPL-3.0</a>; <span data-zh="无担保。">no warranty.</span> <a href="/photo-assets/photo-source.tar.gz" data-zh="下载源码">Download source</a> · <a href="/photo-assets/NOTICES.txt" data-zh="第三方许可">Third-party notices</a> · <a href="https://huggingface.co/kaya-go/moku-v4" data-zh="识别模型及源码">Recognition model and source</a></p>
-</details>
+<p><a href="/about#quick-analysis" data-zh="费用、许可与源码">Cost, licence and source code</a></p>
+</div>
 </aside>
 </main>
 <script type="module" src="/analysis.js"></script></body></html>
