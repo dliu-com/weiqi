@@ -14,7 +14,7 @@ const READ_TIMEOUT=60000,ANALYSE_TIMEOUT=60000,MAX_PHOTO=1050000;
 // A photo cannot show earlier captures or ko history, so always score by area: Chinese rules, komi 7.5.
 const RULES='chinese',KOMI=7.5;
 
-let stage='start',busy=null,board=emptyBoard(),side='B',tool='B',review=new Set(),undo=[];
+let stage='start',busy=null,board=emptyBoard(),side='B',tool='B',altNext='B',review=new Set(),undo=[];
 let frames=[{board,turn:side,move:null}],cursor=0,analysis=null,pinned=null,hovered=null,autoAnalyse=false;
 let photo=null,showPhoto=false,failed=false,fromPhoto=false,status=null;
 // Stage to return to after stepping back to step 1 without choosing a new photo or SGF.
@@ -57,7 +57,7 @@ const sideName=s=>s==='B'?t('黑方','Black'):t('白方','White');
 
 function clearAnalysis(){analysis=null;pinned=null;hovered=null;}
 function resetFrames(){frames=[{board,turn:side,move:null}];cursor=0;clearAnalysis();autoAnalyse=false;}
-function remember(){undo.push({board,review:[...review]});if(undo.length>100)undo.shift();}
+function remember(){undo.push({board,review:[...review],altNext});if(undo.length>100)undo.shift();}
 
 function startTicker(){stopTicker();ticker=setInterval(()=>{renderProgress();renderAnalyseButton();},250);}
 function stopTicker(){if(ticker)clearInterval(ticker);ticker=null;}
@@ -148,9 +148,17 @@ function setUpByHand(){
 }
 
 function editPoint(i){
- const current=board[i],next=tool==='E'||current===tool?'.':tool;
+ const current=board[i];
+ const next=tool==='E'?'.':tool==='A'?(current==='.'?altNext:'.'):current===tool?'.':tool;
  if(next===current)return;
- remember();board=setPoint(board,i,next);review.delete(i);resetFrames();status=null;render();
+ remember();board=setPoint(board,i,next);
+// Removing a stone in alternate mode makes its colour next again, so a mis-tap can be fixed by tapping it once more.
+ if(tool==='A')altNext=next==='.'?current:next==='B'?'W':'B';
+ review.delete(i);resetFrames();status=null;render();
+}
+function chooseTool(key){
+ if(key==='A')altNext=tool==='A'?(altNext==='B'?'W':'B'):(()=>{const {black,white}=stoneCounts(board);return black>white?'W':'B';})();
+ tool=key;render();
 }
 function pointClicked(i){
  if(busy)return;
@@ -280,7 +288,7 @@ function renderBoard(){
  let shown=board,numbers=new Map();
  if(move){const p=previewSequence(board,side,move.pv?.length?move.pv:[moveName(move)]);shown=p.board;numbers=p.numbers;}
  const interactive=!busy&&stage!=='start',last=!move&&stage==='play'?frames[cursor].move?.index??null:null;
- view.render(shown,{last,turn:stage==='check'?(tool==='W'?'W':'B'):side,interactive,numbers});
+ view.render(shown,{last,turn:stage==='check'?(tool==='A'?altNext:tool==='W'?'W':'B'):side,interactive,numbers});
  if(!interactive||move||(stage==='check'&&tool==='E')||(stage==='play'&&pinned!==null))view.element.dataset.preview='';
  const bad=move?new Set():new Set(invalidStones(board));
  view.points.forEach((point,i)=>{
@@ -363,8 +371,11 @@ function render(){
  if(stage==='check'){
   const {black,white}=stoneCounts(board),total=black+white;
   $('check-summary').textContent=fromPhoto&&!undo.length?t('识别到 '+total+' 颗棋子（黑 '+black+'，白 '+white+'）','Found '+total+' stones ('+black+' black, '+white+' white)'):t('棋盘上有 '+total+' 颗棋子（黑 '+black+'，白 '+white+'）',total+' stones on the board ('+black+' black, '+white+' white)');
-  $('check-help').textContent=finePointer.matches?t('点击空点放置所选棋子，再点一次移除。快捷键：B 黑、W 白、E 擦除、Ctrl+Z 撤销。','Click an empty point to place the selected stone; click it again to remove it. Keys: B black, W white, E erase, Ctrl+Z undo.'):t('点击空点放置所选棋子，再点一次移除。','Tap an empty point to place the selected stone; tap it again to remove it.');
-  for(const [key,id] of [['B','tool-B'],['W','tool-W'],['E','tool-E']])$(id).setAttribute('aria-pressed',String(tool===key));
+  const nextName=altNext==='B'?t('黑子','black'):t('白子','white'),fine=finePointer.matches;
+  $('check-help').textContent=(tool==='A'?t('黑白交替：每点一个空点放一颗，下一颗是'+nextName+'。点棋子可移除。再点“交替”可换下一颗的颜色。','Alternate: each '+(fine?'click':'tap')+' on an empty point places the next colour, '+nextName+' next. '+(fine?'Click':'Tap')+' a stone to remove it; '+(fine?'click':'tap')+' Alternate again to switch colour.'):fine?t('点击空点放置所选棋子，再点一次移除。','Click an empty point to place the selected stone; click it again to remove it.'):t('点击空点放置所选棋子，再点一次移除。','Tap an empty point to place the selected stone; tap it again to remove it.'))+(fine?t('快捷键：B 黑、W 白、A 交替、E 擦除、Ctrl+Z 撤销。',' Keys: B black, W white, A alternate, E erase, Ctrl+Z undo.'):'');
+  for(const [key,id] of [['B','tool-B'],['W','tool-W'],['A','tool-A'],['E','tool-E']])$(id).setAttribute('aria-pressed',String(tool===key));
+  $('tool-A').dataset.side=altNext==='B'?'black':'white';
+  $('tool-A').setAttribute('aria-label',t('黑白交替，下一颗是'+nextName,'Alternate, '+nextName+' next'));
   $('review-note').hidden=!review.size;
   $('review-note').textContent=t('橙色圆圈标出 '+review.size+' 个不确定的点，请重点对照照片检查。','Orange rings mark '+review.size+' uncertain '+(review.size===1?'point':'points')+'. Check '+(review.size===1?'it':'them')+' against the photo.');
   $('photo-thumb').hidden=!photo;if(photo&&$('thumb-photo').getAttribute('src')!==photo)$('thumb-photo').src=photo;
@@ -404,8 +415,8 @@ $('sgf-button').onclick=pickSgf;$('open-sgf').onclick=pickSgf;$('manual-button')
 $('cancel-reading').onclick=cancelReading;$('cancel-analysis').onclick=cancelAnalysis;
 $('hide-photo').onclick=()=>{showPhoto=false;render();};
 $('photo-thumb').onclick=()=>{showPhoto=!showPhoto;render();};
-for(const key of ['B','W','E'])$('tool-'+key).onclick=()=>{tool=key;render();};
-$('undo').onclick=()=>{const last=undo.pop();if(!last)return;board=last.board;review=new Set(last.review);resetFrames();render();};
+for(const key of ['B','W','A','E'])$('tool-'+key).onclick=()=>chooseTool(key);
+$('undo').onclick=()=>{const last=undo.pop();if(!last)return;board=last.board;review=new Set(last.review);altNext=last.altNext||altNext;resetFrames();render();};
 $('rotate').onclick=()=>{remember();board=rotateBoard(board);review=new Set([...review].map(rotatePoint));resetFrames();render();};
 $('clear').onclick=()=>{if(!/[BW]/.test(board))return;remember();board=emptyBoard();review=new Set();resetFrames();say('棋盘已清空，可用“撤销”恢复。','Board cleared. Use Undo to bring the stones back.');render();};
 for(const value of ['B','W'])$('side-'+value).onclick=()=>{if(busy||side===value)return;side=value;frames=frames.slice(0,cursor+1);frames[cursor]={...frames[cursor],turn:side};clearAnalysis();autoAnalyse=false;render();};
@@ -432,7 +443,7 @@ document.addEventListener('keydown',event=>{
  if(stage==='check'&&!busy){
   if((event.ctrlKey||event.metaKey)&&key==='z'){event.preventDefault();$('undo').click();return;}
   if(event.ctrlKey||event.metaKey)return;
-  const next={b:'B',w:'W',e:'E'}[key];if(next){tool=next;render();}
+  const next={b:'B',w:'W',a:'A',e:'E'}[key];if(next)chooseTool(next);
  }
  if(stage==='play'&&!busy&&!event.ctrlKey&&!event.metaKey&&!event.target?.classList?.contains('point')){
   if(event.key==='ArrowLeft'){event.preventDefault();navigate(cursor-1);}else if(event.key==='ArrowRight'){event.preventDefault();navigate(cursor+1);}

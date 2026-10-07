@@ -65,6 +65,17 @@ test('checking stones uses a smart tap, undo and rotation that keeps review ring
  p.get('tool-E').onclick();p.run('pointClicked(rotatePoint(60))');assert.equal(p.run('board[rotatePoint(60)]'),'.');assert.equal(p.run('review.size'),0);
  assert.equal(JSON.parse(p.storage.get('weiqi.local-analysis.v1')).editing,true);
 });
+test('the alternate tool places black and white in turn, removes stones and keeps the order through undo',()=>{
+ const p=page();p.get('manual-button').onclick();
+ p.get('tool-A').onclick();assert.equal(p.run('tool+altNext'),'AB');assert.equal(p.get('tool-A').dataset.side,'black');
+ p.run('pointClicked(0);pointClicked(1);pointClicked(2)');assert.equal(p.run('board.slice(0,3)'),'BWB');assert.equal(p.run('altNext'),'W');assert.equal(p.get('tool-A').dataset.side,'white');
+ p.run('pointClicked(2)');assert.equal(p.run('board[2]+altNext'),'.B');
+ p.run('pointClicked(1)');assert.equal(p.run('board[1]+altNext'),'.W');
+ p.get('undo').onclick();assert.equal(p.run('board[1]+altNext'),'WB');
+ p.get('tool-A').onclick();assert.equal(p.run('altNext'),'W');p.run('pointClicked(40)');assert.equal(p.run('board[40]+altNext'),'WB');
+ p.get('tool-B').onclick();p.run('pointClicked(41);pointClicked(42)');p.get('tool-A').onclick();assert.equal(p.run('altNext'),'W');
+ assert.equal(p.get('tool-A').attributes['aria-pressed'],'true');assert.equal(p.get('tool-B').attributes['aria-pressed'],'false');
+});
 test('analysis is one request per action, blocks stones without liberties and re-analyses after a played move',async()=>{
  const p=page();p.run("stage='check';board=setPoint(setPoint(setPoint(emptyBoard(),0,'W'),1,'B'),19,'B');resetFrames()");
  await p.run('analyse()');assert.equal(p.requests.length,0);assert.equal(p.run('status.tone'),'error');assert.match(p.get('status').textContent,/A19/);
