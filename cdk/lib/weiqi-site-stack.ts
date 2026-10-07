@@ -65,7 +65,7 @@ export class WeiqiSiteStack extends Stack {
 
     const headers = new cloudfront.ResponseHeadersPolicy(this, 'SiteResponseHeaders', {
       securityHeadersBehavior: {
-        contentSecurityPolicy: {contentSecurityPolicy: "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://files.dliu.com; font-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'", override:true},
+        contentSecurityPolicy: {contentSecurityPolicy: "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://files.dliu.com; font-src 'self'; connect-src 'self' blob: https://huggingface.co https://*.huggingface.co https://*.hf.co https://raw.githubusercontent.com; worker-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'", override:true},
         contentTypeOptions: { override: true },
         frameOptions: { frameOption: cloudfront.HeadersFrameOption.DENY, override: true },
         referrerPolicy: { referrerPolicy: cloudfront.HeadersReferrerPolicy.STRICT_ORIGIN_WHEN_CROSS_ORIGIN, override: true },
@@ -107,12 +107,14 @@ export class WeiqiSiteStack extends Stack {
     const gameHandler = new lambda.Function(this, 'GameHandler', {
       runtime: lambda.Runtime.NODEJS_22_X,
       handler: 'index.handler',
-      timeout: Duration.seconds(20),
+      timeout: Duration.seconds(30),
       memorySize: 256,
       logGroup: new logs.LogGroup(this, 'GameLogs', { retention: logs.RetentionDays.ONE_WEEK, removalPolicy: RemovalPolicy.DESTROY }),
-      environment: { DAILY_ANALYSIS_CAP:String(projectConfig.analysis.dailyGameLimit), AI_CONTROL_KEY:'control/ai-spending.json', LIBRARY_BUCKET:libraryBucket.bucketName, ANALYSIS_QUEUE:analysisQueue.queueUrl, TABLE_NAME: gameTable.tableName, REPORT_QUEUE:reportQueue.queueUrl, SITE_ORIGIN: Fn.join('', ['https://', domainName]) },
-      code: lambda.Code.fromInline([engineSource, serviceSource, sharedLibrarySource, queueEstimateSource, libraryHandlerSource, queueStatusSource, handlerSource].join('\n')),
+      environment: { POSITION_USAGE_TABLE:'weiqi-position-usage',POSITION_RECOGNIZER:'WeiqiPositionRecognition',POSITION_ENGINE:'WeiqiPositionEngine',POSITION_DAILY_MICROS:String(Math.round(projectConfig.positionAnalysis.dailyUsd*1000000)),POSITION_REQUEST_MICROS:String(projectConfig.positionAnalysis.requestReserveMicros),DAILY_ANALYSIS_CAP:String(projectConfig.analysis.dailyGameLimit), AI_CONTROL_KEY:'control/ai-spending.json', LIBRARY_BUCKET:libraryBucket.bucketName, ANALYSIS_QUEUE:analysisQueue.queueUrl, TABLE_NAME: gameTable.tableName, REPORT_QUEUE:reportQueue.queueUrl, SITE_ORIGIN: Fn.join('', ['https://', domainName]) },
+      code: lambda.Code.fromInline([engineSource, serviceSource, sharedLibrarySource, queueEstimateSource, libraryHandlerSource, queueStatusSource, fs.readFileSync(path.join(root,'backend/position-handler.cjs'),'utf8'), handlerSource].join('\n')),
     });
+    gameHandler.addToRolePolicy(new iam.PolicyStatement({actions:['lambda:InvokeFunction'],resources:[`arn:${this.partition}:lambda:${this.region}:${this.account}:function:WeiqiPositionRecognition`,`arn:${this.partition}:lambda:${this.region}:${this.account}:function:WeiqiPositionEngine`]}));
+    gameHandler.addToRolePolicy(new iam.PolicyStatement({actions:['dynamodb:PutItem','dynamodb:UpdateItem'],resources:[`arn:${this.partition}:dynamodb:${this.region}:${this.account}:table/weiqi-position-usage`]}));
     reportQueue.grantSendMessages(gameHandler);
     gameHandler.addToRolePolicy(new iam.PolicyStatement({actions:['batch:DescribeJobs','batch:ListJobs'],resources:['*']}));
     new events.Rule(this,'CompletedGameReport',{

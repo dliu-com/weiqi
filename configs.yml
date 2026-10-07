@@ -6,6 +6,7 @@ project:
   tagValue: Weiqi
 budget:
   monthlyUsd: 50
+  dailyUsd: 15
   # AI stays paused until an administrator deliberately resumes it.
 analysis:
   dailyGameLimit: 10
@@ -13,3 +14,14 @@ analysis:
   deepVisits: 3000
   capacityFallbackSeconds: 180
   jobTimeoutSeconds: 7200
+
+positionAnalysis:
+  # Shared worldwide allowance for photo detection and cloud position analysis.
+  # Each request reserves more than its maximum worker/runtime cost.
+  dailyUsd: 3
+  requestReserveMicros: 3000
+  recognitionMemoryMb: 1769
+  recognitionTimeoutSeconds: 25
+  aiMemoryMb: 3008
+  aiTimeoutSeconds: 20
+  aiVisits: 128

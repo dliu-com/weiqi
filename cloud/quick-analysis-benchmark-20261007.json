@@ -1,0 +1,683 @@
+{
+  "testedAt": "2026-10-07T01:41:53Z",
+  "region": "eu-west-1",
+  "testDevice": "Desktop Chrome 154 on this Mac. These timings do not measure a physical Android phone.",
+  "reference": {
+    "game": "2026100623",
+    "url": "https://weiqi.dliu.com/game/2026100623",
+    "visits": 3000,
+    "model": "kata1-tf3-b11c768-s12252M-d6398M.bin.gz",
+    "positions": [
+      20,
+      80,
+      160,
+      240,
+      300,
+      321
+    ],
+    "meaning": "Agreement with a stronger report, not independently proven Go accuracy. One game and six positions cannot establish general playing strength."
+  },
+  "options": [
+    {
+      "id": 1,
+      "name": "Lambda recognition + browser AI",
+      "desktopPhotoToResultSeconds": 12.13,
+      "aiVisits": 32,
+      "aiQuality": {
+        "positions": 6,
+        "meanLeadDifferencePoints": 1.992319068517888,
+        "maxLeadDifferencePoints": 4.43179778925793,
+        "meanWinDifferencePercentagePoints": 10.645870440310699,
+        "leadingSideMatches": 5,
+        "firstSuggestionMatches": 1,
+        "firstSuggestionInReferenceTop3": 4,
+        "clearLeadMatches": 3,
+        "clearLeadPositions": 3,
+        "rows": [
+          {
+            "move": 20,
+            "waitSeconds": 3.301,
+            "visits": 32,
+            "blackLead": -0.7587369608664706,
+            "referenceBlackLead": -0.54417608,
+            "leadAbsoluteDifference": 0.21456088086647063,
+            "blackWinPercent": 49.205666449559914,
+            "referenceBlackWinPercent": 41.339222799999995,
+            "winAbsoluteDifferencePP": 7.866443649559917,
+            "firstSuggestion": "P4",
+            "referenceFirstSuggestion": "S4",
+            "firstSuggestionInReferenceTop3": true,
+            "leadingSideMatches": true,
+            "top3Overlap": 2
+          },
+          {
+            "move": 80,
+            "waitSeconds": 2.498,
+            "visits": 32,
+            "blackLead": 0.3174467357973957,
+            "referenceBlackLead": 1.57827242,
+            "leadAbsoluteDifference": 1.2608256842026044,
+            "blackWinPercent": 50.832991003286445,
+            "referenceBlackWinPercent": 73.3585222,
+            "winAbsoluteDifferencePP": 22.525531196713555,
+            "firstSuggestion": "K16",
+            "referenceFirstSuggestion": "H15",
+            "firstSuggestionInReferenceTop3": true,
+            "leadingSideMatches": true,
+            "top3Overlap": 1
+          },
+          {
+            "move": 160,
+            "waitSeconds": 2.092,
+            "visits": 32,
+            "blackLead": 2.5457281706924055,
+            "referenceBlackLead": -0.298223404,
+            "leadAbsoluteDifference": 2.8439515746924053,
+            "blackWinPercent": 57.956353708590136,
+            "referenceBlackWinPercent": 48.1707065,
+            "winAbsoluteDifferencePP": 9.785647208590136,
+            "firstSuggestion": "N11",
+            "referenceFirstSuggestion": "N11",
+            "firstSuggestionInReferenceTop3": true,
+            "leadingSideMatches": false,
+            "top3Overlap": 1
+          },
+          {
+            "move": 240,
+            "waitSeconds": 2.496,
+            "visits": 32,
+            "blackLead": -4.24782474074207,
+            "referenceBlackLead": -8.67962253,
+            "leadAbsoluteDifference": 4.43179778925793,
+            "blackWinPercent": 21.270393383335957,
+            "referenceBlackWinPercent": 0.19318871,
+            "winAbsoluteDifferencePP": 21.077204673335956,
+            "firstSuggestion": "B7",
+            "referenceFirstSuggestion": "C14",
+            "firstSuggestionInReferenceTop3": true,
+            "leadingSideMatches": true,
+            "top3Overlap": 1
+          },
+          {
+            "move": 300,
+            "waitSeconds": 2.393,
+            "visits": 32,
+            "blackLead": -6.248850260736564,
+            "referenceBlackLead": -8.61521623,
+            "leadAbsoluteDifference": 2.366365969263436,
+            "blackWinPercent": 1.829265680942893,
+            "referenceBlackWinPercent": 0.0196255714,
+            "winAbsoluteDifferencePP": 1.8096401095428931,
+            "firstSuggestion": "D11",
+            "referenceFirstSuggestion": "M1",
+            "firstSuggestionInReferenceTop3": false,
+            "leadingSideMatches": true,
+            "top3Overlap": 0
+          },
+          {
+            "move": 321,
+            "waitSeconds": 2.64,
+            "visits": 32,
+            "blackLead": -7.295683927175518,
+            "referenceBlackLead": -8.13209644,
+            "leadAbsoluteDifference": 0.8364125128244817,
+            "blackWinPercent": 0.9285765361217335,
+            "referenceBlackWinPercent": 0.117820732,
+            "winAbsoluteDifferencePP": 0.8107558041217335,
+            "firstSuggestion": "A10",
+            "referenceFirstSuggestion": "pass",
+            "firstSuggestionInReferenceTop3": false,
+            "leadingSideMatches": true,
+            "top3Overlap": 0
+          }
+        ]
+      },
+      "estimatedWarmAwsUsdPer1000PhotoResults": 0.11665889871932673,
+      "estimatedAllColdAwsUsdPer1000PhotoResults": 0.2727920091576044
+    },
+    {
+      "id": 2,
+      "name": "Lambda recognition + Lambda AI",
+      "desktopPhotoToResultSeconds": 10.05,
+      "aiVisits": 128,
+      "aiQuality": {
+        "positions": 6,
+        "meanLeadDifferencePoints": 1.9456502289999997,
+        "maxLeadDifferencePoints": 3.4359036599999992,
+        "meanWinDifferencePercentagePoints": 10.6844508571,
+        "leadingSideMatches": 4,
+        "firstSuggestionMatches": 2,
+        "firstSuggestionInReferenceTop3": 2,
+        "clearLeadMatches": 3,
+        "clearLeadPositions": 3,
+        "rows": [
+          {
+            "move": 20,
+            "waitSeconds": 2.814,
+            "visits": 129,
+            "blackLead": -0.678279572,
+            "referenceBlackLead": -0.54417608,
+            "leadAbsoluteDifference": 0.13410349200000005,
+            "blackWinPercent": 49.2757338,
+            "referenceBlackWinPercent": 41.339222799999995,
+            "winAbsoluteDifferencePP": 7.936511000000001,
+            "firstSuggestion": "S4",
+            "referenceFirstSuggestion": "S4",
+            "firstSuggestionInReferenceTop3": true,
+            "leadingSideMatches": true,
+            "top3Overlap": 2
+          },
+          {
+            "move": 80,
+            "waitSeconds": 1.557,
+            "visits": 129,
+            "blackLead": -0.151191538,
+            "referenceBlackLead": 1.57827242,
+            "leadAbsoluteDifference": 1.729463958,
+            "blackWinPercent": 50.156966999999995,
+            "referenceBlackWinPercent": 73.3585222,
+            "winAbsoluteDifferencePP": 23.2015552,
+            "firstSuggestion": "L17",
+            "referenceFirstSuggestion": "H15",
+            "firstSuggestionInReferenceTop3": false,
+            "leadingSideMatches": false,
+            "top3Overlap": 1
+          },
+          {
+            "move": 160,
+            "waitSeconds": 1.441,
+            "visits": 129,
+            "blackLead": 3.08098869,
+            "referenceBlackLead": -0.298223404,
+            "leadAbsoluteDifference": 3.3792120939999997,
+            "blackWinPercent": 61.871652,
+            "referenceBlackWinPercent": 48.1707065,
+            "winAbsoluteDifferencePP": 13.7009455,
+            "firstSuggestion": "N11",
+            "referenceFirstSuggestion": "N11",
+            "firstSuggestionInReferenceTop3": true,
+            "leadingSideMatches": false,
+            "top3Overlap": 1
+          },
+          {
+            "move": 240,
+            "waitSeconds": 1.541,
+            "visits": 129,
+            "blackLead": -5.24371887,
+            "referenceBlackLead": -8.67962253,
+            "leadAbsoluteDifference": 3.4359036599999992,
+            "blackWinPercent": 17.2017863,
+            "referenceBlackWinPercent": 0.19318871,
+            "winAbsoluteDifferencePP": 17.00859759,
+            "firstSuggestion": "L11",
+            "referenceFirstSuggestion": "C14",
+            "firstSuggestionInReferenceTop3": false,
+            "leadingSideMatches": true,
+            "top3Overlap": 0
+          },
+          {
+            "move": 300,
+            "waitSeconds": 1.46,
+            "visits": 129,
+            "blackLead": -6.53724328,
+            "referenceBlackLead": -8.61521623,
+            "leadAbsoluteDifference": 2.0779729499999995,
+            "blackWinPercent": 1.43682034,
+            "referenceBlackWinPercent": 0.0196255714,
+            "winAbsoluteDifferencePP": 1.4171947686,
+            "firstSuggestion": "D11",
+            "referenceFirstSuggestion": "M1",
+            "firstSuggestionInReferenceTop3": false,
+            "leadingSideMatches": true,
+            "top3Overlap": 0
+          },
+          {
+            "move": 321,
+            "waitSeconds": 1.562,
+            "visits": 129,
+            "blackLead": -7.21485122,
+            "referenceBlackLead": -8.13209644,
+            "leadAbsoluteDifference": 0.9172452199999999,
+            "blackWinPercent": 0.9597218160000001,
+            "referenceBlackWinPercent": 0.117820732,
+            "winAbsoluteDifferencePP": 0.8419010840000001,
+            "firstSuggestion": "A10",
+            "referenceFirstSuggestion": "pass",
+            "firstSuggestionInReferenceTop3": false,
+            "leadingSideMatches": true,
+            "top3Overlap": 1
+          }
+        ]
+      },
+      "estimatedWarmAwsUsdPer1000PhotoResults": 0.2130863710251758,
+      "estimatedAllColdAwsUsdPer1000PhotoResults": 0.42989067482023136
+    }
+  ],
+  "coldStartWaits": {
+    "recognitionCold": {
+      "samples": 3,
+      "minSeconds": 7.215236374991946,
+      "medianSeconds": 7.961151999988942,
+      "maxSeconds": 8.558382707997225
+    },
+    "recognitionWarm": {
+      "samples": 6,
+      "minSeconds": 2.9640279159939382,
+      "medianSeconds": 3.223967249505222,
+      "maxSeconds": 3.692760959005682
+    },
+    "cloudAiCold": {
+      "samples": 3,
+      "minSeconds": 2.6950079999951413,
+      "medianSeconds": 2.7613811250048457,
+      "maxSeconds": 2.793471375000081
+    },
+    "cloudAiWarm": {
+      "samples": 6,
+      "minSeconds": 1.5916121659975033,
+      "medianSeconds": 1.6193374164940906,
+      "maxSeconds": 1.896448915998917
+    }
+  },
+  "costMethod": "Conservative runtime estimate at x86 Lambda $0.0000166667/GB-second and $0.20/million invocations, no free-tier discounts. Treat public network wait as worker and 256-MB gateway billed time; add $0.01/1,000-operation allowance for DynamoDB/S3/log requests. CloudFront transfer/requests, model downloads and ongoing storage are extra. Not an AWS invoice.",
+  "recognition": {
+    "sharedByBothOptions": true,
+    "automaticCorners": true,
+    "realPhotos": [
+      {
+        "id": "unlabelled-0",
+        "waitSeconds": 8.883,
+        "detected": true
+      },
+      {
+        "id": "unlabelled-1",
+        "waitSeconds": 3.967,
+        "detected": true
+      },
+      {
+        "id": "unlabelled-2",
+        "waitSeconds": 3.988,
+        "detected": true
+      },
+      {
+        "id": "real-4",
+        "waitSeconds": 3.764,
+        "detected": true,
+        "evaluatedIntersections": 361,
+        "correctIntersections": 361,
+        "missedStones": 0,
+        "extraStones": 0,
+        "wrongColour": 0,
+        "exactBoard": true
+      },
+      {
+        "id": "unlabelled-4",
+        "waitSeconds": 3.73,
+        "detected": false
+      },
+      {
+        "id": "real-6",
+        "waitSeconds": 3.374,
+        "detected": true,
+        "evaluatedIntersections": 361,
+        "correctIntersections": 354,
+        "missedStones": 4,
+        "extraStones": 3,
+        "wrongColour": 0,
+        "exactBoard": false
+      }
+    ],
+    "realLabelCaveat": "Only real-4 and real-6 have complete assistant visually checked references. These are provisional labels, not independently verified by the owner. Other real photos are unlabelled and no full accuracy percentage is claimed. real-1 is cropped; real-2/real-3 have observed grid alignment errors. real-5 is rejected.",
+    "synthetic": {
+      "samples": 20,
+      "exactBoards": 14,
+      "rejectedPhotos": 2,
+      "evaluatedIntersections": 6498,
+      "correctIntersections": 6170,
+      "caveat": "Deterministic rendered boards from four known legal positions, with flat/perspective/shadow/blur/low-resolution variants. They are not real-phone photos. Intersection accuracy excludes rejected images; exact-board and failure counts must be read alongside it.",
+      "samplesByCondition": [
+        {
+          "id": "move-20-flat",
+          "waitSeconds": 3.184,
+          "detected": true,
+          "evaluatedIntersections": 361,
+          "correctIntersections": 361,
+          "missedStones": 0,
+          "extraStones": 0,
+          "wrongColour": 0,
+          "exactBoard": true
+        },
+        {
+          "id": "move-20-perspective",
+          "waitSeconds": 3.225,
+          "detected": true,
+          "evaluatedIntersections": 361,
+          "correctIntersections": 361,
+          "missedStones": 0,
+          "extraStones": 0,
+          "wrongColour": 0,
+          "exactBoard": true
+        },
+        {
+          "id": "move-20-shadow",
+          "waitSeconds": 3.23,
+          "detected": true,
+          "evaluatedIntersections": 361,
+          "correctIntersections": 361,
+          "missedStones": 0,
+          "extraStones": 0,
+          "wrongColour": 0,
+          "exactBoard": true
+        },
+        {
+          "id": "move-20-blur",
+          "waitSeconds": 3.168,
+          "detected": true,
+          "evaluatedIntersections": 361,
+          "correctIntersections": 361,
+          "missedStones": 0,
+          "extraStones": 0,
+          "wrongColour": 0,
+          "exactBoard": true
+        },
+        {
+          "id": "move-20-low-resolution",
+          "waitSeconds": 3.092,
+          "detected": true,
+          "evaluatedIntersections": 361,
+          "correctIntersections": 361,
+          "missedStones": 0,
+          "extraStones": 0,
+          "wrongColour": 0,
+          "exactBoard": true
+        },
+        {
+          "id": "move-80-flat",
+          "waitSeconds": 3.266,
+          "detected": true,
+          "evaluatedIntersections": 361,
+          "correctIntersections": 361,
+          "missedStones": 0,
+          "extraStones": 0,
+          "wrongColour": 0,
+          "exactBoard": true
+        },
+        {
+          "id": "move-80-perspective",
+          "waitSeconds": 3.287,
+          "detected": true,
+          "evaluatedIntersections": 361,
+          "correctIntersections": 361,
+          "missedStones": 0,
+          "extraStones": 0,
+          "wrongColour": 0,
+          "exactBoard": true
+        },
+        {
+          "id": "move-80-shadow",
+          "waitSeconds": 3.236,
+          "detected": true,
+          "evaluatedIntersections": 361,
+          "correctIntersections": 359,
+          "missedStones": 2,
+          "extraStones": 0,
+          "wrongColour": 0,
+          "exactBoard": false
+        },
+        {
+          "id": "move-80-blur",
+          "waitSeconds": 3.205,
+          "detected": true,
+          "evaluatedIntersections": 361,
+          "correctIntersections": 361,
+          "missedStones": 0,
+          "extraStones": 0,
+          "wrongColour": 0,
+          "exactBoard": true
+        },
+        {
+          "id": "move-80-low-resolution",
+          "waitSeconds": 3.232,
+          "detected": true,
+          "evaluatedIntersections": 361,
+          "correctIntersections": 361,
+          "missedStones": 0,
+          "extraStones": 0,
+          "wrongColour": 0,
+          "exactBoard": true
+        },
+        {
+          "id": "move-160-flat",
+          "waitSeconds": 3.358,
+          "detected": true,
+          "evaluatedIntersections": 361,
+          "correctIntersections": 361,
+          "missedStones": 0,
+          "extraStones": 0,
+          "wrongColour": 0,
+          "exactBoard": true
+        },
+        {
+          "id": "move-160-perspective",
+          "waitSeconds": 3.262,
+          "detected": true,
+          "evaluatedIntersections": 361,
+          "correctIntersections": 361,
+          "missedStones": 0,
+          "extraStones": 0,
+          "wrongColour": 0,
+          "exactBoard": true
+        },
+        {
+          "id": "move-160-shadow",
+          "waitSeconds": 3.254,
+          "detected": true,
+          "evaluatedIntersections": 361,
+          "correctIntersections": 361,
+          "missedStones": 0,
+          "extraStones": 0,
+          "wrongColour": 0,
+          "exactBoard": true
+        },
+        {
+          "id": "move-160-blur",
+          "waitSeconds": 3.269,
+          "detected": true,
+          "evaluatedIntersections": 361,
+          "correctIntersections": 361,
+          "missedStones": 0,
+          "extraStones": 0,
+          "wrongColour": 0,
+          "exactBoard": true
+        },
+        {
+          "id": "move-160-low-resolution",
+          "waitSeconds": 3.144,
+          "detected": true,
+          "evaluatedIntersections": 361,
+          "correctIntersections": 361,
+          "missedStones": 0,
+          "extraStones": 0,
+          "wrongColour": 0,
+          "exactBoard": true
+        },
+        {
+          "id": "move-321-flat",
+          "waitSeconds": 3.309,
+          "detected": true,
+          "evaluatedIntersections": 361,
+          "correctIntersections": 67,
+          "missedStones": 294,
+          "extraStones": 0,
+          "wrongColour": 0,
+          "exactBoard": false
+        },
+        {
+          "id": "move-321-perspective",
+          "waitSeconds": 3.308,
+          "detected": true,
+          "evaluatedIntersections": 361,
+          "correctIntersections": 356,
+          "missedStones": 5,
+          "extraStones": 0,
+          "wrongColour": 0,
+          "exactBoard": false
+        },
+        {
+          "id": "move-321-shadow",
+          "waitSeconds": 3.346,
+          "detected": false,
+          "evaluatedIntersections": 0,
+          "exactBoard": false
+        },
+        {
+          "id": "move-321-blur",
+          "waitSeconds": 3.227,
+          "detected": false,
+          "evaluatedIntersections": 0,
+          "exactBoard": false
+        },
+        {
+          "id": "move-321-low-resolution",
+          "waitSeconds": 3.133,
+          "detected": true,
+          "evaluatedIntersections": 361,
+          "correctIntersections": 334,
+          "missedStones": 18,
+          "extraStones": 4,
+          "wrongColour": 5,
+          "exactBoard": false
+        }
+      ]
+    }
+  },
+  "photoOnlyAi": {
+    "positions": 6,
+    "meanLeadDifferencePoints": 3.738893973333333,
+    "maxLeadDifferencePoints": 9.308311935999999,
+    "meanWinDifferencePercentagePoints": 21.740149769433334,
+    "leadingSideMatches": 3,
+    "firstSuggestionMatches": 1,
+    "firstSuggestionInReferenceTop3": 4,
+    "clearLeadMatches": 2,
+    "clearLeadPositions": 3,
+    "rows": [
+      {
+        "move": 20,
+        "waitSeconds": 1.512,
+        "visits": 129,
+        "blackLead": 0.112357878,
+        "referenceBlackLead": -0.54417608,
+        "leadAbsoluteDifference": 0.6565339579999999,
+        "blackWinPercent": 50.79903409999999,
+        "referenceBlackWinPercent": 41.339222799999995,
+        "winAbsoluteDifferencePP": 9.459811299999998,
+        "firstSuggestion": "P4",
+        "referenceFirstSuggestion": "S4",
+        "firstSuggestionInReferenceTop3": true,
+        "leadingSideMatches": false,
+        "top3Overlap": 2
+      },
+      {
+        "move": 80,
+        "waitSeconds": 1.533,
+        "visits": 129,
+        "blackLead": 1.09781495,
+        "referenceBlackLead": 1.57827242,
+        "leadAbsoluteDifference": 0.48045746999999994,
+        "blackWinPercent": 52.782452,
+        "referenceBlackWinPercent": 73.3585222,
+        "winAbsoluteDifferencePP": 20.576070199999997,
+        "firstSuggestion": "K16",
+        "referenceFirstSuggestion": "H15",
+        "firstSuggestionInReferenceTop3": true,
+        "leadingSideMatches": true,
+        "top3Overlap": 1
+      },
+      {
+        "move": 160,
+        "waitSeconds": 1.531,
+        "visits": 129,
+        "blackLead": 2.2811927,
+        "referenceBlackLead": -0.298223404,
+        "leadAbsoluteDifference": 2.579416104,
+        "blackWinPercent": 59.264428300000006,
+        "referenceBlackWinPercent": 48.1707065,
+        "winAbsoluteDifferencePP": 11.093721800000006,
+        "firstSuggestion": "N11",
+        "referenceFirstSuggestion": "N11",
+        "firstSuggestionInReferenceTop3": true,
+        "leadingSideMatches": false,
+        "top3Overlap": 2
+      },
+      {
+        "move": 240,
+        "waitSeconds": 1.573,
+        "visits": 129,
+        "blackLead": 0.628689406,
+        "referenceBlackLead": -8.67962253,
+        "leadAbsoluteDifference": 9.308311935999999,
+        "blackWinPercent": 53.6972522,
+        "referenceBlackWinPercent": 0.19318871,
+        "winAbsoluteDifferencePP": 53.50406349,
+        "firstSuggestion": "B7",
+        "referenceFirstSuggestion": "C14",
+        "firstSuggestionInReferenceTop3": true,
+        "leadingSideMatches": false,
+        "top3Overlap": 2
+      },
+      {
+        "move": 300,
+        "waitSeconds": 1.482,
+        "visits": 129,
+        "blackLead": -0.901906788,
+        "referenceBlackLead": -8.61521623,
+        "leadAbsoluteDifference": 7.713309442,
+        "blackWinPercent": 34.7882459,
+        "referenceBlackWinPercent": 0.0196255714,
+        "winAbsoluteDifferencePP": 34.768620328599994,
+        "firstSuggestion": "D12",
+        "referenceFirstSuggestion": "M1",
+        "firstSuggestionInReferenceTop3": false,
+        "leadingSideMatches": true,
+        "top3Overlap": 1
+      },
+      {
+        "move": 321,
+        "waitSeconds": 1.456,
+        "visits": 129,
+        "blackLead": -6.43676151,
+        "referenceBlackLead": -8.13209644,
+        "leadAbsoluteDifference": 1.6953349299999996,
+        "blackWinPercent": 1.15643223,
+        "referenceBlackWinPercent": 0.117820732,
+        "winAbsoluteDifferencePP": 1.038611498,
+        "firstSuggestion": "A10",
+        "referenceFirstSuggestion": "pass",
+        "firstSuggestionInReferenceTop3": false,
+        "leadingSideMatches": true,
+        "top3Overlap": 1
+      }
+    ]
+  },
+  "browserFirstUseSeconds": 3.899,
+  "safeguards": {
+    "dailyTaggedProjectUsd": 15,
+    "monthlyUsd": 50,
+    "sharedPublicReserveUsdPerDay": 3,
+    "reservedUsdPerAttempt": 0.003,
+    "maxPublicOperationsPerUtcDay": 1000,
+    "maxConcurrentWorkers": 2,
+    "workerTimeoutSeconds": {
+      "recognition": 25,
+      "ai": 20
+    },
+    "caveat": "AWS billing updates are delayed, so the tagged spending guard is not a hard instantaneous ceiling on all charges. Immediate request/runtime caps limit costly worker calls. CloudFront, rejected API requests and storage still incur charges."
+  },
+  "recommendation": "Default to option 2 for consistent device-independent latency, but both mini engines are rough. Recognition still needs stone corrections on difficult photos, and photo-only Japanese/Korean estimates lack earlier captures/history.",
+  "browserFirstUseCaveat": "First analysis after opening the benchmark; model cache may already have existed. A fresh phone model download was not measured.",
+  "sources": {
+    "lambdaPricing": "https://aws.amazon.com/lambda/pricing/",
+    "budgetDelay": "https://docs.aws.amazon.com/cost-management/latest/userguide/budgets-managing-costs.html"
+  }
+}

@@ -37,5 +37,11 @@ if(context('gpuBenchmark')){
  if(context('spendingGuard')==='true'){const {WeiqiBudgetStack}=require('../lib/weiqi-budget-stack');new WeiqiBudgetStack(app,'WeiqiBudget',{libraryBucket:context('libraryBucket'),jobQueues:gpu.productionJobQueues,tags:{service:'weiqi'},env:{account:process.env.CDK_DEFAULT_ACCOUNT,region:'eu-west-1'}});}
 }
 
+if(context('positionAnalysis')==='true'){
+ const {WeiqiPositionStack}=require('../lib/weiqi-position-stack');
+ const release=JSON.parse(fs.readFileSync(path.join(__dirname,'../../cloud/position-release.json'),'utf8'));
+ new WeiqiPositionStack(app,'WeiqiPositionAnalysis',{libraryBucket:context('libraryBucket'),release,tags:{service:'weiqi'},env:{account:process.env.CDK_DEFAULT_ACCOUNT,region:'eu-west-1'}});
+}
+
 // Stack tags propagate to every supported CloudFormation resource.
 for(const stack of app.node.children)Tags.of(stack).add(projectConfig.project.tagKey,projectConfig.project.tagValue,{excludeResourceTypes:['AWS::Batch::ComputeEnvironment','AWS::Batch::JobQueue']});

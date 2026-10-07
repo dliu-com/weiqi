@@ -44,7 +44,7 @@ export function nextMoveComparison(record,selected,analyses,phase) {
     const loss=Math.max(0,sign*(next.best.blackLead-candidate.blackLead));
     return {move:candidate.move,label:'ABC'[rank],candidate,actual:false,loss,estimated:false,
       quality:candidate.order===0?'best':loss<=.5?'good':loss<=2?'inaccuracy':loss<=5?'mistake':'blunder',
-      blackWinrate:candidate.blackWinrate};
+      blackLead:candidate.blackLead,blackWinrate:candidate.blackWinrate};
   });
   const actualNode=record.nodes[selected].children[0],node=record.nodes[actualNode];
   if(next.best&&node?.move&&node.move.side===next.side){
@@ -52,7 +52,8 @@ export function nextMoveComparison(record,selected,analyses,phase) {
     const candidate=analyses.get(selected)?.candidates?.find(c=>c.move===move);
     const row=rows.find(r=>r.move===move),best=review.quality==='best';
     const actual={move,actual:true,actualNode,loss:best?0:review.loss,quality:review.quality,
-      estimated:!best&&review.estimated,blackWinrate:best||!review.estimated?candidate?.blackWinrate:analyses.get(actualNode)?.blackWinrate};
+      estimated:!best&&review.estimated,blackLead:best||!review.estimated?candidate?.blackLead:analyses.get(actualNode)?.blackLead,
+      blackWinrate:best||!review.estimated?candidate?.blackWinrate:analyses.get(actualNode)?.blackWinrate};
     if(row)Object.assign(row,actual);else rows.push({...actual,label:null,candidate});
   }
   return {...next,rows};
@@ -75,4 +76,41 @@ export function recommendedLine(record,anchor,candidate) {
     } catch {truncated=true;break;}
   }
   return {anchor,candidate,frames,offset:Math.min(1,frames.length-1),truncated};
+}
+
+// Stored lines are paths, not fresh searches. Only offer replies whose entire
+// played prefix matches, or candidates from that exact recorded position.
+export function startRecommendedLine(record,review,candidate,overview=false) {
+  const line=recommendedLine(record,review.anchor,candidate);
+  const paths=(review.alternatives||[candidate]).map(c=>recommendedLine(record,review.anchor,c));
+  if(!paths.some(p=>p.candidate===candidate))paths.push(line);
+  return {...line,paths,overview,rootCandidate:candidate,offset:overview?line.frames.length-1:line.offset};
+}
+export function lineContinuations(record,line,analyses,phase) {
+  const prefix=line.frames.slice(0,line.offset+1);
+  let recorded=line.anchor;
+  for(const frame of prefix.slice(1)){
+    recorded=record.nodes[recorded]?.children.find(id=>{
+      const n=record.nodes[id];return n.move?.side===frame.move.side&&n.move?.index===frame.move.index&&n.turn===frame.turn&&Array.from(n.board).join('')===Array.from(frame.board).join('');
+    });
+    if(recorded===undefined)break;
+  }
+  const searched=recorded===undefined?null:nextMoveSuggestions(record,recorded,analyses,phase);
+  let paths=line.paths||[line];
+  if(searched?.alternatives.length)paths=searched.alternatives.map(candidate=>{
+    const saved=recommendedLine(record,recorded,candidate);
+    return {...saved,frames:[...prefix,...saved.frames.slice(1)]};
+  });
+  const matching=paths.filter(path=>path.frames.length>prefix.length&&prefix.every((frame,i)=>{
+    const other=path.frames[i];return other&&other.turn===frame.turn&&other.move?.side===frame.move?.side&&other.move?.index===frame.move?.index&&Array.from(other.board).join('')===Array.from(frame.board).join('');
+  }));
+  const seen=new Set();
+  return matching.flatMap(path=>{
+    const move=moveCoordinate(path.frames[prefix.length].move,record.size);
+    if(seen.has(move))return [];seen.add(move);
+    return [{move,frames:path.frames,paths:matching,truncated:path.truncated,searched:!!searched?.alternatives.length}];
+  });
+}
+export function followLineContinuation(line,choice) {
+  return {...line,frames:choice.frames,paths:choice.paths,truncated:choice.truncated,offset:line.offset+1,overview:false};
 }

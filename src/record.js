@@ -5,7 +5,7 @@ import {BoardView} from './board-view.js';
 import {localTimestamp,analysisQuotaDate} from './site-time.js';
 import {t,setLanguage} from './i18n.js';
 import {analysisWait,pendingAnalysis,shouldPollQuick,analysisCompletion,analysisTotalMillis,queueWait,QUICK_POLL_INTERVAL_MS,conservativeMinute} from './analysis-status.js';
-import {reviewMove,nextMoveComparison,recommendedLine,gtpPoint} from './ai-review.js';
+import {reviewMove,nextMoveComparison,recommendedLine,startRecommendedLine,lineContinuations,followLineContinuation,gtpPoint} from './ai-review.js';
 import {play} from './engine.js';
 import {stepReplay} from './replay-navigation.js';
 import {gameResult} from './game-result.js';
@@ -16,17 +16,19 @@ const $=id=>document.getElementById(id),id=location.pathname.match(/^\/(?:record
 mountStoneSound($('game-sound'));
 let data=null,record=null,handicap=0,selected=restorePosition(),loading=false,points=[],analyses=new Map(),trials=[],trialOffset=0,autoplay=null,chartMode='score',pollTimer=null,statusTimer=null,aiLine=null,suggestions=true;
 const boardCandidates=new Map(),boardRecordedMoves=new Map();
+let aiHover=null,aiHoverBlocked=false,preserveAiTable=false;
+const hoverAiSuggestions=window.matchMedia('(hover:hover) and (pointer:fine)');
 try{suggestions=localStorage.getItem('weiqi.aiSuggestions')!=='off';}catch{}
 function coord(index){return 'ABCDEFGHJKLMNOPQRST'[index%record.size]+(record.size-Math.floor(index/record.size));}
 let boardView;
-function drawBoard(){if(boardView)return;boardView=new BoardView($('board'),{horizontalArrows:false,onPoint:i=>{const actual=boardRecordedMoves.get(i),choice=boardCandidates.get(i);if(actual!==undefined)selectPosition(actual);else if(choice)showAiCandidate(choice.review,choice.candidate);else previewMove(i);}});points=boardView.points;}
+function drawBoard(){if(boardView)return;boardView=new BoardView($('board'),{horizontalArrows:false,onPoint:i=>{const actual=boardRecordedMoves.get(i),choice=boardCandidates.get(i);if(choice?.continuation)followAiContinuation(choice.continuation);else if(choice)showAiCandidate(choice.review,choice.candidate);else if(actual!==undefined)selectPosition(actual);else previewMove(i);}});points=boardView.points;}
 function render(){const panel=document.querySelector('#record-main aside'),scroll=panel.scrollTop;renderContents();panel.scrollTop=scroll;}
 function renderContents(){document.title=(data?.metadata.name || t('棋谱','Game record'))+' · DL';$('download-original').textContent=t('下载 SGF','Download SGF');$('analysis-title').textContent=t('AI 评估','AI evaluation');$('generate-report').textContent=t('查看 AI 报告','View AI report');const reportReady=data?.analysis?.phase==='deep'&&data.metadata.analysis.status==='ready';$('generate-report').setAttribute('aria-disabled',String(!reportReady));if(reportReady)$('generate-report').href='/game/'+id+'/report';else $('generate-report').removeAttribute('href');$('generate-report').title=reportReady?t('查看已生成的中英文报告并保存 PDF','View the prepared English/Chinese report and save PDF'):t('深度分析完成后自动生成报告','Report prepared automatically after deep analysis');$('record-main').hidden=!record;if(!record)return;
- const base=record.nodes[selected],node=trials[trialOffset-1] || aiLine?.frames[aiLine.offset] || base;
- $('trial-controls').hidden=!trialOffset;$('trial-undo').textContent=t('撤回试下','Undo preview');$('trial-clear').textContent=t('返回棋谱','Return to record');
+ const base=record.nodes[selected],continuations=aiLine&&!trialOffset&&!aiLine.overview?lineContinuations(record,aiLine,analyses,data.analysis?.phase):[],node=trials[trialOffset-1] || aiLine?.frames[aiLine.offset] || base;
+ $('trial-controls').hidden=!trialOffset;$('trial-undo').textContent=t('撤回试下','Undo preview');$('trial-clear').textContent=t('返回原局面','Return to original position');
  $('autoplay').textContent=autoplay?'Ⅱ':'▶';$('autoplay').setAttribute('aria-pressed',String(!!autoplay));$('autoplay').setAttribute('aria-label',autoplay?t('暂停回放','Pause autoplay'):t('自动回放','Autoplay'));$('autoplay').disabled=!base.children.length&&!autoplay;$('record-name').textContent=data.metadata.name;$('record-players').replaceChildren();for(const side of ['black','white']){const player=document.createElement('div');player.className='record-player record-player-'+side;const stone=document.createElement('span');stone.className='player-stone player-stone-'+side;stone.setAttribute('aria-hidden','true');const colour=document.createElement('span');colour.className='player-colour';colour.textContent=side==='black'?t('黑方','Black'):t('白方','White');const name=document.createElement('strong');name.className='player-name';name.textContent=(record.players[side]||t('未命名棋手','Unnamed player'))+(record.playerRanks?.[side]?' ('+record.playerRanks[side]+')':'');player.append(stone,colour,name);const result=gameResult(record.result),winner=result?.winner;if(result&&(!winner||winner===(side==='black'?'B':'W'))){const badge=document.createElement('span');badge.className='game-result';badge.textContent=t(result.zh,result.en);badge.setAttribute('aria-label',t('棋局结果：','Game result: ')+t(result.zh,result.en));player.append(badge);}$('record-players').append(player);}$('move-label').textContent=(trialOffset?t('试下 · ','Preview · '):aiLine?t('AI 变化 · ','AI line · '):'')+t('第 '+node.depth+' 手','Move '+node.depth)+(node.move?' · '+(node.move.side==='B'?t('黑','Black'):t('白','White'))+' '+(node.move.index===null?t('停一手','Pass'):coord(node.move.index)):'');
- points.forEach((p,i)=>{p.className='point'+(node.board[i]==='B'?' black':node.board[i]==='W'?' white':'')+(node.move?.index===i?' last':'');p.disabled=node.board[i]!=='.';p.textContent='';if(aiLine&&!trialOffset){for(let n=1;n<=aiLine.offset;n++){const m=aiLine.frames[n].move;if(m.index===i&&node.board[i]===m.side)p.textContent=String(n);}}if(p.textContent)p.classList.add('ai-number');p.setAttribute('aria-label',coord(i)+' '+(node.board[i]==='B'?t('黑子','Black stone'):node.board[i]==='W'?t('白子','White stone'):t('空点','Empty')));});
- $('board').dataset.preview=node.turn==='B'?'black':'white';$('back-ten').disabled=!trialOffset&&!aiLine&&selected===0;$('forward-ten').disabled=trialOffset<trials.length?false:trialOffset?true:aiLine?aiLine.offset===aiLine.frames.length-1:!base.children.length;
+ renderBoard(node);
+ $('board').dataset.preview=node.turn==='B'?'black':'white';$('back-ten').disabled=!trialOffset&&!aiLine&&selected===0;$('forward-ten').disabled=trialOffset<trials.length?false:trialOffset?true:aiLine?aiLine.offset===aiLine.frames.length-1&&!continuations.length:!base.children.length;
  $('first').disabled=!trialOffset&&!aiLine&&selected===0;$('previous').disabled=!trialOffset&&!aiLine&&selected===0;$('next').disabled=$('forward-ten').disabled;$('last').disabled=!trialOffset&&!aiLine&&selected===record.mainLine.at(-1);$('branch-label').textContent=node.children.length>1?t('选择分支','Choose variation'):'';$('branch-select').hidden=node.children.length<2;$('branch-select').replaceChildren();const empty=document.createElement('option');empty.value='';empty.textContent=t('下一手…','Next move…');$('branch-select').append(empty);for(const child of node.children){const n=record.nodes[child],option=document.createElement('option');option.value=child;option.textContent=(n.move.side==='B'?t('黑','Black'):t('白','White'))+' '+(n.move.index===null?t('停一手','Pass'):coord(n.move.index));$('branch-select').append(option);}
  $('record-comment').textContent=node.comment;$('record-details').textContent=[record.size+' × '+record.size,record.date,record.venue,handicap>0?t('让 '+handicap+' 子','Handicap '+handicap):'',timeControlSummary(record.timeControl,t),record.rules || t('未指定规则','Rules unspecified'),t('贴目 ','Komi ')+record.komi].filter(Boolean).join(' · ');
  drawEvaluationChart($('evaluation-chart'),data.analysis?.positions || [],trialOffset||aiLine?-1:selected,node=>selectPosition(node),{chart:chartMode==='win'?t('逐手黑方胜率，点击或使用方向键选择棋步','Black win rate by move. Click or use arrow keys to select a move.'):t('逐手目差，点击或使用方向键选择棋步','Point advantage by move. Click or use arrow keys to select a move.'),move:n=>t('第 '+n+' 手','Move '+n),variation:t('当前分支未分析','Current variation is not analysed')},chartMode);
@@ -66,7 +68,7 @@ function pendingMessage(){
  const retry=state.attempt>1?t('自动重试 '+(state.attempt-1)+'/2 · ','Automatic retry '+(state.attempt-1)+'/2 · '):'';
  return showing+retry+name+progress+started+estimate;
 }
-function pausedAnalysisMessage(){return t('AI 分析已暂停：本站月度费用达到限额。棋谱和已有分析仍可查看。','AI analysis is paused because the site’s monthly spending threshold was reached. Your game and completed analysis remain available.');}
+function pausedAnalysisMessage(){return t('AI 分析已暂停：本站费用达到限额。棋谱和已有分析仍可查看。','AI analysis is paused because the site’s spending threshold was reached. Your game and completed analysis remain available.');}
 function terminalAnalysisMessage(){return (data.metadata.analysis.error||t('AI 分析失败。','AI analysis failed.'))+' '+t('已完成两次自动重试。棋谱和已有分析仍可查看。','Both automatic retries have been used. Your record and completed analysis remain available.');}
 function formatAnalysisTime(timestamp){return localTimestamp(timestamp,document.documentElement.lang==='zh-CN'?'zh':'en',{seconds:false});}
 function formatAnalysisEstimate(timestamp){return formatAnalysisTime(conservativeMinute(timestamp));}
@@ -76,17 +78,19 @@ function schedulePoll(){clearTimeout(pollTimer);if(record&&!document.hidden&&sho
 async function load(){if(loading)return;loading=true;render();try{if(!/^(?:[0-9]{10,14}|[a-f0-9-]{36})$/.test(id || ''))throw Error('Invalid game link.');const next=await libraryRequest('/api/library/'+id);const parsed=readSgf(next.sgf);if(next.analysis && next.analysis.sgfSha256!==Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(next.sgf))),b=>b.toString(16).padStart(2,'0')).join(''))throw Error('Analysis does not match this record.');data=next;record=parsed;handicap=Number(parseSgf(next.sgf).nodes[0].HA?.[0]||0);analyses=new Map((data.analysis?.positions || []).map(p=>[p.nodeId,p]));if(selected>=record.nodes.length)selected=0;drawBoard();$('record-message').textContent='';}catch(e){$('record-message').textContent=e.message;}finally{loading=false;render();schedulePoll();scheduleStatusTicker();}}
 function stopAutoplay(){if(autoplay){clearInterval(autoplay);autoplay=null;}}
 function soundCurrentMove(){const node=trials[trialOffset-1]||aiLine?.frames[aiLine.offset]||record?.nodes[selected];if(node?.move&&node.move.index!==null)playStoneSound();}
-function selectPosition(node,keepPlaying=false){prepareStoneSound();const forward=record.nodes[node].depth>record.nodes[selected].depth;if(!keepPlaying)stopAutoplay();selected=node;try{sessionStorage.setItem('weiqi.replay.'+id,String(node));}catch{}trials=[];trialOffset=0;aiLine=null;$('record-message').textContent='';render();if(forward)soundCurrentMove();}
+function selectPosition(node,keepPlaying=false){aiHover=null;aiHoverBlocked=false;prepareStoneSound();const forward=record.nodes[node].depth>record.nodes[selected].depth;if(!keepPlaying)stopAutoplay();selected=node;try{sessionStorage.setItem('weiqi.replay.'+id,String(node));}catch{}trials=[];trialOffset=0;aiLine=null;$('record-message').textContent='';render();if(forward)soundCurrentMove();}
 function step(amount,keepPlaying=false){
- if(!record)return;prepareStoneSound();if(!keepPlaying)stopAutoplay();
- const before=[selected,trialOffset,aiLine?.offset].join(':');
+ if(!record)return;aiHover=null;aiHoverBlocked=false;prepareStoneSound();if(!keepPlaying)stopAutoplay();
+ if(aiLine)aiLine.overview=false;
+ const movingForward=amount>0,before=[selected,trialOffset,aiLine?.offset].join(':');
+ if(amount>0&&aiLine&&!trialOffset&&aiLine.offset===aiLine.frames.length-1){const choice=lineContinuations(record,aiLine,analyses,data.analysis?.phase)[0];if(choice){aiLine=followLineContinuation(aiLine,choice);amount--;}}
  const next=stepReplay(record,{selected,aiLine,trials,trialOffset},amount);
  ({selected,aiLine,trials,trialOffset}=next);
  try{sessionStorage.setItem('weiqi.replay.'+id,String(selected));}catch{}
  if(keepPlaying&&!record.nodes[selected].children.length)stopAutoplay();
- $('record-message').textContent='';render();if(amount>0&&before!==[selected,trialOffset,aiLine?.offset].join(':'))soundCurrentMove();
+ $('record-message').textContent='';render();if(movingForward&&before!==[selected,trialOffset,aiLine?.offset].join(':'))soundCurrentMove();
 }
-function previewMove(index){if(!record)return;prepareStoneSound();stopAutoplay();const base=trials[trialOffset-1]||aiLine?.frames[aiLine.offset]||record.nodes[selected];const history=trials.slice(0,trialOffset).map(n=>n.board);if(aiLine)history.push(...aiLine.frames.slice(1,aiLine.offset+1).map(n=>n.board));for(let n=aiLine?.anchor??selected;n!==null;n=record.nodes[n].parent)history.push(record.nodes[n].board);try{const result=play(base.board,index,base.turn==='B'?'black':'white',19,history);trials=trials.slice(0,trialOffset);trials.push({...base,board:result.board,depth:base.depth+1,move:{side:base.turn,index},turn:base.turn==='B'?'W':'B'});trialOffset=trials.length;render();playStoneSound();}catch(e){$('record-message').textContent=e.message;}}
+function previewMove(index){if(!record)return;aiHover=null;aiHoverBlocked=false;prepareStoneSound();stopAutoplay();const base=trials[trialOffset-1]||aiLine?.frames[aiLine.offset]||record.nodes[selected];const history=trials.slice(0,trialOffset).map(n=>n.board);if(aiLine)history.push(...aiLine.frames.slice(1,aiLine.offset+1).map(n=>n.board));for(let n=aiLine?.anchor??selected;n!==null;n=record.nodes[n].parent)history.push(record.nodes[n].board);try{const result=play(base.board,index,base.turn==='B'?'black':'white',19,history);trials=trials.slice(0,trialOffset);trials.push({...base,board:result.board,depth:base.depth+1,move:{side:base.turn,index},turn:base.turn==='B'?'W':'B'});trialOffset=trials.length;render();playStoneSound();}catch(e){$('record-message').textContent=e.message;}}
 for(const mode of ['score','win'])$('chart-'+mode).onclick=()=>{chartMode=mode;render();};
 $('first').onclick=()=>selectPosition(0);$('previous').onclick=()=>step(-1);$('next').onclick=()=>step(1);$('back-ten').onclick=()=>step(-10);$('forward-ten').onclick=()=>step(10);$('last').onclick=()=>selectPosition(record.mainLine.at(-1));$('branch-select').onchange=e=>{if(e.target.value)selectPosition(Number(e.target.value));};
 $('trial-undo').onclick=()=>step(-1);$('trial-clear').onclick=clearAiLine;
@@ -142,11 +146,12 @@ function analysisTotal(a){
  return t('总耗时：','Total time: ')+(h?h+'h ':'')+m+'m '+String(s).padStart(2,'0')+'s';
 }
 
-function clearAiLine(){trials=[];trialOffset=0;aiLine=null;$('record-message').textContent='';render();}
+function clearAiLine(keepTable=false){aiHover=null;if(keepTable!==true)aiHoverBlocked=false;trials=[];trialOffset=0;aiLine=null;$('record-message').textContent='';if(keepTable===true)renderAiTable();else render();}
 $('ai-suggestions').onchange=event=>{suggestions=event.target.checked;try{localStorage.setItem('weiqi.aiSuggestions',suggestions?'on':'off');}catch{}if(!suggestions&&aiLine){aiLine=null;trials=[];trialOffset=0;}render();};
 $('ai-line-previous').onclick=()=>step(-1);
 $('ai-line-next').onclick=()=>step(1);
 $('ai-line-clear').onclick=clearAiLine;
+$('ai-line-explore').onclick=()=>{if(!aiLine)return;aiHover=null;aiHoverBlocked=false;aiLine.overview=false;aiLine.offset=Math.min(1,aiLine.frames.length-1);render();};
 function renderSuggestions(){
  $('ai-suggestions').checked=suggestions;
  $('ai-suggestions-label').textContent=t('棋步点评与 AI 推荐','Move review & AI suggestions');
@@ -162,8 +167,8 @@ function renderSuggestions(){
  quality.textContent=review.unavailable?(!data.analysis?t('AI 推荐将在分析完成后显示。','Suggestions appear when analysis is ready.'):!analyses.has(review.anchor)?t('此 SGF 分支尚未分析。','This SGF branch has not been analysed.'):data.analysis.schemaVersion>=2?t('此局面没有已搜索的候选着法。','No searched candidate moves in this position.'):t('此分析未保存推荐变化；新上传棋谱将包含此功能。','Suggestions were not saved in this analysis. New uploads include them.')):review.played?t('第 '+record.nodes[selected].depth+' 手 · ','Move '+record.nodes[selected].depth+' · ')+(review.side==='B'?t('黑方 ','Black '):t('白方 ','White '))+review.played+' · '+(names[review.quality]||t('未评定','Unrated'))+(review.loss!==null&&review.quality!=='best'?' · '+t('约损失 '+review.loss.toFixed(1)+' 目','~'+review.loss.toFixed(1)+' points lost'):'')+(review.preliminary?t('（快速估计）',' (preliminary)'):review.estimated?t('（估计）',' (estimated)'):''):t('AI 推荐首手','Recommended next moves');
  quality.title=t('按估计损失目数评级：好棋 ≤ 0.5；不精确 ≤ 2；失误 ≤ 5；严重失误 > 5。最佳着法为 KataGo 首选，不代表数学上的完美。','Estimated point loss: Good ≤ 0.5; Inaccuracy ≤ 2; Mistake ≤ 5; Blunder > 5. Best means KataGo’s top choice, not mathematical perfection.');
  $('ai-next-label').hidden=!aiLine&&!trialOffset;
- $('ai-next-label').textContent=aiLine?t('AI 推荐变化；后续局面未单独分析。','AI recommended line; continuation positions are not separately analysed.'):trialOffset?t('试下局面未分析。','Preview positions are not analysed.'):'';
- $('ai-alternatives').replaceChildren();$('ai-alternatives').hidden=!!aiLine||!!trialOffset;
+ $('ai-next-label').textContent=aiLine?aiLine.overview?t('完整推荐变化预览；下表评估属于第 '+record.nodes[aiLine.anchor].depth+' 手后的局面。','Full line preview; table evaluations belong to the position after move '+record.nodes[aiLine.anchor].depth+'.'):t('继续点击棋盘上的推荐点，或使用方向键。只显示已保存的变化，不估算后续局面分数。','Click a suggested point or use the arrows to continue. Saved continuations only; no new position scores.'):trialOffset?t('试下局面未分析。','Preview positions are not analysed.'):'';
+ if(!preserveAiTable)$('ai-alternatives').replaceChildren();$('ai-alternatives').hidden=!!trialOffset;
  for(const [rank,candidate] of next.alternatives.entries()){
    const label='ABC'[rank],index=gtpPoint(candidate.move,record.size);
    if(!aiLine&&!trialOffset&&index!==null&&record.nodes[selected].board[index]==='.'&&recommendedLine(record,next.anchor,candidate).frames.length>1){
@@ -185,30 +190,92 @@ function renderSuggestions(){
    svg.setAttribute('viewBox','0 0 100 100');svg.setAttribute('aria-hidden','true');svg.classList.add('recorded-triangle');triangle.setAttribute('points','50,8 92,88 8,88');svg.append(triangle);point.replaceChildren(svg);
    if(actualRow?.label){const letter=document.createElement('span');letter.className='recorded-candidate-letter';letter.textContent=actualRow.label;point.append(letter);}
    point.classList.add('next-recorded-move');point.dataset.nextQuality=actualRow?.quality||'unrated';point.dataset.recordedMove=coord(actualMove.index);boardRecordedMoves.set(actualMove.index,actualNode);
-   point.title=t('下一手实战：','Next recorded move: ')+(actualMove.side==='B'?t('黑方 ','Black '):t('白方 ','White '))+coord(actualMove.index)+' · '+(names[actualRow?.quality]||t('未评定','Unrated'))+(actualRow?.estimated?t('（估计）',' (estimated)'):'');point.setAttribute('aria-label',point.title+' · '+t('前往实战着法','Go to recorded move'));
+   point.title=t('下一手实战：','Next recorded move: ')+(actualMove.side==='B'?t('黑方 ','Black '):t('白方 ','White '))+coord(actualMove.index)+' · '+(names[actualRow?.quality]||t('未评定','Unrated'))+(actualRow?.estimated?t('（估计）',' (estimated)'):'');point.setAttribute('aria-label',point.title+' · '+(boardCandidates.has(actualMove.index)?t('试下推荐变化；表格“实战”按钮可前往实战着法','Explore recommended line; the table’s Played button opens the recorded move'):t('前往实战着法','Go to recorded move')));
  }
- if(next.rows.length){
+ if(!preserveAiTable&&next.rows.length){
    const table=document.createElement('table');table.className='ai-move-table';table.setAttribute('aria-label',t('下一手选点比较','Next-move comparison'));
    const head=document.createElement('thead'),header=document.createElement('tr');
-   for(const label of [t('选点','Move'),t('评价','Assessment'),t('损失（目）','Point loss'),next.side==='B'?t('黑方胜率','Black win %'):t('白方胜率','White win %')]){const th=document.createElement('th');th.scope='col';th.textContent=label;header.append(th);}head.append(header);table.append(head);
+   for(const label of [t('选点','Move'),t('评价','Assessment'),t('领先（目）','Lead (points)'),t('胜率（%）','Win %')]){const th=document.createElement('th');th.scope='col';th.textContent=label;header.append(th);}head.append(header);table.append(head);
    const body=document.createElement('tbody');
    for(const row of next.rows){
-     const tr=document.createElement('tr');tr.dataset.move=row.move;tr.dataset.actual=String(row.actual);if(row.actual)tr.className='ai-recorded-move';
+     const tr=document.createElement('tr');tr.dataset.move=row.move;tr.dataset.actual=String(row.actual);if(row.actual)tr.className='ai-recorded-move';if(aiLine?.overview&&row.candidate===aiLine.rootCandidate)tr.classList.add('ai-selected-move');
      const move=document.createElement('th');move.scope='row';const button=document.createElement('button');button.type='button';button.className='ai-move-choice';button.dataset.side=next.side;button.textContent=(row.label?row.label+' · ':'')+(row.move==='pass'?t('停一手','Pass'):row.move);
-     button.onclick=()=>row.actual?selectPosition(row.actualNode):showAiCandidate(next,row.candidate);
-     button.setAttribute('aria-label',(next.side==='B'?t('黑方','Black'):t('白方','White'))+' · '+button.textContent+' · '+(row.actual?t('查看实战着法','View recorded move'):t('查看推荐变化','View recommended line')));move.append(button);
-     if(row.actual){const badge=document.createElement('span');badge.className='ai-played-badge';badge.textContent=t('实战','Played');move.append(badge);}
+     const preview=()=>chooseAiRow(next,row);button.onclick=event=>{event.stopPropagation();preview();};tr.onclick=preview;tr.onmouseenter=()=>{if(hoverAiSuggestions.matches)hoverAiRow(next,row);};tr.onmouseleave=leaveAiRow;button.setAttribute('aria-pressed',String(!!aiLine?.overview&&row.candidate===aiLine.rootCandidate));
+     button.setAttribute('aria-label',(next.side==='B'?t('黑方','Black'):t('白方','White'))+' · '+button.textContent+' · '+(row.candidate?t('预览完整推荐变化','Preview full recommended line'):t('查看实战着法','View recorded move')));move.append(button);
+     if(row.actual){const badge=document.createElement('button');badge.type='button';badge.className='ai-played-badge';badge.textContent=t('实战','Played');badge.setAttribute('aria-label',t('前往实战着法','Go to recorded move'));badge.onclick=event=>{event.stopPropagation();selectPosition(row.actualNode);};move.append(badge);}
      const rating=document.createElement('td');rating.dataset.quality=row.quality||'';rating.textContent=names[row.quality]||t('未评定','Unrated');
-     const loss=document.createElement('td');loss.textContent=Number.isFinite(row.loss)?(row.estimated?'≈ ':'')+row.loss.toFixed(2):'—';
-     const win=document.createElement('td');const probability=next.side==='B'?row.blackWinrate:1-row.blackWinrate;win.textContent=Number.isFinite(row.blackWinrate)?(row.estimated?'≈ ':'')+(Math.max(0,Math.min(1,probability))*100).toFixed(1)+'%':'—';
-     tr.append(move,rating,loss,win);body.append(tr);
+     const lead=document.createElement('td');
+     if(Number.isFinite(row.blackLead)){
+      const badge=document.createElement('span'),even=Math.abs(row.blackLead)<.05,side=even?'even':row.blackLead>0?'black':'white',amount=even?'0.0':Math.abs(row.blackLead).toFixed(1);
+      badge.className='ai-score-badge ai-score-'+side;badge.textContent=(row.estimated?'≈ ':'')+amount;
+      lead.setAttribute('aria-label',(even?t('双方均势','Even position'):side==='black'?t('黑方领先 '+amount+' 目','Black leads by '+amount+' points'):t('白方领先 '+amount+' 目','White leads by '+amount+' points'))+(row.estimated?t('（估计）',' (estimated)'):''));lead.append(badge);
+     }else lead.textContent='—';
+     const win=document.createElement('td');
+     if(Number.isFinite(row.blackWinrate)){
+      const black=Math.max(0,Math.min(1,row.blackWinrate))*100,white=100-black,pair=document.createElement('span');pair.className='ai-win-pair';
+      for(const [side,value] of [['black',black],['white',white]]){const badge=document.createElement('span');badge.className='ai-score-badge ai-score-'+side;badge.textContent=value.toFixed(1);pair.append(badge);}
+      if(row.estimated){const estimate=document.createElement('span');estimate.className='ai-win-estimate';estimate.textContent='≈';win.append(estimate);}
+      win.setAttribute('aria-label',t('黑方 '+black.toFixed(1)+'%，白方 '+white.toFixed(1)+'%','Black '+black.toFixed(1)+'%, White '+white.toFixed(1)+'%')+(row.estimated?t('（估计）',' (estimated)'):''));win.append(pair);
+     }else win.textContent='—';
+     tr.append(move,rating,lead,win);body.append(tr);
    }
    table.append(body);$('ai-alternatives').append(table);
    if(next.rows.some(row=>row.estimated)){const note=document.createElement('small');note.className='ai-comparison-note';note.textContent=t('≈ 表示由实战后的局面估计；该选点的搜索不足。','≈ Estimated from the position after the played move; that choice had insufficient search.');$('ai-alternatives').append(note);}
  }
- if(next.unavailable){const note=document.createElement('span');note.textContent=!data.analysis?t('AI 推荐将在分析完成后显示。','Suggestions appear when analysis is ready.'):!analyses.has(selected)?t('此 SGF 分支尚未分析。','This SGF branch has not been analysed.'):data.analysis.schemaVersion>=2?t('此局面没有已搜索的候选着法。','No searched candidate moves in this position.'):t('此分析未保存推荐变化；新上传棋谱将包含此功能。','Suggestions were not saved in this analysis. New uploads include them.');$('ai-alternatives').append(note);}
+ if(!preserveAiTable&&next.unavailable){const note=document.createElement('span');note.textContent=!data.analysis?t('AI 推荐将在分析完成后显示。','Suggestions appear when analysis is ready.'):!analyses.has(selected)?t('此 SGF 分支尚未分析。','This SGF branch has not been analysed.'):data.analysis.schemaVersion>=2?t('此局面没有已搜索的候选着法。','No searched candidate moves in this position.'):t('此分析未保存推荐变化；新上传棋谱将包含此功能。','Suggestions were not saved in this analysis. New uploads include them.');$('ai-alternatives').append(note);}
+ if(preserveAiTable)for(const row of $('ai-alternatives').querySelectorAll('tr[data-move]')){const chosen=!!aiLine?.overview&&row.dataset.move===aiLine.rootCandidate.move;row.classList.toggle('ai-selected-move',chosen);row.querySelector('.ai-move-choice').setAttribute('aria-pressed',String(chosen));}
+ if(aiLine&&!aiLine.overview&&!trialOffset)renderContinuations();
  $('ai-line-controls').hidden=!aiLine;
- if(aiLine){$('ai-line-status').textContent=t('从第 '+record.nodes[aiLine.anchor].depth+' 手后开始的推荐变化','Continuation after move '+record.nodes[aiLine.anchor].depth)+' · '+aiLine.offset+'/'+(aiLine.frames.length-1);$('ai-line-previous').disabled=aiLine.offset===0;$('ai-line-next').disabled=aiLine.offset===aiLine.frames.length-1;$('ai-line-clear').textContent=t('返回棋谱','Return to record');}
+ $('ai-line-explore').hidden=!aiLine?.overview;$('ai-line-explore').textContent=t('逐手试下','Explore line');
+ if(aiLine){$('ai-line-status').textContent=t('从第 '+record.nodes[aiLine.anchor].depth+' 手后开始的推荐变化','Continuation after move '+record.nodes[aiLine.anchor].depth)+' · '+aiLine.offset+'/'+(aiLine.frames.length-1);$('ai-line-previous').disabled=aiLine.offset===0;$('ai-line-next').disabled=aiLine.offset===aiLine.frames.length-1&&!lineContinuations(record,aiLine,analyses,data.analysis?.phase).length;$('ai-line-clear').textContent=t('返回原局面','Return to original position');}
 }
 
-function showAiCandidate(review,candidate){stopAutoplay();trials=[];trialOffset=0;aiLine=recommendedLine(record,review.anchor,candidate);$('record-message').textContent=aiLine.truncated?t('推荐变化在无法复现的棋步前停止。','The recommended line stops before a move that cannot be replayed.'):'';render();}
+function showAiCandidate(review,candidate,overview=false,keepTable=false){stopAutoplay();trials=[];trialOffset=0;aiLine=startRecommendedLine(record,review,candidate,overview);$('record-message').textContent=aiLine.truncated?t('推荐变化在无法复现的棋步前停止。','The recommended line stops before a move that cannot be replayed.'):'';if(keepTable)renderAiTable();else render();}
+
+function followAiContinuation(choice){prepareStoneSound();stopAutoplay();trials=[];trialOffset=0;aiLine=followLineContinuation(aiLine,choice);render();soundCurrentMove();}
+function renderContinuations(){
+ const choices=lineContinuations(record,aiLine,analyses,data.analysis?.phase);$('ai-alternatives').replaceChildren();
+ const heading=document.createElement('p');heading.className='ai-continuation-note';heading.textContent=choices.length?t('后续推荐着法（已保存的变化）','Follow-up moves (saved continuations)'):t('此处没有更多已保存的后续着法。可撤回、选择其他推荐变化或返回原局面。','No further saved continuation here. Go back, choose another line, or return to the original position.');$('ai-alternatives').append(heading);
+ for(const [rank,choice] of choices.entries()){
+  const label=String(aiLine.offset+1),button=document.createElement('button');button.type='button';button.className='ai-continuation-choice';button.textContent=label+' · '+(choice.move==='pass'?t('停一手','Pass'):choice.move);button.onclick=()=>followAiContinuation(choice);$('ai-alternatives').append(button);
+  const index=gtpPoint(choice.move,record.size),node=aiLine.frames[aiLine.offset];
+  if(index===null||node.board[index]!=='.')continue;
+  const point=points[index];point.classList.add('ai-candidate',rank===0?'ai-best':'ai-good');point.dataset.aiCandidate=choice.move;point.textContent=label;point.title=t('已保存的第 '+label+' 手：','Saved continuation '+label+': ')+choice.move;point.setAttribute('aria-label',point.title);boardCandidates.set(index,{continuation:choice});
+ }
+}
+
+// Keep the origin table mounted while previews change, so pointer entry/exit
+// and keyboard focus stay attached to the same rows.
+function renderBoard(node){
+ points.forEach((p,i)=>{delete p.dataset.quality;delete p.dataset.aiCandidate;delete p.dataset.nextQuality;delete p.dataset.recordedMove;p.removeAttribute('title');p.className='point'+(node.board[i]==='B'?' black':node.board[i]==='W'?' white':'')+(node.move?.index===i?' last':'');p.disabled=node.board[i]!=='.';p.textContent='';if(aiLine&&!trialOffset){for(let n=1;n<=aiLine.offset;n++){const m=aiLine.frames[n].move;if(m.index===i&&node.board[i]===m.side)p.textContent=String(n);}}if(p.textContent)p.classList.add('ai-number');p.setAttribute('aria-label',coord(i)+' '+(node.board[i]==='B'?t('黑子','Black stone'):node.board[i]==='W'?t('白子','White stone'):t('空点','Empty')));});
+ $('board').dataset.preview=node.turn==='B'?'black':'white';
+}
+function renderAiTable(){
+ preserveAiTable=true;
+ try{
+  if(!aiLine?.overview){render();return;}
+  const node=aiLine.frames[aiLine.offset];renderBoard(node);boardCandidates.clear();boardRecordedMoves.clear();
+  $('move-label').textContent=t('AI 变化 · 第 '+node.depth+' 手','AI line · Move '+node.depth)+(node.move?' · '+(node.move.side==='B'?t('黑','Black'):t('白','White'))+' '+(node.move.index===null?t('停一手','Pass'):coord(node.move.index)):'');
+  $('analysis-title').textContent=t('AI 评估（原局面）','AI evaluation (original position)');
+  for(const row of $('ai-alternatives').querySelectorAll('tr[data-move]')){const chosen=row.dataset.move===aiLine.rootCandidate.move;row.classList.toggle('ai-selected-move',chosen);row.querySelector('.ai-move-choice').setAttribute('aria-pressed',String(chosen));}
+  $('ai-line-controls').hidden=false;$('ai-line-status').textContent=t('第 '+record.nodes[aiLine.anchor].depth+' 手后的完整变化预览','Full preview after move '+record.nodes[aiLine.anchor].depth)+' · '+aiLine.offset+'/'+(aiLine.frames.length-1);
+  $('ai-line-previous').disabled=aiLine.offset===0;$('ai-line-next').disabled=aiLine.offset===aiLine.frames.length-1;$('ai-line-clear').textContent=t('返回原局面','Return to original position');$('ai-line-explore').hidden=false;$('ai-line-explore').textContent=t('逐手试下','Explore line');
+ }finally{preserveAiTable=false;}
+}
+function chooseAiRow(review,row){
+ if(!row.candidate){aiHover=null;if(row.actual)selectPosition(row.actualNode);return;}
+ const pinned=aiHover?aiHover.previous.aiLine:aiLine;
+ const alreadySelected=pinned?.overview&&pinned.anchor===review.anchor&&pinned.rootCandidate.move===row.candidate.move;
+ aiHover=null;
+ if(alreadySelected){aiHoverBlocked=true;clearAiLine(true);}
+ else{aiHoverBlocked=false;showAiCandidate(review,row.candidate,true,true);}
+}
+function hoverAiRow(review,row){
+ if(!row.candidate||aiHoverBlocked)return;
+ aiHover={previous:{aiLine:aiLine?{...aiLine}:null,trials:trials.slice(),trialOffset}};
+ showAiCandidate(review,row.candidate,true,true);
+}
+function leaveAiRow(){
+ aiHoverBlocked=false;if(!aiHover)return;
+ ({aiLine,trials,trialOffset}=aiHover.previous);aiHover=null;$('record-message').textContent='';renderAiTable();
+}

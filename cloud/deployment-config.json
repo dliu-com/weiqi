@@ -7,5 +7,6 @@
   "analysisQueueArn": "arn:aws:sqs:eu-west-1:215103618564:WeiqiGpuBenchmark-ProductionUploads7A5169A4-qnArg73Mau1c",
   "analysisQueueArnOverride": "arn:aws:sqs:eu-west-1:215103618564:WeiqiGpuBenchmark-ProductionUploads7A5169A4-qnArg73Mau1c",
   "keepLegacyAnalysisQueue": "false",
-  "spendingGuard": "true"
+  "spendingGuard": "true",
+  "positionAnalysis": "true"
 }

@@ -1,0 +1,219 @@
+{
+  "date": "2026-10-07",
+  "purpose": "Evaluate alternative Go photo-recognition models before considering a production replacement",
+  "method": {
+    "realPhotos": 6,
+    "provisionallyLabelledRealPhotos": 2,
+    "independentlyVerifiedRealLabels": false,
+    "generatedBoards": 20,
+    "input": "Original files with EXIF correction and RGB conversion, without browser JPEG resizing; all compared models receive the same images.",
+    "references": "Reference labels enter scoring only, never inference. Four real photos have no complete labels and are excluded from exact accuracy claims.",
+    "timing": "Local arm64 Mac CPU inference with loaded models. The two batch processes overlapped, so these timings are diagnostic observations, not controlled speed comparisons or cloud wait-time measurements.",
+    "geometryFailures": "Shared-grid classifiers reject one photo. A returned board is not proof of correct recognition.",
+    "productionDifference": "The original angled image produces 2 Moku errors here versus 1 in the earlier resized production-input test. Do not combine those benchmarks."
+  },
+  "runtime": {
+    "torch": "2.14.1",
+    "torchvision": "0.29.1",
+    "ultralytics": "8.4.174",
+    "opencv": "5.0.0",
+    "onnxruntime": "1.20.1",
+    "torchThreads": 4,
+    "onnxThreads": 2
+  },
+  "weightHashes": {
+    "yolo": "be6f9ffb2de55f03bb8bf62ea2bd6807184729a0445be1293703a69c3f7a5962",
+    "efficientnet": "7b1e86bfbe73300f80e6a3f480945d32016ed7384d9867121d038700bdafee2a",
+    "fcos": "e03dee7fd55aa244e90e4fbc19a537d94584f132f4eb6a811f642f03d44f917c"
+  },
+  "results": [
+    {
+      "model": "moku-grid-fit",
+      "source": "https://huggingface.co/kaya-go/moku-v4",
+      "geometry": "Shared automatic Moku grid fit",
+      "realPhotosAttempted": 6,
+      "realPhotosReturningBoards": 5,
+      "provisionalRealScore": {
+        "samples": 2,
+        "detectionFailures": 0,
+        "exactBoards": 1,
+        "evaluatedIntersections": 722,
+        "correctIntersections": 720,
+        "missedStones": 0,
+        "extraStones": 2,
+        "wrongColour": 0,
+        "accuracyCaveat": "Intersection accuracy excludes uncertain labels and failed detections. Read failures and exact boards alongside it."
+      },
+      "provisionalPhotoErrors": [
+        {
+          "id": "real-4",
+          "errors": 0,
+          "inferenceError": null
+        },
+        {
+          "id": "real-6",
+          "errors": 2,
+          "inferenceError": null
+        }
+      ],
+      "syntheticScore": {
+        "samples": 20,
+        "detectionFailures": 0,
+        "exactBoards": 15,
+        "evaluatedIntersections": 7220,
+        "correctIntersections": 7200,
+        "missedStones": 20,
+        "extraStones": 0,
+        "wrongColour": 0,
+        "accuracyCaveat": "Intersection accuracy excludes uncertain labels and failed detections. Read failures and exact boards alongside it."
+      },
+      "observedLocalCpuMs": {
+        "median": 864,
+        "min": 823,
+        "max": 877
+      }
+    },
+    {
+      "model": "yolo-patches",
+      "source": "https://huggingface.co/rociiu/yolo-go-stone-classifier",
+      "geometry": "Shared automatic Moku grid fit",
+      "realPhotosAttempted": 6,
+      "realPhotosReturningBoards": 5,
+      "provisionalRealScore": {
+        "samples": 2,
+        "detectionFailures": 0,
+        "exactBoards": 1,
+        "evaluatedIntersections": 722,
+        "correctIntersections": 711,
+        "missedStones": 4,
+        "extraStones": 6,
+        "wrongColour": 1,
+        "accuracyCaveat": "Intersection accuracy excludes uncertain labels and failed detections. Read failures and exact boards alongside it."
+      },
+      "provisionalPhotoErrors": [
+        {
+          "id": "real-4",
+          "errors": 0,
+          "inferenceError": null
+        },
+        {
+          "id": "real-6",
+          "errors": 11,
+          "inferenceError": null
+        }
+      ],
+      "syntheticScore": {
+        "samples": 20,
+        "detectionFailures": 0,
+        "exactBoards": 20,
+        "evaluatedIntersections": 7220,
+        "correctIntersections": 7220,
+        "missedStones": 0,
+        "extraStones": 0,
+        "wrongColour": 0,
+        "accuracyCaveat": "Intersection accuracy excludes uncertain labels and failed detections. Read failures and exact boards alongside it."
+      },
+      "observedLocalCpuMs": {
+        "median": 1428,
+        "min": 1387,
+        "max": 1446
+      }
+    },
+    {
+      "model": "efficientnet-patches",
+      "source": "https://github.com/noword/image2sgf",
+      "geometry": "Shared automatic Moku grid fit",
+      "realPhotosAttempted": 6,
+      "realPhotosReturningBoards": 5,
+      "provisionalRealScore": {
+        "samples": 2,
+        "detectionFailures": 0,
+        "exactBoards": 1,
+        "evaluatedIntersections": 722,
+        "correctIntersections": 699,
+        "missedStones": 2,
+        "extraStones": 21,
+        "wrongColour": 0,
+        "accuracyCaveat": "Intersection accuracy excludes uncertain labels and failed detections. Read failures and exact boards alongside it."
+      },
+      "provisionalPhotoErrors": [
+        {
+          "id": "real-4",
+          "errors": 0,
+          "inferenceError": null
+        },
+        {
+          "id": "real-6",
+          "errors": 23,
+          "inferenceError": null
+        }
+      ],
+      "syntheticScore": {
+        "samples": 20,
+        "detectionFailures": 0,
+        "exactBoards": 20,
+        "evaluatedIntersections": 7220,
+        "correctIntersections": 7220,
+        "missedStones": 0,
+        "extraStones": 0,
+        "wrongColour": 0,
+        "accuracyCaveat": "Intersection accuracy excludes uncertain labels and failed detections. Read failures and exact boards alongside it."
+      },
+      "observedLocalCpuMs": {
+        "median": 14331,
+        "min": 14208,
+        "max": 14422
+      }
+    },
+    {
+      "model": "image2sgf-fcos",
+      "source": "https://github.com/noword/image2sgf",
+      "geometry": "FCOS corners and upstream refinement",
+      "realPhotosAttempted": 6,
+      "realPhotosReturningBoards": 6,
+      "provisionalRealScore": {
+        "samples": 2,
+        "detectionFailures": 0,
+        "exactBoards": 1,
+        "evaluatedIntersections": 722,
+        "correctIntersections": 704,
+        "missedStones": 6,
+        "extraStones": 12,
+        "wrongColour": 0,
+        "accuracyCaveat": "Intersection accuracy excludes uncertain labels and failed detections. Read failures and exact boards alongside it."
+      },
+      "provisionalPhotoErrors": [
+        {
+          "id": "real-4",
+          "errors": 0,
+          "inferenceError": null
+        },
+        {
+          "id": "real-6",
+          "errors": 18,
+          "inferenceError": null
+        }
+      ],
+      "syntheticScore": {
+        "samples": 20,
+        "detectionFailures": 0,
+        "exactBoards": 20,
+        "evaluatedIntersections": 7220,
+        "correctIntersections": 7220,
+        "missedStones": 0,
+        "extraStones": 0,
+        "wrongColour": 0,
+        "accuracyCaveat": "Intersection accuracy excludes uncertain labels and failed detections. Read failures and exact boards alongside it."
+      },
+      "observedLocalCpuMs": {
+        "median": 12092,
+        "min": 11892,
+        "max": 12365
+      }
+    }
+  ],
+  "decision": "No production replacement: both alternative classifiers are worse on the angled provisional real reference. Better generated-board performance does not establish a better real-photo detector.",
+  "cloudChanges": false,
+  "additionalAwsComputeCostUsd": 0,
+  "privacy": "Photos, weights, labels and raw board maps remain outside the repository and were not uploaded to third-party recognition services."
+}
