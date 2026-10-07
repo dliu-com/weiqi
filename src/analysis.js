@@ -342,7 +342,7 @@ function render(){
  renderSteps();
  $('upload-box').hidden=stage!=='check'||reading;
  $('photo-button').textContent=failed?t('换一张照片','Try another photo'):t('上传照片','Upload photo');
- $('upload-tip').textContent=t('拍照提示：从正上方拍摄，整张棋盘入镜，避免反光。','Photo tip: shoot from above with the whole board in frame and no glare.')+(finePointer.matches?t('也可以把照片拖到棋盘上或直接粘贴。',' You can also drop or paste a photo onto the board.'):'');
+ $('upload-tip').textContent=t('拍照提示：从正上方拍摄，整张棋盘入镜，避免反光。','Photo tip: shoot from above with the whole board in frame and no glare.');
  $('progress-card').hidden=!reading;
  if(reading)renderProgress();
  $('status').hidden=!status||reading;
