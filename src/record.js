@@ -11,12 +11,12 @@ import {stepReplay} from './replay-navigation.js';
 import {gameResult} from './game-result.js';
 import {drawEvaluationChart} from './evaluation-chart.js';
 import {readSgf,parseSgf} from './sgf.js';
-import {libraryRequest} from './library-api.js';
+import {libraryRequest,requestErrorText} from './library-api.js';
 const $=id=>document.getElementById(id),id=location.pathname.match(/^\/(?:record|game)\/([0-9]{10,14}|[a-f0-9-]{36})\/?$/)?.[1] || new URLSearchParams(location.search).get('game');
 mountStoneSound($('game-sound'));
 let data=null,record=null,handicap=0,selected=restorePosition(),loading=false,points=[],analyses=new Map(),trials=[],trialOffset=0,autoplay=null,chartMode='score',pollTimer=null,statusTimer=null,aiLine=null,suggestions=true;
 const boardCandidates=new Map(),boardRecordedMoves=new Map();
-let aiHover=null,aiHoverBlocked=false,preserveAiTable=false;
+let aiHover=null,aiHoverBlocked=false,preserveAiTable=false,loadError=null;
 const hoverAiSuggestions=window.matchMedia('(hover:hover) and (pointer:fine)');
 try{suggestions=localStorage.getItem('weiqi.aiSuggestions')!=='off';}catch{}
 function coord(index){return 'ABCDEFGHJKLMNOPQRST'[index%record.size]+(record.size-Math.floor(index/record.size));}
@@ -75,7 +75,13 @@ function formatAnalysisEstimate(timestamp){return formatAnalysisTime(conservativ
 function scheduleStatusTicker(){clearInterval(statusTimer);if(record&&!document.hidden&&pendingAnalysis(data.metadata.analysis))statusTimer=setInterval(()=>{if(trialOffset)return;const message=pendingMessage();if($('analysis-status').textContent!==message)$('analysis-status').textContent=message;},1000);}
 
 function schedulePoll(){clearTimeout(pollTimer);if(record&&!document.hidden&&shouldPollQuick(data.metadata.analysis,data.metadata.benchmark))pollTimer=setTimeout(load,QUICK_POLL_INTERVAL_MS);}
-async function load(){if(loading)return;loading=true;render();try{if(!/^(?:[0-9]{10,14}|[a-f0-9-]{36})$/.test(id || ''))throw Error('Invalid game link.');const next=await libraryRequest('/api/library/'+id);const parsed=readSgf(next.sgf);if(next.analysis && next.analysis.sgfSha256!==Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(next.sgf))),b=>b.toString(16).padStart(2,'0')).join(''))throw Error('Analysis does not match this record.');data=next;record=parsed;handicap=Number(parseSgf(next.sgf).nodes[0].HA?.[0]||0);analyses=new Map((data.analysis?.positions || []).map(p=>[p.nodeId,p]));if(selected>=record.nodes.length)selected=0;drawBoard();$('record-message').textContent='';}catch(e){$('record-message').textContent=e.message;}finally{loading=false;render();schedulePoll();scheduleStatusTicker();}}
+function showLoadError(){
+ if(!loadError)return;
+ const e=loadError,text=e.kind==='invalid-link'?t('这个棋谱链接无效。','This game link is not valid.'):e.kind==='mismatch'?t('AI 分析与这局棋谱不一致。请稍后刷新页面。','The AI analysis does not match this game record. Refresh the page later.'):e.kind?requestErrorText(e,t,t('找不到这局棋谱。链接可能有误，或棋谱已被删除。','This game could not be found. The link may be wrong, or the game may have been removed.')):t('无法打开这局棋谱。请刷新页面重试。','This game record could not be opened. Refresh the page to try again.');
+ const link=document.createElement('a');link.href='/game';link.textContent=t('查看棋谱库','Go to the game library');
+ $('record-message').replaceChildren(text+' ',...(record?[]:[link]));
+}
+async function load(){if(loading)return;loading=true;render();try{if(!/^(?:[0-9]{10,14}|[a-f0-9-]{36})$/.test(id || ''))throw Object.assign(Error('Invalid game link.'),{kind:'invalid-link'});const next=await libraryRequest('/api/library/'+id);const parsed=readSgf(next.sgf);if(next.analysis && next.analysis.sgfSha256!==Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(next.sgf))),b=>b.toString(16).padStart(2,'0')).join(''))throw Object.assign(Error('Analysis does not match this record.'),{kind:'mismatch'});data=next;record=parsed;handicap=Number(parseSgf(next.sgf).nodes[0].HA?.[0]||0);analyses=new Map((data.analysis?.positions || []).map(p=>[p.nodeId,p]));if(selected>=record.nodes.length)selected=0;drawBoard();loadError=null;$('record-message').textContent='';}catch(e){loadError=e;showLoadError();}finally{loading=false;render();schedulePoll();scheduleStatusTicker();}}
 function stopAutoplay(){if(autoplay){clearInterval(autoplay);autoplay=null;}}
 function soundCurrentMove(){const node=trials[trialOffset-1]||aiLine?.frames[aiLine.offset]||record?.nodes[selected];if(node?.move&&node.move.index!==null)playStoneSound();}
 function selectPosition(node,keepPlaying=false){aiHover=null;aiHoverBlocked=false;prepareStoneSound();const forward=record.nodes[node].depth>record.nodes[selected].depth;if(!keepPlaying)stopAutoplay();selected=node;try{sessionStorage.setItem('weiqi.replay.'+id,String(node));}catch{}trials=[];trialOffset=0;aiLine=null;$('record-message').textContent='';render();if(forward)soundCurrentMove();}
@@ -99,21 +105,37 @@ document.addEventListener('keydown',event=>{if(!record||event.target.closest('in
 window.addEventListener('resize',()=>{if(record)render();});
 document.addEventListener('visibilitychange',()=>{if(document.hidden){stopAutoplay();clearTimeout(pollTimer);clearInterval(statusTimer);render();}else if(data){scheduleStatusTicker();if(shouldPollQuick(data.metadata.analysis,data.metadata.benchmark))schedulePoll();}});
 $('download-original').onclick=()=>{if(!data)return;const url=URL.createObjectURL(new Blob([data.sgf],{type:'application/x-go-sgf;charset=utf-8'}));const a=document.createElement('a');a.href=url;a.download=data.metadata.name.replace(/[^\p{L}\p{N} _-]/gu,'-').slice(0,80)+'.sgf';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);};
-window.addEventListener('site-language-change',render);render();load();
+window.addEventListener('site-language-change',()=>{render();showLoadError();});render();load();
 
 // Keep the same controls and listeners while adapting their position to the screen.
 const mobileReplay=window.matchMedia('(max-width:850px)');
 const replayNavigation=document.querySelector('.record-navigation');
 function arrangeReplayControls(){
+ // On phones the game summary (name, files, players, result) sits above the board.
+ const summary=document.querySelector('.record-summary'),playArea=document.querySelector('#record-main>.play-area');
+ if(mobileReplay.matches){if(summary.nextElementSibling!==playArea)playArea.before(summary);}else if(summary.parentElement!==document.querySelector('#record-main>aside'))document.querySelector('#record-main>aside').prepend(summary);
  const target=document.querySelector(mobileReplay.matches?'.play-area':'.record-summary');
  if(mobileReplay.matches)target.insertBefore(replayNavigation,$('trial-controls'));else target.append(replayNavigation);
  const moveTarget=document.querySelector(mobileReplay.matches?'.play-area':'.record-summary .board-heading');
  if(mobileReplay.matches)moveTarget.insertBefore($('move-label'),replayNavigation);else moveTarget.prepend($('move-label'));
  document.documentElement.style.setProperty('--record-header-height',document.querySelector('header').getBoundingClientRect().height+'px');
 }
-mobileReplay.addEventListener('change',arrangeReplayControls);
-window.addEventListener('resize',arrangeReplayControls);
+// On phones, size the board so that with the board scrolled to the top, the chart and lead line still fit on screen.
+let leadHeight=34;
+function fitBoardWithChart(){
+ const root=document.documentElement.style;
+ if(!mobileReplay.matches){root.removeProperty('--record-below-board');return;}
+ const bottom=e=>e&&e.getClientRects().length?e.getBoundingClientRect().bottom:0;
+ const chartEnd=Math.max(bottom($('evaluation-chart')),bottom($('chart-legend')));
+ if(!chartEnd||!$('evaluation-chart').getBoundingClientRect().height)return;
+ if(!$('lead').hidden&&$('lead').offsetHeight)leadHeight=$('lead').offsetHeight;
+ const reserve=Math.ceil(chartEnd-document.querySelector('#record-main .board-wrap').getBoundingClientRect().bottom+5+leadHeight+6);
+ if(root.getPropertyValue('--record-below-board')!==reserve+'px')root.setProperty('--record-below-board',reserve+'px');
+}
+mobileReplay.addEventListener('change',()=>{arrangeReplayControls();fitBoardWithChart();});
+window.addEventListener('resize',()=>{arrangeReplayControls();fitBoardWithChart();});
 arrangeReplayControls();
+if(typeof ResizeObserver!=='undefined')new ResizeObserver(fitBoardWithChart).observe($('analysis-title').closest('.card'));
 if(typeof ResizeObserver!=='undefined')new ResizeObserver(()=>{document.documentElement.style.setProperty('--record-header-height',document.querySelector('header').getBoundingClientRect().height+'px');}).observe(document.querySelector('header'));
 
 function analysisRuntime(a){
