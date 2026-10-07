@@ -11,7 +11,7 @@ Prepared 7 October 2026. Project: **DL Weiqi**, <https://weiqi.dliu.com>. Reposi
 - Documented full-game targets are quick results within five minutes, deep results within one hour (two hours maximum), and both passes below roughly $1 per game. These targets include queue/startup time and are not service guarantees.
 - A separate `/analysis` page for discussing an offline game: import SGF or take/upload a board photo, get an approximate leader, point advantage, win rate and possible next moves, then play out or undo moves along one sequence.
 - For that offline discussion, feedback should ideally arrive in **under one minute**, with **two minutes the maximum acceptable wait**. Approximate AI is acceptable; incorrect board recognition is not solved by deeper KataGo analysis.
-- The user currently prefers **Lambda photo recognition + lightweight Lambda AI**, while retaining browser AI for comparison. Both options are live. The final choice should follow measured end-to-end latency, cost and real-photo accuracy.
+- The user chose **Lambda photo recognition + lightweight Lambda AI only** (8 October 2026). Browser AI, its vite build and `/analysis-benchmarks.html` were removed. Analysis stays one short request per user action; never add long-running or background analysis on this public page.
 - No manual four-corner marking. Automatic photo recognition was the main unresolved feature: the user tested the supplied training photos on a phone and none was read correctly. The 7 October tiled pipeline reads the user's four reference photos exactly (live and locally); it still needs checking on new photos (see Remaining work 1).
 - Prevent public abuse from causing a large AWS bill. Someone consuming all available public slots is an accepted risk. Bounded compute and spending matter more than preventing slot exhaustion.
 
@@ -23,7 +23,7 @@ Prepared 7 October 2026. Project: **DL Weiqi**, <https://weiqi.dliu.com>. Reposi
 4. Follow `AGENTS.md`: routine changes need a few representative affected positions; reserve full-game replay for final pre-production validation. Keep checks proportionate and stop broad/repeated testing once the affected behaviour is verified. Prefer tests of meaningful behaviour over tests that merely mirror implementation.
 5. Keep both Chinese and English UI text natural and consistent. Prefer simple controls and clear labels. Use `*` for mandatory fields; do not add redundant “optional” labels. Keep Game details expanded and visible.
 6. Avoid layout shifts caused by temporary autosave/status messages. Do not add success banners the user asked to remove, such as “Cloud check passed. Edits saved.”
-7. All pages, including `/analysis` and benchmark pages, should use the same header, navigation, language controls and responsive layout as the rest of the site. The menu includes User guide on every page, including the main page.
+7. All pages, including `/analysis`, should use the same header, navigation, language controls and responsive layout as the rest of the site. The menu includes User guide on every page, including the main page.
 8. Use `configs.yml` in the project root for easily changed deployment settings. Keep executable logic in the existing source/build/CDK structure. Settings changes require deployment; this file is not a live control panel.
 9. Provision project infrastructure through CDK/CloudFormation in **eu-west-1** and tag supported resources `Project=Weiqi`. Keep temporary experiments bounded and clean up their compute/storage. Do not add an always-on worker without an explicit cost decision.
    - **Deploy AWS resources only through CloudFormation** (CDK-generated stacks). Uploading content such as site files, runtime packages and container images to those resources is fine; creating resources by CLI or console is not.
@@ -79,12 +79,12 @@ Prepared 7 October 2026. Project: **DL Weiqi**, <https://weiqi.dliu.com>. Reposi
 
 - The page is deployed, uses the shared site layout and has a main-page entry. Its current user-facing name is **Quick AI analysis**, reflecting the cloud option.
 - It accepts local SGF, camera input or an uploaded photo. It has board navigation and trial play, without `/play` clocks/game-ending controls. Only one sequence is retained; playing from an earlier position replaces its later moves.
-- Browser storage restores positions/moves/settings after refresh. Photos and AI results are not saved there; downloaded browser model weights are cached. Clearing browser data removes the local game/model cache.
-- Photos are compressed and transmitted to Lambda for automatic recognition in either AI mode. Cloud AI also transmits the position and available history. Browser AI runs locally. Neither path saves photos, game records or AI results in cloud storage; short-lived request hashes/quota/lease records are stored. Do not restore the earlier blanket claim that “everything is local.”
+- Browser storage restores positions/moves/settings after refresh. Photos and AI results are not saved there. Clearing browser data removes the local game.
+- Photos are compressed and transmitted to Lambda for automatic recognition. Analysis transmits the position and available history. Neither saves photos, game records or AI results in cloud storage; short-lived request hashes/quota/lease records are stored. Do not restore the earlier blanket claim that “everything is local.”
 - The original photo is retained only in page memory and shown beside the detected board for corrections. **AI waits for Analyse position after photo review**, rather than automatically analysing the detector's output.
-- Browser AI uses the pinned small KataGo model at 32 visits; Lambda AI uses the same model at 128 visits. Browser and native engine versions differ; these are rough mini analyses, not deep reports.
+- Lambda AI uses the pinned small KataGo model at 128 visits; these are rough mini analyses, not deep reports.
 - A photo does not reveal past moves, ko history or earlier captures. This limits Japanese/Korean point estimates. SGF history can be supplied when available.
-- `/analysis-benchmarks.html` compares six positions from `/game/2026100623`. Earlier desktop runs measured about 12 seconds for recognition + browser AI and 10 seconds for recognition + Lambda AI. These predate the latest grid correction/photo-review step and are not physical-phone guarantees. Quality comparisons had roughly 2-point mean lead differences and 10.7 percentage-point mean win-rate differences from full analysis.
+- Page flow (8 October 2026): steps Photo or SGF → Check stones → AI analysis. Upload shows the photo immediately with a scan overlay and prepare/upload/detect progress plus elapsed time and Cancel (60 s timeout). Checking uses one smart tap (place the selected colour, tap again to remove), B/W/E keys, Ctrl/Cmd+Z, Rotate, and a photo-compare toggle; uncertain points get orange rings. Analyse is one request (60 s timeout); the button is hidden while the current analysis is valid. Hover/tap a suggestion to preview its numbered continuation; play a move to analyse again.
 
 ## Cost controls and operations
 
@@ -162,12 +162,12 @@ Evidence and reproducible scripts:
 - `cloud/photo-recognition-real-20261007.json` — current pipeline changes, the reference-photo results above, timings and caveats.
 - `scripts/photo-benchmark/README.md`, `real_photos.py`, `score.py` — rerun instructions. Labels must enter scoring only, never inference.
 - `cloud/photo-recognition-benchmark-20261007.{json,md}`, `photo-detection-fix-20261007.json`, `alternative-photo-models-20261007.json` — earlier Lambda/CPU/GPU tests, the previous grid fix, and the YOLO/EfficientNet/image2sgf comparisons. These are historical; their provisional assistant labels came before the paid-tool references. The alternatives were not deployed. `patch_models.py` uses the previous pipeline.
-- `photo-analysis/SOURCES.json` — pinned model and source revisions, hashes and licensing. The standalone recognition integration is AGPL-3.0-only; browser/native KataGo components have their recorded MIT terms. Preserve the corresponding-source download when publishing changes. image2sgf was a private experiment; resolve its upstream licensing before any product use.
+- `photo-analysis/SOURCES.json` — pinned model and source revisions, hashes and licensing. The standalone recognition integration is AGPL-3.0-only; KataGo components have their recorded MIT terms. Preserve the corresponding-source download when publishing changes. image2sgf was a private experiment; resolve its upstream licensing before any product use.
 - `scripts/build-position-runtime.py` now accepts both `manylinux2014` and `manylinux_2_28` wheels; ONNX Runtime 1.20.1 publishes only the latter.
 
-### 2. Recheck both quick AI modes on real phones
+### 2. Recheck quick AI on real phones
 
-Keep browser and Lambda options available while making the final decision. Rebenchmark after recognition changes, with exact corrected boards as input for AI-quality comparisons, and also measure the complete photo-to-result interaction. Separate detection errors from AI errors. Include first model download/cache behaviour, cold starts, warm runs and upload time; report small samples as observations, not latency guarantees. Never hide the photo-only missing-history limitation.
+Measure the complete photo-to-result interaction on physical phones after recognition changes: upload time, cold starts and warm runs. Separate detection errors from AI errors; report small samples as observations, not latency guarantees. Never hide the photo-only missing-history limitation.
 
 The account exposed a 3,008 MB Lambda memory cap during earlier experiments. A support request was drafted and the user submitted the support workflow; final quota approval is unconfirmed. Current workers fit beneath that cap. Do not assume it increased or open the AWS console to check without authorization.
 
@@ -194,8 +194,8 @@ Run focused checks for the behaviour being changed, then the required broader re
 | Saved replay and AI lines | `src/record.js` (replay, despite its filename), `ai-review.js`, `replay-navigation.js`, `evaluation-chart.js` |
 | SGF metadata | `src/sgf.js`, `recording-tree.js`, `game-result.js`, `time-control.js` |
 | Sound | `src/stone-sound.js`, `stone-placement.mp3` and its licence file |
-| Quick-analysis browser code | `photo-analysis/src/main.js`, `position.js`, `local-ai.js`, `cloud-api.js`, `models.js` |
-| Quick-analysis page/build | `src/photo.html`, `photo.css`, `analysis-benchmarks.html`; public explanation `photo-recognition.html` + `documents.js` (update it when the pipeline or results change); `scripts/build-photo-analysis.mjs`; generated `src/photo-assets/` is ignored |
+| Quick-analysis browser code | `src/analysis.js` (page), `analysis-position.js` (board helpers), `position-api.js` (API client); shared `board-view.js`, `sgf.js`, `site-shell.js`, `styles.css` |
+| Quick-analysis page/build | `src/photo.html`, `photo.css`; public explanation `photo-recognition.html` + `documents.js` (update it when the pipeline or results change); `scripts/build-photo-analysis.mjs`; generated `src/photo-assets/` is ignored |
 | Quick-analysis cloud | `backend/position-handler.cjs`, `backend/position/{recognize,moku,grid,board,analyze}.py`; `cdk/lib/weiqi-position-stack.ts` |
 | Full-game GPU workflow | `backend/gpu-production.cjs`, `gpu-fallback.cjs`, `cloud/gpu/`, `cdk/lib/weiqi-gpu-benchmark-stack.ts` |
 | Prepared reports | `backend/report-renderer/`, `backend/library-handler.cjs`, `src/report.js`, `report.css`, `scripts/build-report-renderer.mjs` |

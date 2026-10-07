@@ -6,7 +6,6 @@ STACK_NAME := WeiqiSite
 
 install:
 	npm ci
-	npm ci --prefix photo-analysis
 	npm ci --prefix backend/report-renderer
 	cd cdk && npm ci
 
