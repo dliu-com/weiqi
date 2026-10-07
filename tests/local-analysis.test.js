@@ -9,6 +9,8 @@ import * as helpers from '../src/analysis-position.js';
 class Element {
  constructor(tag='div'){this.tagName=tag.toUpperCase();this.children=[];this.dataset={};this.style={};this.attributes={};this.hidden=false;this.disabled=false;this.textContent='';this.value='';this.classList={add(){},remove(){},toggle(){},contains:()=>false};}
  append(...nodes){this.children.push(...nodes);}
+ prepend(...nodes){this.children.unshift(...nodes);}
+ before(){}
  replaceChildren(...nodes){this.children=nodes;}
  setAttribute(key,value){this.attributes[key]=String(value);}
  getAttribute(key){return this.attributes[key]??null;}
@@ -23,7 +25,7 @@ class Element {
 }
 class BoardView {
  constructor(element,{onPoint}){this.element=element;this.onPoint=onPoint;this.points=Array.from({length:361},()=>new Element('button'));}
- render(board,options){this.board=board;this.options=options;}
+ render(board,options={}){this.board=board;this.options=options;this.element.dataset.preview=options.interactive===false?'':options.turn==='B'?'black':'white';}
 }
 function page(saved){
  const elements=new Map(),storage=new Map(),requests=[],replies=[];
@@ -34,7 +36,7 @@ function page(saved){
   ...helpers,language:'en',t:(zh,en)=>en,BoardView,readSgf,parseSgf,PositionError,positionRequest,cloudPosition,
   document:{getElementById:get,querySelectorAll:()=>[],querySelector:()=>new Element(),createElement:tag=>new Element(tag),documentElement:{},addEventListener(){}},
   window:{addEventListener(){}},matchMedia:()=>({matches:false}),performance:{now:()=>Date.now()},
-  localStorage:{getItem:key=>storage.get(key)??null,setItem:(key,value)=>storage.set(key,value)},
+  localStorage:{getItem:key=>storage.get(key)??null,setItem:(key,value)=>storage.set(key,value),removeItem:key=>storage.delete(key)},
   setTimeout:()=>1,clearTimeout(){},setInterval:()=>1,clearInterval(){},URL:{createObjectURL:()=>'blob:photo',revokeObjectURL(){}},AbortController
  });
  const source=readFileSync(new URL('../src/analysis.js',import.meta.url),'utf8').replace(/^import .*;\n/gm,'');
@@ -44,8 +46,11 @@ function page(saved){
 const settle=()=>new Promise(resolve=>setImmediate(resolve));
 const result={rootScoreLead:2.5,rootWinRate:.62,rootVisits:40,moves:[{x:3,y:15,pv:['D4','Q16'],scoreLead:2.5,winRate:.62,visits:30,relativePointsLost:0},{x:15,y:3,pv:['Q16'],scoreLead:1.8,winRate:.58,visits:10,relativePointsLost:.7}]};
 
-test('a new visitor starts at the photo step with nothing saved',()=>{
- const p=page();assert.equal(p.run('stage'),'start');assert.equal(p.get('upload-box').hidden,false);assert.equal(p.get('check-card').hidden,true);assert.equal(p.get('photo-stage').dataset.mode,'drop');assert.equal(p.storage.size,0);
+test('a new visitor starts on step 1 with an editable empty board, the upload box above it and nothing saved',()=>{
+ const p=page();assert.equal(p.run('stage'),'check');assert.equal(p.get('upload-box').hidden,false);assert.equal(p.get('check-card').hidden,false);assert.equal(p.get('analysis-settings').hidden,false);assert.equal(p.get('file-actions').hidden,true);
+ assert.equal(p.get('photo-stage').dataset.mode,'none');assert.equal(p.run('view.options.interactive'),true);assert.equal(p.storage.size,0);
+ p.run('pointClicked(60)');assert.equal(p.run('board[60]'),'B');assert.equal(JSON.parse(p.storage.get('weiqi.local-analysis.v1')).editing,true);
+ p.run('pointClicked(60)');assert.equal(p.storage.size,0);
 });
 test('one local sequence replaces only the continuation and survives refresh without analysis or photos',()=>{
  const p=page();p.run("stage='play';board=emptyBoard();resetFrames();playMove(60);playMove(72);navigate(cursor-1);playMove(288)");
@@ -55,26 +60,19 @@ test('one local sequence replaces only the continuation and survives refresh wit
  const restored=page(saved);assert.equal(restored.run('stage'),'play');assert.equal(restored.run('cursor'),2);assert.equal(restored.run('board[60]'),'B');assert.equal(restored.run('board[288]'),'W');assert.equal(restored.run('side'),'B');
  assert.equal(page({...saved,side:'white'}).run('side'),'W');
 });
-test('checking stones uses a smart tap, undo and rotation that keeps review rings on their stones',()=>{
- const p=page();p.get('manual-button').onclick();assert.equal(p.run('stage'),'check');
- p.run('pointClicked(0)');assert.equal(p.run('board[0]'),'B');p.run('pointClicked(0)');assert.equal(p.run('board[0]'),'.');
- p.get('tool-W').onclick();p.run('pointClicked(0);pointClicked(60)');assert.equal(p.run('board[0]+board[60]'),'WW');
- p.get('tool-B').onclick();p.run('pointClicked(0)');assert.equal(p.run('board[0]'),'B');
- p.get('undo').onclick();assert.equal(p.run('board[0]'),'W');
+test('checking stones alternates black and white, a tap on a stone removes it, and undo and rotation keep review rings',()=>{
+ const p=page();assert.equal(p.run('stage'),'check');assert.equal(p.get('tool-B').attributes['aria-pressed'],'true');
+ p.run('pointClicked(0);pointClicked(1);pointClicked(2)');assert.equal(p.run('board.slice(0,3)'),'BWB');assert.equal(p.run('tool'),'W');
+ assert.equal(p.get('tool-W').attributes['aria-pressed'],'true');assert.equal(p.get('tool-B').attributes['aria-pressed'],'false');assert.equal(p.get('board').dataset.preview,'white');
+ p.run('pointClicked(2)');assert.equal(p.run('board[2]+tool'),'.B');
+ p.run('pointClicked(1)');assert.equal(p.run('board[1]+tool'),'.W');
+ p.get('undo').onclick();assert.equal(p.run('board[1]+tool'),'WB');
+ p.get('tool-W').onclick();p.run('pointClicked(60)');assert.equal(p.run('board[60]+tool'),'WB');
  p.run('review=new Set([60])');p.get('rotate').onclick();assert.equal(p.run('board[rotatePoint(60)]'),'W');assert.equal(p.run('review.has(rotatePoint(60))'),true);
- p.get('tool-E').onclick();p.run('pointClicked(rotatePoint(60))');assert.equal(p.run('board[rotatePoint(60)]'),'.');assert.equal(p.run('review.size'),0);
+ p.get('tool-E').onclick();assert.equal(p.get('board').dataset.preview,'erase');assert.equal(p.get('tool-B').attributes['aria-pressed'],'false');
+ p.run('pointClicked(rotatePoint(60))');assert.equal(p.run('board[rotatePoint(60)]+tool'),'.E');assert.equal(p.run('review.size'),0);
+ const undos=p.run('undo.length');p.run('pointClicked(rotatePoint(60))');assert.equal(p.run('undo.length'),undos);
  assert.equal(JSON.parse(p.storage.get('weiqi.local-analysis.v1')).editing,true);
-});
-test('the alternate tool places black and white in turn, removes stones and keeps the order through undo',()=>{
- const p=page();p.get('manual-button').onclick();
- p.get('tool-A').onclick();assert.equal(p.run('tool+altNext'),'AB');assert.equal(p.get('tool-A').dataset.side,'black');
- p.run('pointClicked(0);pointClicked(1);pointClicked(2)');assert.equal(p.run('board.slice(0,3)'),'BWB');assert.equal(p.run('altNext'),'W');assert.equal(p.get('tool-A').dataset.side,'white');
- p.run('pointClicked(2)');assert.equal(p.run('board[2]+altNext'),'.B');
- p.run('pointClicked(1)');assert.equal(p.run('board[1]+altNext'),'.W');
- p.get('undo').onclick();assert.equal(p.run('board[1]+altNext'),'WB');
- p.get('tool-A').onclick();assert.equal(p.run('altNext'),'W');p.run('pointClicked(40)');assert.equal(p.run('board[40]+altNext'),'WB');
- p.get('tool-B').onclick();p.run('pointClicked(41);pointClicked(42)');p.get('tool-A').onclick();assert.equal(p.run('altNext'),'W');
- assert.equal(p.get('tool-A').attributes['aria-pressed'],'true');assert.equal(p.get('tool-B').attributes['aria-pressed'],'false');
 });
 test('analysis is one request per action, blocks stones without liberties and re-analyses after a played move',async()=>{
  const p=page();p.run("stage='check';board=setPoint(setPoint(setPoint(emptyBoard(),0,'W'),1,'B'),19,'B');resetFrames()");
@@ -82,26 +80,39 @@ test('analysis is one request per action, blocks stones without liberties and re
  p.run("board=setPoint(board,0,'.');resetFrames()");p.replies.push(result);await p.run('analyse()');
  assert.equal(p.requests.length,1);assert.equal(p.requests[0].kind,'analyze');assert.equal(p.requests[0].body.side,'B');assert.equal(p.requests[0].body.rules,'chinese');assert.equal(p.requests[0].body.komi,7.5);assert.equal(p.requests[0].body.initialBoard[1],'B');
  assert.equal(p.run('stage'),'play');assert.equal(p.run('autoAnalyse'),true);assert.equal(p.get('result-card').hidden,false);assert.equal(p.get('suggestions').children.length,2);
+ assert.equal(p.run('view.points[288].dataset.candidateQuality'),'best');assert.equal(p.run('view.points[72].dataset.candidateQuality'),'inaccuracy');
  p.run('togglePreview(0)');assert.equal(p.run('pinned'),0);assert.equal(p.requests.length,1);
  p.run('pointClicked(0)');assert.equal(p.run('pinned'),null);assert.equal(p.run('frames.length'),1);
  p.replies.push(result);p.get('play-preview').onclick();p.run('pointClicked(288)');await settle();
  assert.equal(p.run('frames.length'),2);assert.equal(p.run('board[288]'),'B');assert.equal(p.requests.length,2);assert.equal(JSON.stringify(p.requests[1].body.moves),JSON.stringify([{side:'B',index:288}]));
 });
-test('done steps go back: step 1 keeps the position until a new photo or SGF replaces it, step 2 edits the stones',async()=>{
+test('komi can be 7.5 or 0.5; changing it clears the result and it is saved with the position',async()=>{
+ const p=page();assert.equal(p.get('komi-7.5').attributes['aria-pressed'],'true');assert.equal(p.get('komi-0.5').attributes['aria-pressed'],'false');
+ p.run("board=setPoint(emptyBoard(),60,'B');resetFrames();render()");p.replies.push(result);await p.run('analyse()');assert.equal(p.requests[0].body.komi,7.5);
+ assert.equal(p.get('analysis-settings').hidden,true);
+ p.get('edit-stones').onclick();assert.equal(p.run('stage'),'check');assert.equal(p.get('analysis-settings').hidden,false);assert.equal(p.get('settings-fields').hidden,false);
+ p.get('komi-0.5').onclick();assert.equal(p.run('komi'),0.5);assert.equal(p.run('analysis'),null);assert.equal(p.get('komi-0.5').attributes['aria-pressed'],'true');
+ p.replies.push(result);await p.run('analyse()');assert.equal(p.requests[1].body.komi,0.5);assert.match(p.get('analysis-time').textContent,/komi 0\.5/);
+ const saved=JSON.parse(p.storage.get('weiqi.local-analysis.v1'));assert.match(saved.sgf,/KM\[0\.5\]/);assert.equal(page(saved).run('komi'),0.5);
+ assert.equal(p.run('nearestKomi(0)'),0.5);assert.equal(p.run('nearestKomi(6.5)'),7.5);
+});
+test('two steps: step 1 sets up the board with the upload box, and step 1 can be reopened from the analysis',async()=>{
  const p=page(),step=n=>p.get('step-'+n).querySelector('button');
- assert.equal(step(1).disabled,true);assert.equal(step(2).disabled,true);
- p.run("stage='check';board=setPoint(emptyBoard(),60,'B');resetFrames();render()");
- assert.equal(step(1).disabled,false);assert.equal(step(2).disabled,true);assert.equal(step(3).disabled,true);
- step(1).onclick();assert.equal(p.run('stage'),'start');assert.equal(p.get('upload-box').hidden,false);assert.equal(p.get('upload-back').hidden,false);
- assert.equal(JSON.parse(p.storage.get('weiqi.local-analysis.v1')).editing,true);
- p.get('back-to-board').onclick();assert.equal(p.run('stage'),'check');assert.equal(p.run('board[60]'),'B');assert.equal(p.get('upload-back').hidden,true);
+ assert.equal(p.get('step-1').dataset.state,'current');assert.equal(step(1).disabled,true);assert.equal(step(2).disabled,true);
+ p.run("board=setPoint(emptyBoard(),60,'B');resetFrames();render()");
  p.replies.push(result);await p.run('analyse()');assert.equal(p.run('stage'),'play');
- assert.equal(step(1).disabled,false);assert.equal(step(2).disabled,false);assert.equal(step(3).disabled,true);
- step(1).onclick();assert.equal(p.run('stage'),'start');assert.equal(p.get('result-card').hidden,true);
- p.get('back-to-board').onclick();assert.equal(p.run('stage'),'play');assert.equal(p.get('result-card').hidden,false);assert.equal(p.requests.length,1);
- step(2).onclick();assert.equal(p.run('stage'),'check');assert.equal(p.run('analysis'),null);assert.equal(p.run('board[60]'),'B');
- step(1).onclick();p.get('manual-button').onclick();assert.equal(p.run('stage'),'check');assert.equal(p.run('back'),null);assert.equal(p.run('board[60]'),'.');
- p.run("busy='analysing';render()");assert.equal(step(1).disabled,true);p.run("busy=null");
+ assert.equal(p.get('upload-box').hidden,true);assert.equal(p.get('check-card').hidden,true);assert.equal(p.get('file-actions').hidden,false);
+ assert.equal(p.get('step-1').dataset.state,'done');assert.equal(p.get('step-2').dataset.state,'done');assert.equal(step(1).disabled,false);assert.equal(step(2).disabled,true);
+ step(1).onclick();assert.equal(p.run('stage'),'check');assert.equal(p.run('analysis'),null);assert.equal(p.run('board[60]'),'B');assert.equal(p.get('upload-box').hidden,false);assert.equal(p.requests.length,1);
+ p.run("stage='play';busy='analysing';render()");assert.equal(step(1).disabled,true);p.run("busy=null");
+});
+test('a photo that cannot be read keeps the board, stays on step 1 and shows the photo for placing stones by hand',async()=>{
+ const p=page();p.run("board=setPoint(emptyBoard(),60,'B');resetFrames();render()");
+ p.run("encodePhoto=async()=>'aW1n'");p.replies.push(new PositionError('Could not reliably detect the whole board. Try a closer photo with every grid edge visible.',422));
+ await p.run("openPhoto({name:'board.jpg',size:1000})");await settle();
+ assert.equal(p.run('stage'),'check');assert.equal(p.run('busy'),null);assert.equal(p.run('board[60]'),'B');assert.equal(p.run('failed'),true);
+ assert.equal(p.get('photo-stage').dataset.mode,'photo');assert.equal(p.get('photo-button').textContent,'Try another photo');assert.match(p.get('status').textContent,/place the stones on the board/);
+ p.get('hide-photo').onclick();assert.equal(p.get('photo-stage').dataset.mode,'none');assert.equal(p.get('photo-thumb').hidden,false);
 });
 test('server refusals are shown in plain language and leave the position editable',async()=>{
  const p=page();p.run("stage='check';board=setPoint(emptyBoard(),60,'B');resetFrames()");
