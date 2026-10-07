@@ -10,6 +10,8 @@ Before changing this project, read [`../HANDOVER.md`](../HANDOVER.md) from this 
 - Recognition is experimental. Report real-photo errors and failures separately from generated-board accuracy; provisional assistant labels are not independently verified ground truth.
 - Follow `AGENTS.md` for proportionate testing. Use representative affected positions for routine changes and full-game replay only for final pre-production validation.
 - Provision infrastructure with CDK/CloudFormation in `eu-west-1`, tag supported resources `Project=Weiqi`, and preserve the protected `WeiqiStorage` stack.
+- Create or change AWS resources only through CloudFormation (CDK-generated); no CLI/console-created resources. Assume extremely low traffic: every cost must be usage-billed, and idle fixed monthly cost (storage, images, schedules, logs) must stay at or below US$2. No always-on compute, NAT gateway, interface endpoint, provisioned capacity, customer KMS key, WAF, paid alarm/dashboard or action-enabled budget without explicit approval. Give Lambdas CloudFormation-managed log groups with retention instead of `logRetention`; `cdk/test/usage-billing.test.ts` guards this.
+- Push commits to `origin` by default after committing.
 - Plain `make` deploys; `make publish` changes the live site. Use local build/test commands intentionally. Do not launch paid experiments or change production simply to inspect the project.
 - Prefer concrete implementation and verification over repeated approval questions for already-authorized routine work. Ask before destructive actions, new spending commitments or work outside the request. Do not use the signed-in AWS console unless explicitly requested.
 
