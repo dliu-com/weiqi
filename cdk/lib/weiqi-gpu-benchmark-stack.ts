@@ -10,7 +10,8 @@ export class WeiqiGpuBenchmarkStack extends Stack {
  constructor(scope:Construct,id:string,props:StackProps & {libraryBucket:string;production?:boolean;dispatchEnabled?:boolean;analysisQueueArn?:string;cpuQuickQueue?:string;cpuDeepQueue?:string;cpuJobDefinition?:string}) {
   super(scope,id,props);
   const root=path.join(__dirname,'../..');
-  const tagBatch=(name:string,arn:string)=>new cr.AwsCustomResource(this,name+'ProjectTag',{
+  const customResourceLogs=new logs.LogGroup(this,'CustomResourceLogs',{retention:logs.RetentionDays.ONE_WEEK,removalPolicy:RemovalPolicy.DESTROY});
+  const tagBatch=(name:string,arn:string)=>new cr.AwsCustomResource(this,name+'ProjectTag',{logGroup:customResourceLogs,
    onCreate:{service:'Batch',action:'tagResource',parameters:{resourceArn:arn,tags:{[projectConfig.project.tagKey]:projectConfig.project.tagValue}},physicalResourceId:cr.PhysicalResourceId.of(name+'-project-tag')},
    onUpdate:{service:'Batch',action:'tagResource',parameters:{resourceArn:arn,tags:{[projectConfig.project.tagKey]:projectConfig.project.tagValue}},physicalResourceId:cr.PhysicalResourceId.of(name+'-project-tag')},
    policy:cr.AwsCustomResourcePolicy.fromStatements([new iam.PolicyStatement({actions:['batch:TagResource'],resources:[arn]})]),installLatestAwsSdk:false,
@@ -64,7 +65,7 @@ export class WeiqiGpuBenchmarkStack extends Stack {
    const gpuQueues=[productionQueue!.ref,fallbackGpuQueue!.ref,spotQueue!.ref];this.productionJobQueues.push(...gpuQueues);
    const environment={LIBRARY_BUCKET:bucket.bucketName,AI_CONTROL_KEY:'control/ai-spending.json',JOB_QUEUE:productionQueue!.ref,FALLBACK_GPU_QUEUE:fallbackGpuQueue!.ref,FALLBACK_SPOT_QUEUE:spotQueue!.ref,JOB_DEFINITION:job.ref,CONTROL_QUEUE:fallbackQueue.queueUrl,GPU_FALLBACK_WAIT_SECONDS:String(projectConfig.analysis.capacityFallbackSeconds),QUICK_VISITS:String(projectConfig.analysis.quickVisits),DEEP_VISITS:String(projectConfig.analysis.deepVisits)};
    const createCoordinator=(name:string)=>{
-    const fn=new lambda.Function(this,name,{runtime:lambda.Runtime.NODEJS_22_X,handler:'index.handler',code,timeout:Duration.seconds(30),memorySize:256,environment,logRetention:logs.RetentionDays.ONE_WEEK});
+    const fn=new lambda.Function(this,name,{runtime:lambda.Runtime.NODEJS_22_X,handler:'index.handler',code,timeout:Duration.seconds(30),memorySize:256,environment,logGroup:new logs.LogGroup(this,name+'Logs',{retention:logs.RetentionDays.ONE_WEEK,removalPolicy:RemovalPolicy.DESTROY})});
     bucket.grantReadWrite(fn,'games/*');bucket.grantReadWrite(fn,'jobs/*');bucket.grantRead(fn,'control/ai-spending.json');fallbackQueue.grantSendMessages(fn);
     fn.addToRolePolicy(new iam.PolicyStatement({actions:['batch:DescribeJobs','batch:ListJobs','batch:CancelJob'],resources:['*']}));
     fn.addToRolePolicy(new iam.PolicyStatement({actions:['batch:SubmitJob'],resources:[...gpuQueues,job.ref]}));return fn;
