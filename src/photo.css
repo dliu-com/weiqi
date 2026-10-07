@@ -52,7 +52,7 @@
 #status[data-tone=error]{background:#fdecea;color:#8c2119;border:1px solid #f1b8b2}
 #status[data-tone=ok]{background:#e8f5ee;color:#1f5a3b;border:1px solid #b5dcc4}
 .check-summary{font-size:16px;font-weight:650;margin:0 0 6px}
-.tool-switch{display:grid!important;grid-template-columns:repeat(3,1fr);gap:6px;margin:10px 0}
+.tool-switch{display:grid!important;grid-template-columns:repeat(4,1fr);gap:6px;margin:10px 0}
 .tool-switch button,.side-switch button{min-height:40px}
 :is(.tool-switch,.side-switch) button[aria-pressed=true]{background:#176b92!important;border-color:#176b92;color:#fff;font-weight:650}
 .review-note{margin:8px 0;padding:8px 10px;border-radius:7px;background:#fff4e5;color:#7a4a00;font-size:13px;line-height:1.45}
@@ -88,4 +88,9 @@
  .dropzone{inset:5%}
  .dropzone svg{width:44px;height:44px}
  .analysis-steps button{font-size:12px;padding:6px;min-height:44px}
+}
+@media(max-width:520px){.tool-switch{grid-template-columns:1fr 1fr}.tool-switch button{min-height:44px}}
+@media(max-width:360px){
+ .analysis-steps button{flex-direction:column;justify-content:center;gap:3px;padding:6px 4px;text-align:center}
+ .settings-grid{grid-template-columns:1fr}
 }
