@@ -4,11 +4,6 @@
     "revision": "a008997edd10a5865949eb7b77721d55150eba30",
     "license": "AGPL-3.0-only"
   },
-  "webKatrain": {
-    "repository": "https://github.com/Sir-Teo/web-katrain",
-    "revision": "8dd813aeb565cbdad5215dc75204fc40fd519c50",
-    "license": "MIT"
-  },
   "recognitionModel": {
     "url": "https://huggingface.co/kaya-go/moku-v4/resolve/0449e6af8c67c24c0709752970dc2d4205314a43/model.onnx",
     "checkpoint": "https://huggingface.co/kaya-go/moku-v4/resolve/0449e6af8c67c24c0709752970dc2d4205314a43/model.safetensors",
