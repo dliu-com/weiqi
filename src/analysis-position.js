@@ -6,8 +6,6 @@ export const emptyBoard=()=>'.'.repeat(361);
 export const coordinate=i=>BOARD_COLUMNS[i%19]+(19-Math.floor(i/19));
 export const setPoint=(board,i,value)=>board.slice(0,i)+value+board.slice(i+1);
 export const otherSide=side=>side==='B'?'W':'B';
-export const defaultKomi=rules=>['chinese','aga'].includes(rules)?7.5:6.5;
-export const rulesName=name=>['chinese','aga','korean','japanese'].find(rule=>String(name||'').toLowerCase().includes(rule))||'japanese';
 export const rotatePoint=i=>i%19*19+18-Math.floor(i/19);
 export const rotateBoard=board=>Array.from(board,(_,i)=>board[(18-i%19)*19+Math.floor(i/19)]).join('');
 export const stoneCounts=board=>({black:[...board].filter(s=>s==='B').length,white:[...board].filter(s=>s==='W').length});

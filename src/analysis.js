@@ -3,25 +3,25 @@
 import './site-shell.js';
 import {language,t} from './i18n.js';
 import {BoardView} from './board-view.js';
-import {readSgf,parseSgf} from './sgf.js';
+import {readSgf} from './sgf.js';
 import {PositionError,positionRequest,cloudPosition} from './position-api.js';
-import {emptyBoard,coordinate,setPoint,otherSide,defaultKomi,rulesName,rotateBoard,rotatePoint,stoneCounts,invalidStones,legalMove,previewSequence,sequenceSgf,framesFromRecord} from './analysis-position.js';
+import {emptyBoard,coordinate,setPoint,otherSide,rotateBoard,rotatePoint,stoneCounts,invalidStones,legalMove,previewSequence,sequenceSgf,framesFromRecord} from './analysis-position.js';
 
 const $=id=>document.getElementById(id);
 const main=$('analysis-main'),labels=[...document.querySelectorAll('[data-zh]')].map(el=>({el,en:el.textContent,zh:el.dataset.zh}));
 const localKey='weiqi.local-analysis.v1',finePointer=matchMedia('(hover:hover) and (pointer:fine)');
 const READ_TIMEOUT=60000,ANALYSE_TIMEOUT=60000,MAX_PHOTO=1050000;
+// A photo cannot show earlier captures or ko history, so always score by area: Chinese rules, komi 7.5.
+const RULES='chinese',KOMI=7.5;
 
 let stage='start',busy=null,board=emptyBoard(),side='B',tool='B',review=new Set(),undo=[];
 let frames=[{board,turn:side,move:null}],cursor=0,analysis=null,pinned=null,hovered=null,autoAnalyse=false;
 let photo=null,showPhoto=false,failed=false,fromPhoto=false,status=null;
+// Stage to return to after stepping back to step 1 without choosing a new photo or SGF.
+let back=null;
 let generation=0,abort=null,abortReason=null,ticker=null,work=null,restoring=true;
 
 const view=new BoardView($('board'),{onPoint:pointClicked});
-view.points.forEach((point,i)=>{
- point.addEventListener('pointerenter',event=>{if(event.pointerType==='mouse'&&finePointer.matches&&pinned===null&&candidateAt(i)>=0){hovered=candidateAt(i);renderPreview();}});
- point.addEventListener('pointerleave',event=>{if(event.pointerType==='mouse'&&hovered!==null&&pinned===null&&candidateAt(i)===hovered){hovered=null;renderPreview();}});
-});
 
 const serverZh={
  'Invalid photo or position.':'照片或局面无效。',
@@ -55,10 +55,6 @@ const moveName=m=>m.x<0||m.y<0?'pass':coordinate(m.y*19+m.x);
 const letter=rank=>String.fromCharCode(65+rank);
 const sideName=s=>s==='B'?t('黑方','Black'):t('白方','White');
 
-function candidateAt(i){
- if(stage!=='play'||!analysis||busy)return -1;
- return analysis.moves.findIndex(m=>m.x>=0&&m.y>=0&&m.y*19+m.x===i);
-}
 function clearAnalysis(){analysis=null;pinned=null;hovered=null;}
 function resetFrames(){frames=[{board,turn:side,move:null}];cursor=0;clearAnalysis();autoAnalyse=false;}
 function remember(){undo.push({board,review:[...review]});if(undo.length>100)undo.shift();}
@@ -113,7 +109,7 @@ async function openPhoto(file){
  }catch(error){
   if(token!==generation)return;
   if(photo)URL.revokeObjectURL(photo);photo=work?.pendingPhoto||null;if(work)work.pendingPhoto=null;
-  stage='start';failed=true;fromPhoto=false;
+  stage='start';failed=true;fromPhoto=false;back=null;
   sayError(error,'无法读取这张照片：','Could not read this photo: ');
  }finally{
   if(token===generation){clearTimeout(work?.timeout);abort=null;work=null;busy=null;stopTicker();render();}
@@ -130,11 +126,10 @@ async function openSgf(file){
  const token=++generation;
  try{
   if(file.size>256*1024)throw Error('Use an SGF no larger than 256 KB.');
-  const text=new TextDecoder('utf-8',{fatal:true}).decode(await file.arrayBuffer()),record=readSgf(text),root=parseSgf(text).nodes[0];
+  const text=new TextDecoder('utf-8',{fatal:true}).decode(await file.arrayBuffer()),record=readSgf(text);
   if(token!==generation)return;
   if(record.size!==19)throw Error('Use a 19 × 19 SGF.');
   frames=framesFromRecord(record);cursor=frames.length-1;board=frames[cursor].board;side=frames[cursor].turn;
-  const rule=rulesName(record.rules);$('rules').value=rule;$('komi').value=String(root.KM?record.komi:defaultKomi(rule));
   if(photo)URL.revokeObjectURL(photo);photo=null;showPhoto=false;failed=false;fromPhoto=false;
   review=new Set();undo=[];clearAnalysis();autoAnalyse=false;stage='play';
   say('已打开 SGF（主线 '+(frames.length-1)+' 手）。点击“分析”获取 AI 建议。','SGF opened ('+(frames.length-1)+' moves on the main line). Press Analyse for AI suggestions.','ok');
@@ -161,9 +156,8 @@ function pointClicked(i){
  if(busy)return;
  if(stage==='check')return editPoint(i);
  if(stage!=='play')return;
- const rank=candidateAt(i);
+// Continuations are previewed only from the suggestion table; a tap on the board, including on A/B/C, plays the move.
  if(pinned!==null){pinned=null;hovered=null;return renderPreview();}
- if(rank>=0){pinned=rank;hovered=null;return renderPreview();}
  hovered=null;playMove(i);
 }
 function playMove(index){
@@ -186,8 +180,6 @@ function navigate(target){
 
 async function analyse(){
  if(busy||stage==='start')return;
- const komi=Number($('komi').value);
- if(!Number.isFinite(komi)||Math.abs(komi)>100||Math.round(komi*2)!==komi*2){say('贴目必须是 -100 到 100 之间的半目整数倍。','Komi must be a multiple of 0.5 between −100 and 100.','error');return render();}
  const bad=invalidStones(board);
  if(bad.length){say('这些棋子没有气，请先修正：'+bad.map(coordinate).join(', '),'These stones have no liberties. Fix them first: '+bad.map(coordinate).join(', '),'error');return render();}
  if(!board.includes('B')&&!board.includes('W')&&cursor===0){say('棋盘是空的。请先上传照片或摆放棋子。','The board is empty. Upload a photo or place some stones first.','error');return render();}
@@ -195,7 +187,7 @@ async function analyse(){
  work={kind:'analysing',started:performance.now(),previous:stage};busy='analysing';showPhoto=false;clearAnalysis();status=null;startTicker();
  abort=new AbortController();work.timeout=setTimeout(()=>{if(token===generation){abortReason='timeout';abort?.abort();}},ANALYSE_TIMEOUT);render();
  try{
-  const result=await positionRequest('analyze',cloudPosition(frames,cursor,side,$('rules').value,komi),{signal:abort.signal});
+  const result=await positionRequest('analyze',cloudPosition(frames,cursor,side,RULES,KOMI),{signal:abort.signal});
   if(token!==generation)return;
   if(!Array.isArray(result.moves))throw new PositionError('The position service could not finish. Try again shortly.');
   analysis={...result,moves:result.moves.slice(0,3),elapsedMs:performance.now()-work.started};
@@ -211,13 +203,13 @@ async function analyse(){
 function cancelAnalysis(){cancelWork('cancel');say('已取消分析。','Analysis cancelled.');render();}
 
 function downloadSgf(){
- const url=URL.createObjectURL(new Blob([sequenceSgf(frames,{rules:$('rules').value,komi:Number($('komi').value)})],{type:'application/x-go-sgf'}));
+ const url=URL.createObjectURL(new Blob([sequenceSgf(frames,{rules:RULES,komi:KOMI})],{type:'application/x-go-sgf'}));
  const a=document.createElement('a');a.href=url;a.download='local-analysis.sgf';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
 }
 function saveLocal(){
  if(restoring||stage==='start')return;
  try{
-  localStorage.setItem(localKey,JSON.stringify({sgf:sequenceSgf(frames,{rules:$('rules').value,komi:Number($('komi').value)}),cursor,side,editing:stage==='check'}));
+  localStorage.setItem(localKey,JSON.stringify({sgf:sequenceSgf(frames,{rules:RULES,komi:KOMI}),cursor,side,editing:stage==='check'}));
   $('local-save').textContent=t('棋谱只保存在此浏览器中，刷新后可恢复。','This position is saved only in this browser and comes back after a refresh.');
  }catch{$('local-save').textContent=t('无法在浏览器中保存，请下载 SGF 保留棋谱。','Browser storage is unavailable. Download the SGF to keep this position.');}
 }
@@ -227,7 +219,6 @@ function restoreLocal(){
   const record=readSgf(saved.sgf);frames=framesFromRecord(record);
   cursor=Math.max(0,Math.min(frames.length-1,Number.isInteger(saved.cursor)?saved.cursor:frames.length-1));board=frames[cursor].board;
   side={B:'B',W:'W',black:'B',white:'W'}[saved.side]||frames[cursor].turn;frames[cursor].turn=side;
-  $('rules').value=['japanese','chinese','korean','aga'].includes(record.rules)?record.rules:'japanese';$('komi').value=String(record.komi);
   stage=saved.editing?'check':'play';
   say('已恢复上次的局面。上传新照片会替换它。','Restored your last position. A new photo will replace it.');
  }catch{say('无法恢复上次的局面，请重新上传照片或打开 SGF。','Could not restore your last position. Upload a photo or open an SGF again.','error');}
@@ -244,9 +235,29 @@ function translate(){
  $('stage-photo').alt=t('你的棋盘照片','Your board photo');
 }
 
+const stageOrder=['start','check','play'];
 function renderSteps(){
  const states=stage==='start'?['current','todo','todo']:stage==='check'?['done','current','todo']:['done','done',analysis?'done':'current'];
- states.forEach((state,i)=>{const li=$('step-'+(i+1));li.dataset.state=state;if(state==='current')li.setAttribute('aria-current','step');else li.removeAttribute('aria-current');});
+ states.forEach((state,i)=>{
+  const li=$('step-'+(i+1)),button=li.querySelector('button');li.dataset.state=state;
+  if(state==='current')li.setAttribute('aria-current','step');else li.removeAttribute('aria-current');
+  button.disabled=!!busy||i>=stageOrder.indexOf(stage);
+  if(button.disabled)button.removeAttribute('title');else button.title=t('返回第 '+(i+1)+' 步','Go back to step '+(i+1));
+ });
+}
+function goToStep(target){
+ if(busy||stageOrder.indexOf(target)>=stageOrder.indexOf(stage))return;
+ if(target==='check')return editStones();
+ back=stage;stage='start';failed=false;showPhoto=false;pinned=null;hovered=null;status=null;render();
+}
+function returnToBoard(){
+ if(busy||stage!=='start'||!back)return;
+ stage=back;back=null;status=null;render();
+}
+function editStones(){
+ if(busy)return;
+ stage='check';tool='B';undo=[];review=new Set();clearAnalysis();autoAnalyse=false;fromPhoto=false;
+ status=frames.length>1?{zh:'修改棋子会从当前局面开始新的棋谱。',en:'Changing stones starts a new sequence from this position.',tone:''}:null;render();
 }
 function renderProgress(){
  if(busy!=='reading'||!work)return;
@@ -279,7 +290,7 @@ function renderBoard(){
  if(stage==='play'&&analysis&&!move&&!busy)analysis.moves.forEach((m,rank)=>{
   if(m.x<0||m.y<0)return;const point=view.points[m.y*19+m.x];
   point.classList.add('ai-candidate');if(rank>0)point.classList.add('ai-good');point.textContent=letter(rank);
-  point.setAttribute('aria-label',t('AI 推荐 ','AI suggestion ')+letter(rank)+' · '+moveName(m)+' · '+t('查看后续变化','preview the continuation'));
+  point.setAttribute('aria-label',t('AI 推荐 ','AI suggestion ')+letter(rank)+' · '+moveName(m)+' · '+t('在此落子','play here'));
  });
  const mode=busy==='reading'?'reading':(stage==='start'&&failed&&photo)||(showPhoto&&photo&&stage!=='start')?'photo':stage==='start'?'drop':'none';
  $('photo-stage').dataset.mode=mode;
@@ -294,7 +305,7 @@ function qualityOf(m,rank){
  return rank===0?'best':loss<=.5?'good':loss<=2?'inaccuracy':loss<=5?'mistake':'blunder';
 }
 function renderResult(){
- $('result-card').hidden=!analysis||busy!==null;
+ $('result-card').hidden=!analysis||busy!==null||stage!=='play';
  if(!analysis)return;
  const lead=Number(analysis.rootScoreLead)||0,even=Math.abs(lead)<.05;
  $('lead').textContent=even?t('双方均势','Even position'):lead>0?t('黑方领先 '+lead.toFixed(1)+' 目','Black leads by '+lead.toFixed(1)+' points'):t('白方领先 '+(-lead).toFixed(1)+' 目','White leads by '+(-lead).toFixed(1)+' points');
@@ -336,10 +347,12 @@ function renderPreview(){renderBoard();renderSelection();}
 function togglePreview(rank){pinned=pinned===rank?null:rank;hovered=null;renderPreview();}
 
 function render(){
+ if(stage!=='start')back=null;
  main.dataset.stage=stage;
  const reading=busy==='reading';
  renderSteps();
  $('upload-box').hidden=stage!=='start'||reading;
+ $('upload-back').hidden=!back;
  $('photo-button').textContent=failed?t('换一张照片','Try another photo'):t('上传或拍摄棋盘照片','Upload or take a board photo');
  $('manual-button').textContent=failed&&photo?t('对照照片手动摆放','Place stones by hand using the photo'):t('手动摆放棋子','Set up stones by hand');
  $('progress-card').hidden=!reading;
@@ -364,13 +377,12 @@ function render(){
  $('invalid-note').textContent=t('红圈中的棋子没有气，分析前请修正：','Stones in red rings have no liberties. Fix them before analysing: ')+bad.map(coordinate).join(', ');
  $('analysis-settings').hidden=stage==='start'||reading;
  $('side-B').setAttribute('aria-pressed',String(side==='B'));$('side-W').setAttribute('aria-pressed',String(side==='W'));
- $('side-B').disabled=$('side-W').disabled=$('rules').disabled=$('komi').disabled=!!busy;
+ $('side-B').disabled=$('side-W').disabled=!!busy;
  $('settings-title').textContent=stage==='check'?t('设置并分析','Settings and analysis'):t('设置','Settings');
  renderAnalyseButton();
  $('cancel-analysis').hidden=busy!=='analysing';
  $('analyse-note').textContent=busy==='analysing'?t('正在云端运行 KataGo，通常需要 5–15 秒。','KataGo is running in the cloud; this usually takes 5–15 s.'):analysis?t('已分析当前局面。在棋盘上落子，或修改设置后再分析。','This position is analysed. Play a move on the board, or change a setting, to analyse again.'):t('一次快速云端请求，通常 5–15 秒。之后在棋盘上落子会自动再分析。','One quick cloud request, usually 5–15 s. After that, moves you play are analysed automatically.');
  const setup=frames[0].board;
- $('history-note').hidden=!(/[BW]/.test(setup)&&['japanese','korean'].includes($('rules').value));
  $('sequence-controls').hidden=stage!=='play';
  $('sequence-position').textContent=t('第 '+cursor+' / '+(frames.length-1)+' 手','Move '+cursor+' / '+(frames.length-1));
  $('sequence-first').disabled=$('sequence-previous').disabled=!!busy||cursor===0;
@@ -397,15 +409,15 @@ $('undo').onclick=()=>{const last=undo.pop();if(!last)return;board=last.board;re
 $('rotate').onclick=()=>{remember();board=rotateBoard(board);review=new Set([...review].map(rotatePoint));resetFrames();render();};
 $('clear').onclick=()=>{if(!/[BW]/.test(board))return;remember();board=emptyBoard();review=new Set();resetFrames();say('棋盘已清空，可用“撤销”恢复。','Board cleared. Use Undo to bring the stones back.');render();};
 for(const value of ['B','W'])$('side-'+value).onclick=()=>{if(busy||side===value)return;side=value;frames=frames.slice(0,cursor+1);frames[cursor]={...frames[cursor],turn:side};clearAnalysis();autoAnalyse=false;render();};
-$('rules').onchange=()=>{$('komi').value=String(defaultKomi($('rules').value));clearAnalysis();autoAnalyse=false;render();};
-$('komi').onchange=()=>{clearAnalysis();autoAnalyse=false;render();};
 $('analysis-settings').onsubmit=event=>{event.preventDefault();analyse();};
 $('sequence-first').onclick=()=>navigate(0);$('sequence-previous').onclick=()=>navigate(cursor-1);
 $('sequence-next').onclick=()=>navigate(cursor+1);$('sequence-last').onclick=()=>navigate(frames.length-1);
 $('sequence-pass').onclick=()=>playMove(null);
 $('play-preview').onclick=()=>{const m=pinned!==null?analysis?.moves[pinned]:null;if(m){pinned=null;playMove(m.x<0||m.y<0?null:m.y*19+m.x);}};
 $('clear-preview').onclick=()=>{pinned=null;hovered=null;renderPreview();};
-$('edit-stones').onclick=()=>{if(busy)return;stage='check';tool='B';undo=[];review=new Set();clearAnalysis();autoAnalyse=false;fromPhoto=false;status=frames.length>1?{zh:'修改棋子会从当前局面开始新的棋谱。',en:'Changing stones starts a new sequence from this position.',tone:''}:null;render();};
+$('edit-stones').onclick=editStones;
+$('step-1').querySelector('button').onclick=()=>goToStep('start');$('step-2').querySelector('button').onclick=()=>goToStep('check');
+$('back-to-board').onclick=returnToBoard;
 $('download').onclick=downloadSgf;
 
 const wrap=$('board-wrap');

@@ -16,7 +16,7 @@ class Element {
  addEventListener(){}
  scrollIntoView(){}
  click(){this.onclick?.();}
- querySelector(){return null;}
+ querySelector(){return this.child??=new Element('button');}
  contains(){return false;}
  get rows(){return this.children;}
  get lastElementChild(){return this.last??=new Element('span');}
@@ -29,7 +29,6 @@ function page(saved){
  const elements=new Map(),storage=new Map(),requests=[],replies=[];
  if(saved)storage.set('weiqi.local-analysis.v1',JSON.stringify(saved));
  const get=id=>{if(!elements.has(id))elements.set(id,new Element());return elements.get(id);};
- get('rules').value='japanese';get('komi').value='6.5';
  const positionRequest=async(kind,body)=>{requests.push({kind,body});const reply=replies.shift();if(reply instanceof Error)throw reply;return reply;};
  const context=vm.createContext({
   ...helpers,language:'en',t:(zh,en)=>en,BoardView,readSgf,parseSgf,PositionError,positionRequest,cloudPosition,
@@ -70,12 +69,28 @@ test('analysis is one request per action, blocks stones without liberties and re
  const p=page();p.run("stage='check';board=setPoint(setPoint(setPoint(emptyBoard(),0,'W'),1,'B'),19,'B');resetFrames()");
  await p.run('analyse()');assert.equal(p.requests.length,0);assert.equal(p.run('status.tone'),'error');assert.match(p.get('status').textContent,/A19/);
  p.run("board=setPoint(board,0,'.');resetFrames()");p.replies.push(result);await p.run('analyse()');
- assert.equal(p.requests.length,1);assert.equal(p.requests[0].kind,'analyze');assert.equal(p.requests[0].body.side,'B');assert.equal(p.requests[0].body.initialBoard[1],'B');
+ assert.equal(p.requests.length,1);assert.equal(p.requests[0].kind,'analyze');assert.equal(p.requests[0].body.side,'B');assert.equal(p.requests[0].body.rules,'chinese');assert.equal(p.requests[0].body.komi,7.5);assert.equal(p.requests[0].body.initialBoard[1],'B');
  assert.equal(p.run('stage'),'play');assert.equal(p.run('autoAnalyse'),true);assert.equal(p.get('result-card').hidden,false);assert.equal(p.get('suggestions').children.length,2);
- p.run('pointClicked(288)');assert.equal(p.run('pinned'),0);assert.equal(p.requests.length,1);
- p.run('pointClicked(0)');assert.equal(p.run('pinned'),null);
- p.replies.push(result);p.get('play-preview').onclick();p.run('pointClicked(288)');p.get('play-preview').onclick();await settle();
+ p.run('togglePreview(0)');assert.equal(p.run('pinned'),0);assert.equal(p.requests.length,1);
+ p.run('pointClicked(0)');assert.equal(p.run('pinned'),null);assert.equal(p.run('frames.length'),1);
+ p.replies.push(result);p.get('play-preview').onclick();p.run('pointClicked(288)');await settle();
  assert.equal(p.run('frames.length'),2);assert.equal(p.run('board[288]'),'B');assert.equal(p.requests.length,2);assert.equal(JSON.stringify(p.requests[1].body.moves),JSON.stringify([{side:'B',index:288}]));
+});
+test('done steps go back: step 1 keeps the position until a new photo or SGF replaces it, step 2 edits the stones',async()=>{
+ const p=page(),step=n=>p.get('step-'+n).querySelector('button');
+ assert.equal(step(1).disabled,true);assert.equal(step(2).disabled,true);
+ p.run("stage='check';board=setPoint(emptyBoard(),60,'B');resetFrames();render()");
+ assert.equal(step(1).disabled,false);assert.equal(step(2).disabled,true);assert.equal(step(3).disabled,true);
+ step(1).onclick();assert.equal(p.run('stage'),'start');assert.equal(p.get('upload-box').hidden,false);assert.equal(p.get('upload-back').hidden,false);
+ assert.equal(JSON.parse(p.storage.get('weiqi.local-analysis.v1')).editing,true);
+ p.get('back-to-board').onclick();assert.equal(p.run('stage'),'check');assert.equal(p.run('board[60]'),'B');assert.equal(p.get('upload-back').hidden,true);
+ p.replies.push(result);await p.run('analyse()');assert.equal(p.run('stage'),'play');
+ assert.equal(step(1).disabled,false);assert.equal(step(2).disabled,false);assert.equal(step(3).disabled,true);
+ step(1).onclick();assert.equal(p.run('stage'),'start');assert.equal(p.get('result-card').hidden,true);
+ p.get('back-to-board').onclick();assert.equal(p.run('stage'),'play');assert.equal(p.get('result-card').hidden,false);assert.equal(p.requests.length,1);
+ step(2).onclick();assert.equal(p.run('stage'),'check');assert.equal(p.run('analysis'),null);assert.equal(p.run('board[60]'),'B');
+ step(1).onclick();p.get('manual-button').onclick();assert.equal(p.run('stage'),'check');assert.equal(p.run('back'),null);assert.equal(p.run('board[60]'),'.');
+ p.run("busy='analysing';render()");assert.equal(step(1).disabled,true);p.run("busy=null");
 });
 test('server refusals are shown in plain language and leave the position editable',async()=>{
  const p=page();p.run("stage='check';board=setPoint(emptyBoard(),60,'B');resetFrames()");
@@ -90,8 +105,8 @@ test('rotation, SGF setup and sequences preserve the intended position',()=>{
  const b=helpers.setPoint(helpers.setPoint(helpers.emptyBoard(),60,'B'),288,'W'),turned=helpers.rotateBoard(b);
  assert.equal(turned[helpers.rotatePoint(60)],'B');assert.equal(turned[helpers.rotatePoint(288)],'W');assert.deepEqual(helpers.stoneCounts(turned),{black:1,white:1});
  let rotated=b;for(let n=0;n<4;n++)rotated=helpers.rotateBoard(rotated);assert.equal(rotated,b);
- const record=readSgf(helpers.setupSgf(b,{side:'W',rules:'chinese',komi:7.5}));assert.equal(record.nodes[0].board,b);assert.equal(record.initialPlayer,'W');assert.equal(record.komi,7.5);assert.equal(helpers.rulesName(record.rules),'chinese');
+ const record=readSgf(helpers.setupSgf(b,{side:'W',rules:'chinese',komi:7.5}));assert.equal(record.nodes[0].board,b);assert.equal(record.initialPlayer,'W');assert.equal(record.komi,7.5);assert.match(String(record.rules),/chinese/i);
  const frames=[{board:b,turn:'W',move:null},{board:helpers.setPoint(b,72,'W'),turn:'B',move:{side:'W',index:72}},{board:helpers.setPoint(b,72,'W'),turn:'W',move:{side:'B',index:null}}];
- const again=helpers.framesFromRecord(readSgf(helpers.sequenceSgf(frames,{rules:'japanese',komi:6.5})));assert.deepEqual(again,frames);
+ const again=helpers.framesFromRecord(readSgf(helpers.sequenceSgf(frames,{rules:'chinese',komi:7.5})));assert.deepEqual(again,frames);
  assert.deepEqual(helpers.invalidStones(helpers.setPoint(helpers.setPoint(helpers.setPoint(helpers.emptyBoard(),0,'W'),1,'B'),19,'B')),[0]);
 });
