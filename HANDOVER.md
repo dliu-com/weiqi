@@ -195,7 +195,7 @@ Run focused checks for the behaviour being changed, then the required broader re
 | SGF metadata | `src/sgf.js`, `recording-tree.js`, `game-result.js`, `time-control.js` |
 | Sound | `src/stone-sound.js`, `stone-placement.mp3` and its licence file |
 | Quick-analysis browser code | `photo-analysis/src/main.js`, `position.js`, `local-ai.js`, `cloud-api.js`, `models.js` |
-| Quick-analysis page/build | `src/photo.html`, `photo.css`, `analysis-benchmarks.html`; `scripts/build-photo-analysis.mjs`; generated `src/photo-assets/` is ignored |
+| Quick-analysis page/build | `src/photo.html`, `photo.css`, `analysis-benchmarks.html`; public explanation `photo-recognition.html` + `documents.js` (update it when the pipeline or results change); `scripts/build-photo-analysis.mjs`; generated `src/photo-assets/` is ignored |
 | Quick-analysis cloud | `backend/position-handler.cjs`, `backend/position/{recognize,moku,grid,board,analyze}.py`; `cdk/lib/weiqi-position-stack.ts` |
 | Full-game GPU workflow | `backend/gpu-production.cjs`, `gpu-fallback.cjs`, `cloud/gpu/`, `cdk/lib/weiqi-gpu-benchmark-stack.ts` |
 | Prepared reports | `backend/report-renderer/`, `backend/library-handler.cjs`, `src/report.js`, `report.css`, `scripts/build-report-renderer.mjs` |
