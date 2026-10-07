@@ -2,7 +2,7 @@
 
 Prepared 7 October 2026. Project: **DL Weiqi**, <https://weiqi.dliu.com>. Repository: `weiqi` within the user's `dliu.com` workspace. This note captures the user's latest decisions, the implementation, and the remaining work when transferring development from Codex to Copilot.
 
-**Start with the current working tree, not just `main` or a fresh clone.** Many recent changes are modified or untracked, including the deployed `/analysis` feature, its backend/CDK stack, spending controls, replay improvements and benchmark scripts. The latest inspected commit was `6524aaf` (reset recording-board rotation). Do not reset, clean, discard or regenerate over this work. No commit or push was performed for this handover. Review `git status --short` before making changes.
+**Start from `main`, then check `git status --short`.** Codex's uncommitted work was committed in `6321ed0` and later commits. Do not reset, clean or discard local changes you have not reviewed.
 
 ## User goals
 
@@ -12,7 +12,7 @@ Prepared 7 October 2026. Project: **DL Weiqi**, <https://weiqi.dliu.com>. Reposi
 - A separate `/analysis` page for discussing an offline game: import SGF or take/upload a board photo, get an approximate leader, point advantage, win rate and possible next moves, then play out or undo moves along one sequence.
 - For that offline discussion, feedback should ideally arrive in **under one minute**, with **two minutes the maximum acceptable wait**. Approximate AI is acceptable; incorrect board recognition is not solved by deeper KataGo analysis.
 - The user currently prefers **Lambda photo recognition + lightweight Lambda AI**, while retaining browser AI for comparison. Both options are live. The final choice should follow measured end-to-end latency, cost and real-photo accuracy.
-- No manual four-corner marking. Automatic photo recognition remains the main unresolved feature: the user tested the supplied training photos on a phone and reported that none was correct.
+- No manual four-corner marking. Automatic photo recognition was the main unresolved feature: the user tested the supplied training photos on a phone and none was read correctly. The 7 October tiled pipeline reads the user's four reference photos exactly (live and locally); it still needs checking on new photos (see Remaining work 1).
 - Prevent public abuse from causing a large AWS bill. Someone consuming all available public slots is an accepted risk. Bounded compute and spending matter more than preventing slot exhaustion.
 
 ## Coding and collaboration preferences
@@ -120,32 +120,50 @@ The development ledger is `cloud/development-cost-ledger.json`; it contains cons
 
 ### 1. Reliable automatic real-photo recognition
 
-The deployed detector is **Moku v4, ONNX Runtime CPU on Lambda**, with our automatic grid fitting and conservative low-score stone recovery. The grid fix prevents some interior points from being selected as board corners, but it does not make the detector generally reliable. More CPU/GPU made the same model faster in earlier tests, not more accurate.
+Deployed pipeline `tiled-colour-20261007` (`backend/position/recognize.py`, `board.py`, `grid.py`). It still uses Moku v4 with ONNX Runtime on CPU in Lambda:
 
-Six supplied real photos and 20 generated scenes have been tested. Only two real photos have complete **provisional assistant-created labels**, not independently verified ground truth. The other four must not be assigned an exact accuracy percentage. One remains rejected by the corrected automatic grid pipeline. Returning a board or matching stone counts is not proof of correctness.
+1. Find the corners automatically. If that fails, merge corner peaks from a mirrored pass and retry.
+2. Rectify the board to 800 × 800 pixels.
+3. Detect stones on the whole board and on four overlapping crops, because one Moku pass returns at most 300 detections.
+4. Refit the grid to the stone centres.
+5. Reject narrow detections such as stickers and markers.
+6. Check each candidate's colour against black, white and empty-board colours sampled from nearby points in the same photo.
+7. Count a tall stone seen at an angle only once.
+8. Return `review` points: overruled, borderline or duplicate candidates. The page outlines them in amber and names them in its message; tapping a point clears its outline.
 
-Latest original-file model comparison:
+References: the user supplied 4 real photos (`training image/`, private), plus screenshots of the correct positions from a separate paid tool. These references are used only for scoring.
 
-| Pipeline | Clear provisional photo errors | Angled provisional photo errors | Exact generated boards |
-| --- | ---: | ---: | ---: |
-| Moku with grid fix | 0 | 2 | 15/20 |
-| YOLOv8n stone patches with the same automatic grid | 0 | 11 | 20/20 |
-| EfficientNet stone patches with the same automatic grid | 0 | 23 | 20/20 |
-| image2sgf independent FCOS + EfficientNet pipeline | 0 | 18 | 20/20 |
+| Pipeline | Unchanged uploads exact | 48 upload conditions exact | Errors on 48 | Local time |
+| --- | ---: | ---: | ---: | ---: |
+| `grid-fit-20261007` (previous) | 1/4 (10 errors) | 12 (1 failure) | 126 | under 1 s |
+| `tiled-colour-20261007` (deployed) | 4/4 | 43 | 7 extra white stones | about 2.2 s |
 
-The earlier resized/live-input test had 0 and 1 Moku errors; the original-file comparison has 0 and 2. Do not combine these as one benchmark. Alternatives were tested locally and **were not deployed**, because real-photo evidence did not establish an improvement. The temporary 1 GB inference runtime was removed afterwards; private results/checkpoints may remain in `/tmp` on this Mac, but are not guaranteed to survive or exist on another machine.
+The 48 conditions apply resizing, darkness, glare, low contrast, warm and blue colour casts, uneven lighting, blur, 4° rotation and JPEG quality 60 to the same 4 photos. Each is then encoded as the page uploads it.
 
-Next work: evaluate stronger real-photo models or improve/train the detector using sufficiently diverse labelled real data. Keep evaluation photos separate from training/tuning, mark uncertain labels, and count exact boards, missed stones, extra stones, wrong colours and failures. Synthetic scenes from known SGF positions are useful regression tests, but cannot establish real-photo readiness. The user previously mentioned Kifu Snap; its existence is not proof that its model/API can be integrated or is better on these photos. Review availability/licensing before integration, and obtain authorization before sending private photos to a new third-party service.
+Live check after deployment (4 photos, then 2 repeats): all 4 boards were exact. Round trips took 13.6 s cold (Lambda 9.0 s, including 1.8 s model start-up) and 7.2–7.8 s warm (Lambda about 6.8 s). An upload through the live page on a phone-sized browser took 7.5 s, and showed and cleared the review highlight.
 
-Acceptance should include the user's physical phone and supplied real photos, automatic corners, realistic upload conditions, review/correction usability, and total time to useful analysis within the one-/two-minute target. Earlier Android browser/emulator tests processed photos but did not establish correct recognition. Continue to label the feature experimental until the real-photo results support stronger wording.
+Limits:
+
+- The thresholds were developed on these 4 photos, so there is a risk of overfitting.
+- Remaining stress-test errors are extra white stones: a white sticker at the board edge in dark or low-contrast versions, and glare, blur or a blue cast on the bamboo board.
+- The review outlines catch only 2 of the 7 errors.
+
+Next work:
+
+- Ask the user for new photos with paid-tool reference screenshots, kept separate from tuning.
+- Rescore them with `scripts/photo-benchmark/real_photos.py` and `score.py`.
+- Change thresholds only if held-out results improve.
+- Keep telling users to compare the board with the photo before analysis.
+
+Acceptance should still include the user's physical phone, automatic corners, review and correction usability, and total time to useful analysis within the one- and two-minute targets.
 
 Evidence and reproducible scripts:
 
-- `cloud/photo-recognition-benchmark-20261007.{json,md}` — Lambda/CPU/GPU cost/startup tests and original accuracy comparison; historical baseline.
-- `cloud/photo-detection-fix-20261007.json` — deployed grid correction and live checks.
-- `cloud/alternative-photo-models-20261007.json` — latest private original-file model comparison, limitations and local timings.
-- `scripts/photo-benchmark/README.md`, `patch_models.py`, `image2sgf_worker.py`, `score.py` — rerun instructions. Labels must enter scoring only, never inference.
-- `photo-analysis/SOURCES.json` — pinned model/source revisions, hashes and licensing. The standalone recognition integration is AGPL-3.0-only; browser/native KataGo components have their recorded MIT terms. Preserve the corresponding-source download when publishing modifications. image2sgf was a private experiment; its upstream licensing must be resolved before product integration.
+- `cloud/photo-recognition-real-20261007.json` — current pipeline changes, the reference-photo results above, timings and caveats.
+- `scripts/photo-benchmark/README.md`, `real_photos.py`, `score.py` — rerun instructions. Labels must enter scoring only, never inference.
+- `cloud/photo-recognition-benchmark-20261007.{json,md}`, `photo-detection-fix-20261007.json`, `alternative-photo-models-20261007.json` — earlier Lambda/CPU/GPU tests, the previous grid fix, and the YOLO/EfficientNet/image2sgf comparisons. These are historical; their provisional assistant labels came before the paid-tool references. The alternatives were not deployed. `patch_models.py` uses the previous pipeline.
+- `photo-analysis/SOURCES.json` — pinned model and source revisions, hashes and licensing. The standalone recognition integration is AGPL-3.0-only; browser/native KataGo components have their recorded MIT terms. Preserve the corresponding-source download when publishing changes. image2sgf was a private experiment; resolve its upstream licensing before any product use.
+- `scripts/build-position-runtime.py` now accepts both `manylinux2014` and `manylinux_2_28` wheels; ONNX Runtime 1.20.1 publishes only the latter.
 
 ### 2. Recheck both quick AI modes on real phones
 
@@ -178,7 +196,7 @@ Run focused checks for the behaviour being changed, then the required broader re
 | Sound | `src/stone-sound.js`, `stone-placement.mp3` and its licence file |
 | Quick-analysis browser code | `photo-analysis/src/main.js`, `position.js`, `local-ai.js`, `cloud-api.js`, `models.js` |
 | Quick-analysis page/build | `src/photo.html`, `photo.css`, `analysis-benchmarks.html`; `scripts/build-photo-analysis.mjs`; generated `src/photo-assets/` is ignored |
-| Quick-analysis cloud | `backend/position-handler.cjs`, `backend/position/{recognize,moku,grid,analyze}.py`; `cdk/lib/weiqi-position-stack.ts` |
+| Quick-analysis cloud | `backend/position-handler.cjs`, `backend/position/{recognize,moku,grid,board,analyze}.py`; `cdk/lib/weiqi-position-stack.ts` |
 | Full-game GPU workflow | `backend/gpu-production.cjs`, `gpu-fallback.cjs`, `cloud/gpu/`, `cdk/lib/weiqi-gpu-benchmark-stack.ts` |
 | Prepared reports | `backend/report-renderer/`, `backend/library-handler.cjs`, `src/report.js`, `report.css`, `scripts/build-report-renderer.mjs` |
 | Infrastructure and budgets | `cdk/bin/cdk.ts`, `cdk/lib/weiqi-{site,storage,budget}-stack.ts`, `project-config.ts`, `backend/budget-guard.cjs` |

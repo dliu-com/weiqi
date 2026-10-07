@@ -1,0 +1,49 @@
+{
+  "date": "2026-10-07",
+  "pipeline": "tiled-colour-20261007",
+  "previousPipeline": "grid-fit-20261007",
+  "changes": [
+    "Run Moku v4 on the rectified board and on four overlapping crops, so dense boards are not truncated by the 300-detection limit",
+    "Refit the 19 x 19 lattice to detected stone centres, because stones sit above the board plane",
+    "Reject detections narrower than 0.89 of the median confident stone width (stickers and markers)",
+    "Check each candidate's pixels against black, white and empty-board colours sampled from nearby points in the same photo",
+    "Count a tall stone seen at an angle once, not again on the neighbouring point",
+    "If corner detection fails, merge corner peaks from a mirrored pass and retry",
+    "Return review points (overruled, borderline or duplicate candidates); the page outlines them for checking"
+  ],
+  "references": {
+    "photos": 4,
+    "source": "User-supplied screenshots from a separate paid recognition tool, one per real photo; the user confirmed these positions are correct",
+    "stones": [291, 91, 229, 133],
+    "useInInference": false,
+    "orientation": "Each reference was rotated or mirrored once to the photo's upright orientation before scoring"
+  },
+  "method": {
+    "script": "scripts/photo-benchmark/real_photos.py, then scripts/photo-benchmark/score.py",
+    "upload": "Same as the page: longest edge up to 3072 pixels, JPEG quality 0.88, reduced by 0.8 until at most 1,050,000 bytes",
+    "conditions": ["base", "edge1200", "dark70", "dark55", "bright125", "lowcontrast", "warm", "cool", "shade", "blur", "rot+4", "q60"],
+    "conditionNote": "Synthetic changes to the same four photos: resizing, brightness, contrast, colour cast, uneven lighting, blur, rotation and heavier JPEG compression. They test robustness, not new board positions.",
+    "machine": "Local Apple Silicon CPU, ONNX Runtime with THREADS=1; excludes upload and Lambda start-up"
+  },
+  "results": {
+    "previous": {
+      "unchangedUploads": {"samples": 4, "exactBoards": 1, "errors": 10},
+      "allConditions": {"samples": 48, "detectionFailures": 1, "exactBoards": 12, "missedStones": 72, "extraStones": 53, "wrongColour": 1},
+      "localMs": {"max": 963}
+    },
+    "new": {
+      "unchangedUploads": {"samples": 4, "exactBoards": 4, "errors": 0, "reviewPoints": [0, 0, 0, 1]},
+      "allConditions": {"samples": 48, "detectionFailures": 0, "exactBoards": 43, "missedStones": 0, "extraStones": 7, "wrongColour": 0, "reviewPoints": 22, "errorsHighlighted": 2},
+      "localMs": {"median": 2201, "max": 2570}
+    }
+  },
+  "remainingErrors": [
+    "Photo 2 under darker or lower-contrast conditions: a white sticker at the left edge read as one or two white stones",
+    "Photo 4 under glare, blur or a blue cast: one or two extra white stones on empty points in the lower middle"
+  ],
+  "caveats": [
+    "The thresholds were developed on these same four photos; the augmented conditions reduce, but do not remove, the risk of overfitting",
+    "Four photos do not establish general real-world accuracy. Held-out photos with independent reference positions are needed",
+    "Users must still compare the board with the photo before analysis"
+  ]
+}

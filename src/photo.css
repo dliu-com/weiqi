@@ -30,6 +30,7 @@
 #photo-board .stone.white{background:radial-gradient(circle at 30% 25%,#fff,#efede6 65%,#b3b1a8);color:#202b31}
 #photo-board .point .hint{width:85%;height:85%;display:flex;align-items:center;justify-content:center;border-radius:50%;background:#2978ce;color:white;font-weight:650}
 #photo-board .point .hint.good{background:#27834c}
+#photo-board .point.review{outline:3px dashed #d9a21b;outline-offset:-2px}
 #photo-board .point.invalid{outline:3px solid #ce482f}
 #photo-board .point:focus-visible{outline:2px solid #805719}
 #analysis-settings{display:grid;grid-template-columns:1fr 1fr;gap:12px}

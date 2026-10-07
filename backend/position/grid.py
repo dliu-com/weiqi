@@ -60,6 +60,16 @@ def select_grid(data, original):
  except (ValueError,np.linalg.LinAlgError):pass
  inv=np.linalg.inv(H);q=np.c_[target,np.ones(4)]@inv.T;return q[:,:2]/q[:,2:],val
 
+# Moku reports only eight corner peaks; near-duplicates can crowd out a real corner.
+# A pass on the mirrored photo proposes a different set, mapped back and merged.
+def merge_corner_peaks(result,mirrored):
+ extra=np.asarray(mirrored['corner_points'],dtype=float).reshape(-1,3).copy();extra[:,0]=1-extra[:,0]
+ peaks=np.vstack([np.asarray(result['corner_points'],dtype=float).reshape(-1,3),extra]);kept=[]
+ for p in peaks[np.argsort(-peaks[:,2])]:
+  if p[2]>.005 and all(np.hypot(*(p[:2]-k[:2]))>.03 for k in kept):kept.append(p)
+ return {**result,'corner_points':np.array(kept).reshape(-1,3)}
+
+# Legacy fallback used by scripts/photo-benchmark/patch_models.py.
 # Recover only low-score detections backed by a large, matching colour patch.
 # Pixels alone are insufficient: hands and clothing can look like stones.
 def supplement_stones(image,board,raw):

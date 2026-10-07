@@ -4,6 +4,7 @@ export const emptyBoard=()=>Array(361).fill(null);
 export const coordinate=i=>columns[i%19]+(19-Math.floor(i/19));
 export const defaultKomi=rules=>['chinese','aga'].includes(rules)?7.5:6.5;
 export function rotateBoard(board){return board.map((_,i)=>board[(18-i%19)*19+Math.floor(i/19)]);}
+export const rotatePoint=i=>i%19*19+18-Math.floor(i/19);
 export function validCorners(corners,width,height){
  if(corners.length!==4||corners.some(([x,y])=>!Number.isFinite(x)||!Number.isFinite(y)||x<0||x>=width||y<0||y>=height))return false;
  const crosses=corners.map(([x,y],i)=>{const b=corners[(i+1)%4],c=corners[(i+2)%4];return (b[0]-x)*(c[1]-b[1])-(b[1]-y)*(c[0]-b[0]);});
