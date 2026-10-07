@@ -2,17 +2,10 @@
 #analysis-main [hidden]{display:none!important}
 #analysis-main .board-wrap{position:relative}
 #photo-stage{position:absolute;inset:0;z-index:6;display:none;border-radius:4px;overflow:hidden}
-#analysis-main[data-stage=start] #photo-stage[data-mode=drop],#photo-stage:is([data-mode=reading],[data-mode=photo]){display:block}
-#photo-stage[data-mode=drop]{background:#e9cf96d9}
-#photo-stage:is([data-mode=reading],[data-mode=photo]){background:#11181c}
+#photo-stage:is([data-mode=reading],[data-mode=photo]){display:block;background:#11181c}
 #stage-photo{width:100%;height:100%;object-fit:contain;display:block}
-#photo-stage:not([data-mode=drop]) .dropzone,#photo-stage[data-mode=drop] #stage-photo,#photo-stage:not([data-mode=photo]) .stage-close,#photo-stage:not([data-mode=reading]) .scan{display:none}
-.dropzone{position:absolute;inset:7%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;border:3px dashed #176b92;border-radius:14px;background:#ffffffd9;color:#174a63;text-align:center;padding:20px}
-.dropzone svg{width:56px;height:56px;fill:none;stroke:#176b92;stroke-width:1.7;stroke-linejoin:round}
-.dropzone strong{font-size:clamp(17px,2.2vw,24px)}
-.dropzone span{font-size:14px;color:#41606f}
-.dropzone:hover,#board-wrap.drag-over .dropzone{background:#fff!important;border-color:#0f5577}
-#board-wrap.drag-over{outline:4px solid #176b92;outline-offset:4px}
+#photo-stage:not([data-mode=photo]) .stage-close,#photo-stage:not([data-mode=reading]) .scan{display:none}
+#board-wrap.drag-over,#upload-box.drag-over{outline:4px solid #176b92;outline-offset:4px}
 .scan{position:absolute;left:0;right:0;top:0;height:22%;background:linear-gradient(180deg,transparent,#49b6e855 70%,#8fd8ff);border-bottom:2px solid #8fd8ff;animation:analysis-scan 2.2s ease-in-out infinite alternate;pointer-events:none}
 @keyframes analysis-scan{to{transform:translateY(355%)}}
 @media(prefers-reduced-motion:reduce){.scan{animation:none;top:auto;bottom:0;height:4px}}
@@ -29,12 +22,12 @@
 .analysis-steps li button:not(:disabled){cursor:pointer;color:#1f5137;box-shadow:inset 0 0 0 1px #b8d4c3}
 .analysis-steps li button:not(:disabled) b{text-decoration:underline;text-decoration-color:#2e865680;text-underline-offset:3px}
 .analysis-steps li button:not(:disabled):hover,.analysis-steps li button:not(:disabled):active{background:#e3efe7}
-.upload-back{margin:0 0 12px;font-size:15px}
 .upload-intro{margin:0 0 12px;font-size:15px;line-height:1.5}
 .upload-tip{margin:10px 0 0;font-size:13px;color:#41606f}
-.upload-alternatives{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:12px 0 0;font-size:14px}
-.editor-upload-box .link-button{display:inline;width:auto;min-height:0;padding:0;border:0;background:none!important;color:#176b92;font:inherit;font-weight:600;text-decoration:underline;text-underline-offset:3px}
-.editor-upload-box .link-button:hover{color:#0c4560}
+.upload-buttons{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+#upload-box .upload-buttons button{min-height:50px;padding:10px 8px;font-size:16px}
+#upload-box #sgf-button{background:#fff;color:#176b92}
+#upload-box #sgf-button:hover:not(:disabled){background:#e2f0f8;color:#0c4560}
 .analysis-card{padding:16px;margin:0 0 14px;border-color:#d9dfe2;background:#fff}
 .workspace-panel .analysis-card h2{margin:0 0 10px;font-size:17px}
 .progress-stages{list-style:none;padding:0;margin:0 0 12px;display:grid;gap:6px;font-size:14px}
@@ -52,13 +45,15 @@
 #status[data-tone=error]{background:#fdecea;color:#8c2119;border:1px solid #f1b8b2}
 #status[data-tone=ok]{background:#e8f5ee;color:#1f5a3b;border:1px solid #b5dcc4}
 .check-summary{font-size:16px;font-weight:650;margin:0 0 6px}
-.tool-switch{display:grid!important;grid-template-columns:repeat(4,1fr);gap:6px;margin:10px 0}
+.tool-switch{display:grid!important;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;margin:10px 0}
 .tool-switch button,.side-switch button{min-height:40px}
 :is(.tool-switch,.side-switch) button[aria-pressed=true]{background:#176b92!important;border-color:#176b92;color:#fff;font-weight:650}
 .review-note{margin:8px 0;padding:8px 10px;border-radius:7px;background:#fff4e5;color:#7a4a00;font-size:13px;line-height:1.45}
 .invalid-note{margin:8px 0;padding:8px 10px;border-radius:7px;background:#fdecea;color:#8c2119;font-size:13px;line-height:1.45}
 #analysis-main .point.review{box-shadow:0 0 0 3px #f29d1f,0 0 0 5px #fff9;z-index:3}
 #analysis-main .point.review:not(.black):not(.white){background:#f29d1f40}
+/* Erase: a red cross under the mouse shows what a click removes. */
+@media(hover:hover){#analysis-main #board[data-preview=erase] .point:hover:not(:disabled)::after{content:"";position:absolute;inset:16%;width:auto;height:auto;border:0;border-radius:0;background:linear-gradient(45deg,transparent 41%,#d93a2f 41%,#d93a2f 59%,transparent 59%),linear-gradient(-45deg,transparent 41%,#d93a2f 41%,#d93a2f 59%,transparent 59%);filter:drop-shadow(0 0 1px #fff);pointer-events:none;z-index:2}}
 #analysis-main .point.invalid{box-shadow:0 0 0 3px #d93a2f,0 0 0 5px #fff9;z-index:3}
 .photo-thumb{display:flex!important;align-items:center;gap:10px;width:100%;padding:6px!important;margin:10px 0;text-align:left;font-size:13px}
 .photo-thumb img{width:64px;height:64px;object-fit:cover;border-radius:5px;flex-shrink:0}
@@ -66,6 +61,7 @@
 .settings-grid .field{display:grid;gap:5px;font-size:13px;color:#505b61;min-width:0}
 .settings-grid .side-switch{display:grid;grid-template-columns:1fr 1fr;gap:4px}
 .settings-grid .side-switch button{padding:8px 6px}
+.settings-grid[hidden]{display:none}
 .settings-grid .fixed-value{display:flex;align-items:center;min-height:40px;margin:0;padding:6px 10px;border-radius:7px;background:#f3f5f6;color:#202629;font-size:14px;font-weight:600}
 .analyse-row{display:flex;gap:8px;margin:14px 0 6px}
 .analyse-row #analyse{flex:1;min-height:50px;font-size:17px;background:#176b92;border-color:#176b92;color:#fff}
@@ -84,13 +80,13 @@
 @media(max-width:850px){
  #analysis-main .play-area{min-height:0}
  #analysis-main .board-wrap{width:min(100%,calc(100svh - var(--record-header-height,48px) - 120px))}
- #analysis-main[data-stage=start] .play-area{order:1}
- .dropzone{inset:5%}
- .dropzone svg{width:44px;height:44px}
  .analysis-steps button{font-size:12px;padding:6px;min-height:44px}
+ /* On phones the heading and steps sit above the board (moved by analysis.js), so the AI results follow the board directly. */
+ #analysis-main>.analysis-intro{padding:8px 6px 0}
+ #analysis-main>.analysis-intro .editor-heading{margin-bottom:8px}
+ #analysis-main>.analysis-intro .analysis-steps{margin:0}
 }
-@media(max-width:520px){.tool-switch{grid-template-columns:1fr 1fr}.tool-switch button{min-height:44px}}
+@media(max-width:520px){.tool-switch button{min-height:44px}}
 @media(max-width:360px){
- .analysis-steps button{flex-direction:column;justify-content:center;gap:3px;padding:6px 4px;text-align:center}
  .settings-grid{grid-template-columns:1fr}
 }

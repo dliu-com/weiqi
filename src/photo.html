@@ -1,13 +1,12 @@
 <!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Quick AI analysis · DL Weiqi</title><link rel="icon" href="/favicon.svg"><link rel="stylesheet" href="/styles.css"><link rel="stylesheet" href="/site.css"><link rel="stylesheet" href="/photo.css"></head><body class="analysis-page">
 <header></header>
-<main class="workspace" id="analysis-main" data-stage="start">
+<main class="workspace" id="analysis-main" data-stage="check">
 <section class="play-area">
 <div class="board-wrap" id="board-wrap">
 <div id="board" role="group" aria-label="Analysis board"></div>
-<div id="photo-stage" data-mode="drop">
+<div id="photo-stage" data-mode="none">
 <img id="stage-photo" alt="Your board photo" hidden>
 <div class="scan" aria-hidden="true"></div>
-<button type="button" id="dropzone" class="dropzone"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h3l2-3h6l2 3h3a1 1 0 0 1 1 1v11a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V8a1 1 0 0 1 1-1z"/><circle cx="12" cy="13" r="4"/></svg><strong data-zh="上传或拍摄棋盘照片">Upload or take a board photo</strong><span data-zh="也可以把照片拖到这里">or drag a photo here</span></button>
 <p id="stage-label" class="stage-chip" aria-hidden="true"></p>
 <button type="button" id="hide-photo" class="stage-close" data-zh="返回棋盘">Back to the board</button>
 </div>
@@ -15,16 +14,14 @@
 <div class="review-controls editor-navigation" id="sequence-controls" hidden><button type="button" id="sequence-first" aria-label="First move">|←</button><button type="button" id="sequence-previous" aria-label="Previous move">←</button><span id="sequence-position"></span><button type="button" id="sequence-next" aria-label="Next move">→</button><button type="button" id="sequence-last" aria-label="Last move">→|</button><button type="button" id="sequence-pass"></button></div>
 </section>
 <aside class="workspace-panel">
-<div class="editor-heading"><h1 data-zh="快速 AI 分析">Quick AI analysis</h1></div>
-<ol class="analysis-steps"><li id="step-1"><button type="button" disabled><span>1</span><b data-zh="照片或棋谱">Photo or SGF</b></button></li><li id="step-2"><button type="button" disabled><span>2</span><b data-zh="检查棋子">Check stones</b></button></li><li id="step-3"><button type="button" disabled><span>3</span><b data-zh="AI 分析">AI analysis</b></button></li></ol>
+<div class="analysis-intro" id="analysis-intro"><div class="editor-heading"><h1 data-zh="快速 AI 分析">Quick AI analysis</h1></div>
+<ol class="analysis-steps"><li id="step-1"><button type="button" disabled><span>1</span><b data-zh="摆好棋盘">Set up the board</b></button></li><li id="step-2"><button type="button" disabled><span>2</span><b data-zh="AI 分析">AI analysis</b></button></li></ol></div>
 <div class="editor-upload-box" id="upload-box">
-<p class="upload-back" id="upload-back" hidden><button type="button" class="link-button" id="back-to-board" data-zh="← 返回当前局面">← Back to the current position</button></p>
-<p class="upload-intro" data-zh="拍一张 19 路棋盘的照片，检查识别出的棋子，再让 AI 给出下一手建议。">Take a photo of a 19 × 19 board, check the stones we find, then ask the AI for the best next moves.</p>
-<button type="button" id="photo-button" data-zh="上传或拍摄棋盘照片">Upload or take a board photo</button>
+<p class="upload-intro" data-zh="上传 19 路棋盘照片或 SGF 棋谱，也可以直接在棋盘上摆放棋子。">Upload a photo of a 19 × 19 board or an SGF file, or place the stones on the board yourself.</p>
+<div class="upload-buttons"><button type="button" id="photo-button" data-zh="上传照片">Upload photo</button><button type="button" id="sgf-button" data-zh="上传 SGF">Upload SGF</button></div>
 <input id="photo-file" type="file" accept="image/*" hidden>
-<p class="upload-tip" data-zh="提示：从正上方拍摄，整张棋盘入镜，避免反光。">Tip: shoot from above with the whole board in frame and no glare.</p>
-<p class="upload-alternatives"><button type="button" class="link-button" id="sgf-button" data-zh="打开 SGF 棋谱">Open an SGF file</button><span aria-hidden="true">·</span><button type="button" class="link-button" id="manual-button" data-zh="手动摆放棋子">Set up stones by hand</button></p>
 <input id="sgf-file" type="file" accept=".sgf,application/x-go-sgf" hidden>
+<p class="upload-tip" id="upload-tip"></p>
 </div>
 <section id="progress-card" class="card analysis-card" hidden>
 <h2 id="progress-title" data-zh="正在识别棋盘…">Reading the board…</h2>
@@ -35,10 +32,10 @@
 </section>
 <p id="status" role="status" aria-live="polite" hidden></p>
 <section id="check-card" class="card analysis-card" hidden>
-<h2 data-zh="检查棋子">Check the stones</h2>
+<h2 data-zh="编辑棋盘">Edit the board</h2>
 <p id="check-summary" class="check-summary"></p>
 <p class="note" id="check-help" data-zh="点击空点放置所选棋子，再点一次即可移除。">Tap an empty point to place the selected stone; tap it again to remove it.</p>
-<div class="actions tool-switch" role="group" aria-label="Stone to place"><button type="button" id="tool-B" data-side="black" data-zh="黑子">Black</button><button type="button" id="tool-W" data-side="white" data-zh="白子">White</button><button type="button" id="tool-A" data-side="black" data-zh="交替">Alternate</button><button type="button" id="tool-E" data-zh="擦除">Erase</button></div>
+<div class="actions tool-switch" role="group" aria-label="Next stone"><button type="button" id="tool-B" data-side="black" data-zh="黑子">Black</button><button type="button" id="tool-W" data-side="white" data-zh="白子">White</button><button type="button" id="tool-E" data-zh="擦除">Erase</button></div>
 <p id="review-note" class="review-note" hidden></p>
 <p id="invalid-note" class="invalid-note" hidden></p>
 <button type="button" id="photo-thumb" class="photo-thumb" hidden><img id="thumb-photo" alt=""><span data-zh="点击在棋盘上对照照片">Tap to compare with the photo</span></button>
@@ -54,16 +51,15 @@
 <p id="analysis-time" class="note"></p>
 </section>
 <form id="analysis-settings" class="card analysis-card" hidden novalidate>
-<h2 id="settings-title" data-zh="AI 分析">AI analysis</h2>
-<div class="settings-grid">
+<h2 id="settings-title" data-zh="设置并分析">Settings and analysis</h2>
+<div class="settings-grid" id="settings-fields">
 <div class="field"><span data-zh="下一手">Next to play</span><div class="actions side-switch" role="group" aria-label="Next to play"><button type="button" id="side-B" data-side="black" data-zh="黑方">Black</button><button type="button" id="side-W" data-side="white" data-zh="白方">White</button></div></div>
-<div class="field"><span data-zh="规则">Rules</span><p class="fixed-value" data-zh="中国规则 · 贴 7.5 目">Chinese · komi 7.5</p></div>
+<div class="field"><span data-zh="贴目（中国规则）">Komi (Chinese rules)</span><div class="actions side-switch" role="group" aria-label="Komi"><button type="button" id="komi-7.5" data-zh="7.5 目">7.5</button><button type="button" id="komi-0.5" data-zh="0.5 目">0.5</button></div></div>
 </div>
 <div class="analyse-row"><button class="primary" id="analyse" type="submit"></button><button type="button" id="cancel-analysis" hidden data-zh="取消">Cancel</button></div>
 <p class="note" id="analyse-note"></p>
-<p id="rules-note" class="note" data-zh="始终按中国规则（数子法）、贴 7.5 目分析：照片看不出之前的提子与劫争，而数子法的结果不受这些影响。">Always analysed under Chinese rules (area scoring) with komi 7.5: a photo cannot show earlier captures or ko history, and area scoring does not depend on them.</p>
 </form>
-<div class="editor-file-actions" id="file-actions" hidden><button type="button" id="edit-stones" data-zh="修改棋子">Edit stones</button><button type="button" id="new-photo" data-zh="新照片">New photo</button><button type="button" id="open-sgf" data-zh="打开 SGF">Open SGF</button><button type="button" id="download" data-zh="下载 SGF">Download SGF</button></div>
+<div class="editor-file-actions" id="file-actions" hidden><button type="button" id="edit-stones" data-zh="修改棋子">Edit stones</button><button type="button" id="new-photo" data-zh="上传照片">Upload photo</button><button type="button" id="open-sgf" data-zh="上传 SGF">Upload SGF</button></div>
 <p id="local-save" class="note"></p>
 <div class="analysis-about">
 <p data-zh="照片只在识别时发送到云端一次，局面只在你点击分析时发送一次；两者都不会被保存。你的棋步只保存在此浏览器中。">Your photo is sent to the cloud once to read the stones, and the position is sent once each time you analyse. Neither is stored. Your moves are saved only in this browser.</p>
