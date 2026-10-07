@@ -1,0 +1,5 @@
+import {App} from 'aws-cdk-lib';import {Template} from 'aws-cdk-lib/assertions';import {WeiqiPositionStack} from '../lib/weiqi-position-stack';
+test('position workers are private, bounded and persist only short-lived usage records',()=>{
+ const app=new App(),stack=new WeiqiPositionStack(app,'Test',{libraryBucket:'private-code-bucket',release:{recognitionKey:'runtime/recognition.zip',aiKey:'runtime/ai.zip'},env:{account:'111111111111',region:'eu-west-1'}}),t=Template.fromStack(stack);
+ t.hasResourceProperties('AWS::Lambda::Function',{FunctionName:'WeiqiPositionRecognition',MemorySize:1769,Timeout:25,Runtime:'python3.12'});t.hasResourceProperties('AWS::Lambda::Function',{FunctionName:'WeiqiPositionEngine',MemorySize:3008,Timeout:20,Environment:{Variables:{VISITS:'128',APPIMAGE_EXTRACT_AND_RUN:'1'}}});t.resourceCountIs('AWS::Lambda::Url',0);t.resourceCountIs('AWS::S3::Bucket',0);t.hasResourceProperties('AWS::DynamoDB::Table',{BillingMode:'PAY_PER_REQUEST',TimeToLiveSpecification:{AttributeName:'expires',Enabled:true}});
+});

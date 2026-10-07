@@ -1,0 +1,26 @@
+export const sources={
+  "kaya": {
+    "repository": "https://github.com/kaya-go/kaya",
+    "revision": "a008997edd10a5865949eb7b77721d55150eba30",
+    "license": "AGPL-3.0-only"
+  },
+  "webKatrain": {
+    "repository": "https://github.com/Sir-Teo/web-katrain",
+    "revision": "8dd813aeb565cbdad5215dc75204fc40fd519c50",
+    "license": "MIT"
+  },
+  "recognitionModel": {
+    "url": "https://huggingface.co/kaya-go/moku-v4/resolve/0449e6af8c67c24c0709752970dc2d4205314a43/model.onnx",
+    "checkpoint": "https://huggingface.co/kaya-go/moku-v4/resolve/0449e6af8c67c24c0709752970dc2d4205314a43/model.safetensors",
+    "source": "https://github.com/kaya-go/moku",
+    "sha256": "1cb25057bbc433f4db6838ce28a4dfa9c1ffb2d9b7e0d078aa437eb9ae79dc94",
+    "bytes": 82575979,
+    "license": "AGPL-3.0-only"
+  },
+  "analysisModel": {
+    "url": "https://raw.githubusercontent.com/lightvector/KataGo/d91ea855110dae533f0aada947b2b7d78cc8a4e1/cpp/tests/models/g170-b6c96-s175395328-d26788732.bin.gz",
+    "sha256": "f5d32604e3675c480c7c8f6aa579a1ea857135628a0afccc8fa56330fbacd38d",
+    "license": "MIT",
+    "source": "https://github.com/lightvector/KataGo"
+  }
+};

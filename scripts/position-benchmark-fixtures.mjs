@@ -1,0 +1,5 @@
+import {readFile,writeFile} from 'node:fs/promises';import {readSgf} from '../src/sgf.js';
+const file=process.argv[2];if(!file)throw Error('Supply the public library API JSON for reference game 2026100623.');const data=JSON.parse(await readFile(file,'utf8')),game=readSgf(data.sgf),depths=[20,80,160,240,300,Math.min(321,game.mainLine.length-1)];
+const frames=game.mainLine.map(id=>{const n=game.nodes[id];return {board:n.board,turn:n.turn==='B'?'black':'white',move:n.move?{side:n.move.side==='B'?'black':'white',index:n.move.index}:null};});
+const positions=depths.map(depth=>{const reference=data.analysis.positions.find(p=>p.move===depth);if(!reference)throw Error('Missing full-analysis reference');return {depth,reference};});
+await writeFile(new URL('../src/analysis-benchmark-fixtures.json',import.meta.url),JSON.stringify({gameId:'2026100623',referenceVisits:data.analysis.visits,referenceModel:data.analysis.model,rules:game.rules.toLowerCase(),komi:game.komi,frames,positions}));console.log('Six public reference positions generated.');

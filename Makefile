@@ -2,10 +2,11 @@
 AWS_REGION ?= eu-west-1
 STACK_NAME := WeiqiSite
 
-.PHONY: install serve test synth diff deploy-infra publish deploy ai-status ai-resume ai-check
+.PHONY: install serve test synth diff deploy-infra publish deploy ai-status ai-resume ai-check build-local-analysis prepare-position-runtime
 
 install:
 	npm ci
+	npm ci --prefix photo-analysis
 	npm ci --prefix backend/report-renderer
 	cd cdk && npm ci
 
@@ -37,7 +38,13 @@ deploy-infra:
 	cd cdk && AWS_REGION=$(AWS_REGION) npm run deploy
 	aws cloudformation set-stack-policy --region $(AWS_REGION) --stack-name WeiqiStorage --stack-policy-body file://cloud/storage-stack-policy.json
 
-publish:
+prepare-position-runtime:
+	python3 scripts/build-position-runtime.py --upload --bucket $$(node -p "require('./cloud/deployment-config.json').libraryBucket") --region $(AWS_REGION)
+
+build-local-analysis:
+	node scripts/build-photo-analysis.mjs
+
+publish: build-local-analysis
 	AWS_REGION=$(AWS_REGION) STACK_NAME=$(STACK_NAME) bash scripts/publish-site.sh
 
 # Recursive calls preserve deployment order even when make is run with -j.

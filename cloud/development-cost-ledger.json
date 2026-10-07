@@ -1,10 +1,10 @@
 {
-  "asOf": "2026-10-06T10:54:21.691Z",
+  "asOf": "2026-10-07T01:03:56.938630+00:00",
   "developmentBudgetUSD": 30,
   "cpuComputeIpEstimateUSD": 5.4733,
   "gpuComputeIpStorageEstimateUSD": 2.581322950476667,
   "smallServicesAllowanceUSD": 2,
-  "conservativeTotalEstimateUSD": 10.054622950476666,
+  "conservativeTotalEstimateUSD": 10.554623,
   "maximumAdditionalActiveCpuJobUSD": 0,
   "note": "Includes failed/stopped tests, conservative full GPU allocations and On-Demand pricing for Spot test, plus the existing $2 small-service/build allowance. Not a final AWS invoice.",
   "gpuInstances": [
@@ -146,5 +146,17 @@
       "validationRecord": "2026100620",
       "estimatedComputeIpStorageUSD": 0.47543747
     }
-  ]
+  ],
+  "photoRecognitionBenchmark20261007": {
+    "conservativeAdditionalAllowanceUSD": 0.5,
+    "basis": "Upper-bound allocation duration for one CPU and two disposable GPU instances, plus small Lambda/storage/log usage; not a final AWS invoice.",
+    "details": "cloud/photo-recognition-benchmark-20261007.json",
+    "resourcesReleased": true,
+    "cleanupStatus": "All three instances terminated, temporary stack DELETE_COMPLETE, private S3 prefix and all versions removed."
+  },
+  "quickPositionBenchmark20261007": {
+    "conservativeAdditionalAllowanceUSD": 0.25,
+    "basis": "Upper-bound allowance for Lambda/public API/usage guard tests and immutable code packages; actual per-result estimate is documented separately. No new EC2 instance was launched.",
+    "details": "cloud/quick-analysis-benchmark-20261007.json"
+  }
 }

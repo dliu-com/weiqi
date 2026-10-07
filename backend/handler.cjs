@@ -21,6 +21,7 @@ exports.handler = async event => {
   const method = event.requestContext?.http?.method;
   const requestPath = event.rawPath || '';
   if(method==='POST'){const headers=event.headers||{};if(headers.origin&&headers.origin!==process.env.SITE_ORIGIN)return response(403,{message:'Invalid request origin.'});if(!headers['content-type']?.toLowerCase().startsWith('application/json'))return response(415,{message:'Use JSON.'});}
+  if(requestPath.startsWith('/api/position/'))return positionHandler(event);
   if(method==='POST'&&!event._retry){try{if(!(await mutationAllowance()))return response(429,{message:'Too many edits. Please wait one minute and retry.'});}catch{return response(503,{message:'The service is busy. Please retry.'});}}
   if(requestPath==='/api/draft')return draftHandler(event);
   if (requestPath === '/api/library' || requestPath.startsWith('/api/library/')) return libraryHandler(event);

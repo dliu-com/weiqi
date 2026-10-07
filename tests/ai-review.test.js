@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readSgf,kataCandidates,kataQuery} from '../src/sgf.js';
-import {reviewMove,nextMoveSuggestions,nextMoveComparison,recommendedLine,gtpPoint} from '../src/ai-review.js';
+import {reviewMove,nextMoveSuggestions,nextMoveComparison,recommendedLine,startRecommendedLine,lineContinuations,followLineContinuation,gtpPoint} from '../src/ai-review.js';
 
 const candidate=(move,order,lead,visits=100,pv=[move])=>({move,order,blackLead:lead,blackWinrate:.5,visits,pv});
 test('next-move suggestions use the displayed board, retain its stones and alternate players',()=>{
@@ -73,4 +73,29 @@ test('comparison follows the displayed SGF branch and leaves an unknown played e
  const r=readSgf('(;SZ[19];B[dd](;W[pp])(;W[dp];B[pd]))'),branch=r.nodes[1].children[1];
  const a=new Map([[branch,{candidates:[candidate('D4',0,3)]}]]),next=nextMoveComparison(r,branch,a,'deep');
  const played=next.rows.find(row=>row.actual);assert.equal(played.actualNode,r.nodes[branch].children[0]);assert.equal(played.move,'Q16');assert.equal(played.loss,null);assert.equal(played.quality,null);assert.equal(played.blackWinrate,undefined);
+});
+
+test('table overview shows the full numbered line; board exploration starts with one move',()=>{
+ const r=readSgf('(;SZ[19];B[dd])'),c=candidate('A1',0,3,100,['A1','B1','C1','D1','E1','F1']),review={anchor:1,alternatives:[c]},saved=JSON.stringify(r);
+ const overview=startRecommendedLine(r,review,c,true),line=startRecommendedLine(r,review,c);
+ assert.equal(overview.overview,true);assert.equal(overview.offset,6);assert.equal(line.offset,1);
+ let current=line;for(let i=0;i<5;i++){const choices=lineContinuations(r,current,new Map(),'deep');assert.equal(choices.length,1);assert.equal('blackLead' in choices[0],false);current=followLineContinuation(current,choices[0]);}
+ assert.equal(current.offset,6);assert.deepEqual(lineContinuations(r,current,new Map(),'deep'),[]);assert.equal(JSON.stringify(r),saved);
+});
+test('follow-up choices require the complete saved prefix and deduplicate replies',()=>{
+ const r=readSgf('(;SZ[19])'),a=candidate('A1',0,2,100,['A1','B1','C1']),b=candidate('A1',1,2,100,['A1','D1','E1']),c=candidate('F1',2,2,100,['F1','G1']);
+ let line=startRecommendedLine(r,{anchor:0,alternatives:[a,b,c]},a);
+ assert.deepEqual(lineContinuations(r,line,new Map(),'deep').map(c=>c.move),['B1','D1']);
+ line=followLineContinuation(line,lineContinuations(r,line,new Map(),'deep')[1]);assert.deepEqual(lineContinuations(r,line,new Map(),'deep').map(c=>c.move),['E1']);
+});
+test('exact recorded continuations reuse genuine stored analyses, including when the origin PV is short',()=>{
+ const r=readSgf('(;SZ[19];B[dd];W[pp])'),a=candidate('D16',0,3),b=candidate('Q4',0,-1,100,['Q4','C3']),analyses=new Map([[1,{candidates:[b]}]]);
+ const line=startRecommendedLine(r,{anchor:0,alternatives:[a]},a),choices=lineContinuations(r,line,analyses,'deep');
+ assert.equal(choices.length,1);assert.equal(choices[0].searched,true);assert.equal(choices[0].move,'Q4');const extended=followLineContinuation(line,choices[0]);assert.equal(extended.anchor,0);assert.equal(extended.offset,2);assert.equal(extended.frames[2].board[gtpPoint('D16')],'B');
+ const offRecord=startRecommendedLine(r,{anchor:0,alternatives:[candidate('A1',0,3)]},candidate('A1',0,3));assert.deepEqual(lineContinuations(r,offRecord,analyses,'deep'),[]);
+});
+test('missing PVs offer only the searched first move; invalid replies never become suggestions',()=>{
+ const r=readSgf('(;SZ[19];B[dd])'),c=candidate('Q4',0,3),review={anchor:1,alternatives:[c]};
+ assert.deepEqual(lineContinuations(r,startRecommendedLine(r,review,c),new Map(),'deep'),[]);
+ const broken=candidate('Q4',0,3,100,['Q4','D16','A1']);const line=startRecommendedLine(r,{anchor:1,alternatives:[broken]},broken);assert.equal(line.truncated,true);assert.deepEqual(lineContinuations(r,line,new Map(),'deep'),[]);
 });

@@ -1,0 +1,11 @@
+# Quick board-photo analysis
+
+This standalone browser feature is distributed under AGPL-3.0-only. It includes Kaya board-recognition code under AGPL-3.0 and Web KaTrain's browser engine under MIT. Photo recognition runs in a bounded private Lambda through the site's protected API. The browser compresses and uploads a photo, receives an automatically detected board, and discards the photo. No corner marking is required. A single photo cannot infer earlier moves or captures. Photos, positions and AI results are not saved in the cloud. Requests store only a UUID/hash and a short-lived quota/concurrency counter.
+
+Build with `npm ci --prefix photo-analysis` then `node scripts/build-photo-analysis.mjs` from the project root. Model sources and exact revisions are in SOURCES.json. Generated assets are ignored by Git. Private test photos are never part of the build or source download.
+
+The source download offered by the page contains this directory, its dependency lockfile, the build script, the page/style, and the shared site navigation, language and style files. Generic third-party dependencies can be rebuilt using the lockfile. Upstream checkpoint and training-source links are offered alongside the Moku model; The source also includes the server detector, lightweight KataGo worker and build instructions in `backend/position/`.
+
+Modified standalone integration: 7 October 2026. This feature is provided without warranty; copying and redistribution are permitted under the included AGPL-3.0 license. The surrounding project's existing files retain their existing terms.
+
+The `/analysis` page also accepts a local SGF and allows playing or navigating one sequence. Playing from an earlier position replaces the later moves. It stores only the current game as SGF, the selected position, side to move and editing mode in localStorage; it never stores photos or analysis results. Cache Storage holds downloaded model weights only. Clearing browser data removes the saved game and weights. The user selects browser AI (32-visit Web KaTrain/WASM) or cloud AI (128-visit native KataGo). Both use the same pinned small model. Cloud mode sends the position and available move history for analysis; browser mode keeps AI computation local. Photo detection is cloud-based in either mode. Only the browser AI model is downloaded and cached in the browser.

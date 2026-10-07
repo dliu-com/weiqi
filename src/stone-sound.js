@@ -1,6 +1,6 @@
 import {t} from './i18n.js';
-const key='weiqi.stone-volume',controls=[];
-let context=null,volume=35;
+const key='weiqi.stone-volume',defaultVolume=10,controls=[];
+let context=null,volume=defaultVolume;
 try{const saved=localStorage.getItem(key);if(saved!==null&&Number.isFinite(Number(saved)))volume=Math.max(0,Math.min(100,Number(saved)));}catch{}
 
 // A short recorded stone click, shared by Record, Play and game replay. See the adjacent
@@ -38,4 +38,4 @@ export function mountStoneSound(container){
 }
 function refresh(){for(const {text,slider,value}of controls){text.textContent=t('落子音量','Stone sound volume');slider.setAttribute('aria-label',text.textContent);slider.value=String(volume);value.textContent=volume?volume+'%':t('静音','Muted');}}
 window.addEventListener('site-language-change',refresh);
-window.addEventListener('storage',event=>{if(event.key===key){volume=event.newValue===null?35:Math.max(0,Math.min(100,Number(event.newValue)||0));refresh();}});
+window.addEventListener('storage',event=>{if(event.key===key){volume=event.newValue===null?defaultVolume:Math.max(0,Math.min(100,Number(event.newValue)||0));refresh();}});

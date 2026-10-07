@@ -1,0 +1,201 @@
+{
+  "testedAtUTC": "2026-10-07T01:03:56.938630+00:00",
+  "region": "eu-west-1",
+  "scope": "Photo recognition only; no KataGo position analysis or production deployment",
+  "lambda": {
+    "3008": {
+      "cold": {
+        "clientSeconds": [
+          6.046636833008961,
+          6.057301833992824,
+          5.739104834006866
+        ],
+        "billedMs": [
+          5285,
+          5433,
+          5236
+        ],
+        "estimatedUSDper1000": 0.26056093738749997,
+        "maxMemoryMB": 634
+      },
+      "warm": {
+        "clientSeconds": [
+          1.7384439580055187,
+          2.3426660830009496,
+          1.7199846660078038
+        ],
+        "billedMs": [
+          1679,
+          2299,
+          1676
+        ],
+        "estimatedUSDper1000": 0.09247032342916668,
+        "maxMemoryMB": 657
+      }
+    },
+    "1024": {
+      "cold": {
+        "clientSeconds": [
+          10.343467416998465
+        ],
+        "billedMs": [
+          9706
+        ],
+        "estimatedUSDper1000": 0.1619669902,
+        "maxMemoryMB": 634
+      },
+      "warm": {
+        "clientSeconds": [
+          4.141066500000306,
+          4.116095624995069
+        ],
+        "billedMs": [
+          4105,
+          4067
+        ],
+        "estimatedUSDper1000": 0.06830013620000001,
+        "maxMemoryMB": 666
+      }
+    },
+    "1769": {
+      "cold": {
+        "clientSeconds": [
+          7.158784667000873
+        ],
+        "billedMs": [
+          6508
+        ],
+        "estimatedUSDper1000": 0.18758077840664064,
+        "maxMemoryMB": 592
+      },
+      "warm": {
+        "clientSeconds": [
+          2.4955273749947082,
+          2.494182082999032
+        ],
+        "billedMs": [
+          2456,
+          2453
+        ],
+        "estimatedUSDper1000": 0.0708708851565918,
+        "maxMemoryMB": 624
+      }
+    }
+  },
+  "cpu": {
+    "instanceType": "c6i.xlarge",
+    "vCPU": 4,
+    "memoryGiB": 8,
+    "cachedStoppedInstanceStartToFirstPhotoSeconds": 11.730849742889404,
+    "warmPhotoSeconds": [
+      1.1520743880000008,
+      0.8948355509999999,
+      0.8320068649999985
+    ],
+    "hourlyComputeUSD": 0.1824,
+    "warmMonthlyUSD730hIncluding12GBgp3AndOneIPv4": 137.858
+  },
+  "gpu": {
+    "instanceType": "g4dn.xlarge",
+    "GPU": "NVIDIA T4",
+    "freshOfficialDLAMIStartToFirstPhotoSeconds": 248.40136575698853,
+    "freshStartIncludes": "OS boot, runtime installation, model downloads, imports, CUDA/session initialization and first photo",
+    "cachedStoppedInstanceStartToFirstPhotoSeconds": null,
+    "cachedRestartLimitation": "Disposable original instance stalled while stopping; terminated instead of claiming a cached restart measurement",
+    "warmPhotoSeconds": 0.3458387270000003,
+    "hourlyComputeUSD": 0.587,
+    "warmMonthlyUSD730hIncluding45GBgp3AndOneIPv4": 436.12
+  },
+  "accuracy": {
+    "moku-v4": {
+      "synthetic": {
+        "samples": 20,
+        "detectionFailures": 0,
+        "exactBoards": 14,
+        "evaluatedIntersections": 7220,
+        "correctIntersections": 6308,
+        "missedStones": 865,
+        "extraStones": 15,
+        "wrongColour": 32,
+        "accuracyCaveat": "Intersection accuracy excludes uncertain labels and failed detections. Read failures and exact boards alongside it."
+      },
+      "visuallyLabelledRealPhotos": {
+        "samples": 2,
+        "detectionFailures": 0,
+        "exactBoards": 1,
+        "evaluatedIntersections": 722,
+        "correctIntersections": 715,
+        "missedStones": 4,
+        "extraStones": 3,
+        "wrongColour": 0,
+        "accuracyCaveat": "Intersection accuracy excludes uncertain labels and failed detections. Read failures and exact boards alongside it."
+      }
+    },
+    "image2sgf-v0.07": {
+      "synthetic": {
+        "samples": 20,
+        "detectionFailures": 0,
+        "exactBoards": 20,
+        "evaluatedIntersections": 7220,
+        "correctIntersections": 7220,
+        "missedStones": 0,
+        "extraStones": 0,
+        "wrongColour": 0,
+        "accuracyCaveat": "Intersection accuracy excludes uncertain labels and failed detections. Read failures and exact boards alongside it."
+      },
+      "visuallyLabelledRealPhotos": {
+        "samples": 2,
+        "detectionFailures": 0,
+        "exactBoards": 1,
+        "evaluatedIntersections": 722,
+        "correctIntersections": 704,
+        "missedStones": 6,
+        "extraStones": 12,
+        "wrongColour": 0,
+        "accuracyCaveat": "Intersection accuracy excludes uncertain labels and failed detections. Read failures and exact boards alongside it."
+      }
+    }
+  },
+  "alternativeModelGPU": {
+    "runtime": "PyTorch 2.5.1 CUDA 12.4",
+    "importSeconds": 2.4466112759999987,
+    "modelInitializationSeconds": 4.644898901000005,
+    "firstPhotoSeconds": 21.150357884999977,
+    "otherRealPhotoWarmSeconds": [
+      0.3357702089999748,
+      0.9384836469999982,
+      0.915814279000017,
+      1.0297304299999723,
+      0.3012451360000341
+    ]
+  },
+  "caveats": [
+    "Synthetic labels derive from legal SGF positions; generated images do not establish real-photo accuracy.",
+    "Two real-photo references were visually checked by the assistant, not independently verified by the user.",
+    "Results exclude phone photo-upload time, public API overhead and browser rendering.",
+    "Small timing samples are observations, not latency guarantees or p95 measurements.",
+    "Original image2sgf results before correcting half-cell adapter alignment were discarded."
+  ],
+  "estimatedAdditionalDevelopmentAllowanceUSD": 0.5,
+  "cleanup": {
+    "privateTestVersionsRemoved": 45,
+    "privatePrefixEmpty": true,
+    "checkedAt": 1791335351.8356721,
+    "instanceStates": {
+      "i-04c8b4a34e7470c22": "terminated",
+      "i-013670e8959c42c2a": "terminated",
+      "i-06d35bac9bf939730": "terminated"
+    },
+    "stackStatus": "DELETE_COMPLETE"
+  },
+  "userLatencyRequirement": {
+    "maximumCompleteFeedbackSeconds": 120,
+    "idealCompleteFeedbackSeconds": 60,
+    "includes": [
+      "phone upload",
+      "photo recognition",
+      "first useful AI analysis result"
+    ],
+    "completePathMeasured": false
+  }
+}

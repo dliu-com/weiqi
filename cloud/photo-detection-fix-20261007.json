@@ -1,0 +1,50 @@
+{
+  "date": "2026-10-07",
+  "pipeline": "grid-fit-20261007",
+  "changes": [
+    "Rank candidate corner geometry against detected stone-grid alignment; fit a bounded homography",
+    "Preserve an already consistent quad; reject unverifiable geometry",
+    "Recover nearby low-score stones only with matching pixels",
+    "Show original photo and require the existing Analyse button before AI"
+  ],
+  "provisionalRealLabels": {
+    "clearPhotoErrors": 0,
+    "angledPhotoErrorsBefore": 7,
+    "angledPhotoErrorsAfter": 1,
+    "independentlyVerified": false
+  },
+  "synthetic": {
+    "samples": 20,
+    "detectionFailures": 0,
+    "exactBoards": 15,
+    "evaluatedIntersections": 7220,
+    "correctIntersections": 7200,
+    "missedStones": 20,
+    "extraStones": 0,
+    "wrongColour": 0,
+    "accuracyCaveat": "Intersection accuracy excludes uncertain labels and failed detections. Read failures and exact boards alongside it."
+  },
+  "realPhotoCaveat": "Two photos have provisional assistant labels. The other four have no complete reference; no exact-board claim. One remains rejected. This is an improvement, not reliable recognition of all six real photos.",
+  "liveVerification": {
+    "requests": 6,
+    "returnedBoards": 5,
+    "rejectedPhotos": 1,
+    "successfulWaitMsRange": [
+      3127,
+      3588
+    ],
+    "provisionalLabelComparison": [
+      {
+        "sample": "real-4",
+        "errors": 0,
+        "independentlyVerified": false
+      },
+      {
+        "sample": "real-6",
+        "errors": 1,
+        "independentlyVerified": false
+      }
+    ],
+    "caveat": "These are sequential requests to the live API with resized photos, not a cold-start or complete accuracy benchmark. Other photos remain unlabelled."
+  }
+}
