@@ -68,7 +68,7 @@
 .analyse-row #analyse:disabled{opacity:.75;cursor:progress}
 #analysis-main #suggestions tr{cursor:pointer}
 #analysis-main #suggestions tr[aria-selected=true] td,#analysis-main #suggestions tr[aria-selected=true] th{background:#e2f0f8}
-#analysis-main .ai-move-table{width:100%}
+#analysis-main .ai-move-table{width:100%;margin-top:0}
 #analysis-main .ai-move-table button{padding:6px 8px;min-height:34px;font-size:13px}
 .analysis-about{margin:16px 0 8px;font-size:13px;line-height:1.5;color:#505b61}
 .analysis-about p{margin:0 0 6px}
@@ -79,6 +79,14 @@
  #analysis-main .play-area{min-height:0}
  #analysis-main .board-wrap{width:min(100%,calc(100svh - var(--record-header-height,48px) - 170px))}
  #analysis-main .play-area>#check-card{width:100%;margin:8px 0 0;padding:10px 12px}
+ #analysis-main #result-card{padding:10px 12px}
+ /* Step 2: keep the board, the table head and three AI rows on one phone screen. */
+ #analysis-main[data-stage=play] .board-wrap{width:min(100%,calc(100svh - var(--record-header-height,48px) - 248px))}
+ #analysis-main[data-stage=play] #sequence-controls{flex-wrap:nowrap;gap:3px;margin:6px 0 0}
+ #analysis-main[data-stage=play] #sequence-controls button{min-height:32px;padding:4px 7px;flex-shrink:0}
+ #analysis-main[data-stage=play] #sequence-controls{align-items:center}
+ #analysis-main[data-stage=play] #sequence-position{font-size:13px;white-space:nowrap}
+ #analysis-main[data-stage=play] .workspace-panel{padding-top:0}
   /* On phones the heading sits above the board (moved by analysis.js), so the AI results follow the board directly. */
  #analysis-main>.analysis-intro{padding:8px 6px 0}
  #analysis-main>.analysis-intro .editor-heading{margin-bottom:8px}
@@ -86,4 +94,6 @@
 @media(max-width:520px){.tool-switch button{min-height:44px}}
 @media(max-width:360px){
  .settings-grid{grid-template-columns:1fr}
+ #analysis-main .ai-move-table th:first-child{width:28%}
+ #analysis-main .ai-move-table th:nth-child(2){width:26%}
 }

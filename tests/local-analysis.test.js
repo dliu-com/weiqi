@@ -41,7 +41,7 @@ function page(saved){
   setTimeout:()=>1,clearTimeout(){},setInterval:()=>1,clearInterval(){},URL:{createObjectURL:()=>'blob:photo',revokeObjectURL(){}},AbortController
  });
  const source=readFileSync(new URL('../src/analysis.js',import.meta.url),'utf8').replace(/^import .*;\n/gm,'');
- vm.runInContext(source,context);
+ vm.runInContext(readFileSync(new URL('../src/move-label.js',import.meta.url),'utf8').replace(/^export /gm,''),context);vm.runInContext(source,context);
  return {run:code=>vm.runInContext(code,context),get,storage,requests,replies,history};
 }
 const settle=()=>new Promise(resolve=>setImmediate(resolve));
