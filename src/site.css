@@ -28,6 +28,20 @@ button.is-loading:before{content:'';display:inline-block;width:12px;height:12px;
 .editor-heading{display:flex;align-items:center;justify-content:space-between;gap:10px;min-height:32px;margin-bottom:12px}.editor-heading h1{margin:0;flex-shrink:0}.editor-heading #draft-status{margin:0;min-width:0;max-width:50%;font-size:12px;line-height:1.4;color:#52636c;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 
 .editor-page .workspace-panel{overflow-anchor:none}
+/* With no game to show (not found, bad link, load failure) the message is the whole page. */
+.record-page:has(#record-main[hidden]) #record-message{font-size:18px;line-height:1.6;color:#26323a;padding-top:28px}
+@media(max-width:850px){.record-page:has(#record-main[hidden]) #record-message{padding:24px 20px 0}}
+/* Phones: title, Open SGF, board, navigation, then the panel (tree, tools, Save, details), with no screen-high gap round the board. */
+@media(max-width:850px){
+ .editor-page #editor-main{display:flex;flex-direction:column;gap:0;padding:0 10px}
+ .editor-page #editor-main>.play-area,.editor-page #editor-main>.workspace-panel{display:contents}
+ .editor-page .workspace-panel>*{order:6;margin-left:6px;margin-right:6px;overflow-anchor:none}
+ .editor-page .workspace-panel>.editor-heading{order:1;margin-top:10px;margin-bottom:8px}
+ .editor-page .workspace-panel>.editor-upload-box{order:2;margin-bottom:10px}
+ .editor-page .workspace-panel>#editor-notice{order:3}
+ .editor-page #editor-main .board-wrap{order:4;margin:0 auto}
+ .editor-page #editor-main .editor-navigation{order:5;margin:8px 0 0}
+}
 
 .sequence-edit-panel{padding:14px;border:2px solid #176b92;border-radius:8px;background:#edf6fb;margin:16px 0}.sequence-edit-panel[hidden]{display:none}.sequence-edit-panel h2{font:650 16px system-ui;margin:0 0 8px}.sequence-edit-panel p{font-size:13px;line-height:1.5;margin:8px 0}.sequence-edit-panel .actions{display:flex;gap:8px;flex-wrap:wrap}.sequence-edit-panel .primary{background:#176b92;color:white}.editor-tree-stone.preview-issue{box-shadow:0 0 0 3px #c33129;border-color:#c33129}.editor-tree-stone.preview-incomplete{opacity:.5}#sequence-edit-preview:empty{display:none}
 
