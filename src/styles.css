@@ -152,23 +152,11 @@ body{background:#fff}.card,.status-card{background:#fff}button:not(.point):hover
  .record-page #record-main aside{display:flex;flex-direction:column;gap:10px}
  .record-page #record-main .board-wrap{width:min(100%,max(220px,calc(100svh - var(--record-header-height,95px) - var(--record-below-board,280px))));margin:0 auto}
  #record-main .play-area>.record-navigation{margin-top:5px;margin-bottom:0}
- #record-main aside>.card:has(#analysis-title){order:1;display:grid;grid-template-columns:1fr 1fr;gap:5px 8px;padding:8px 10px}
+ #record-main aside>.evaluation-card{order:1;padding:8px 10px}
  #record-main aside>.record-info{order:3}
- #record-main #analysis-title{grid-column:1;margin:0;align-self:center}
- #record-main .chart-toggle{grid-column:2;grid-row:1;margin:0}
- #record-main .chart-toggle button{min-height:30px;padding:5px 10px;font-size:12px}
- #record-main #evaluation-chart{grid-column:1/-1;grid-row:2;margin:0}
- #record-main #chart-legend{grid-column:1/-1;grid-row:3;margin:0;font-size:11px}
- #record-main .evaluation#lead{grid-column:1/-1;grid-row:4;font-size:15px;margin:0;padding:5px 8px}
- #record-main #winrate{grid-column:1/-1;grid-row:5;margin:0}
- #record-main .probability-labels{font-size:12px;margin-bottom:3px}
- #record-main .probability-bar{height:16px}
- #record-main #analysis-wait{grid-column:1/-1;grid-row:6;gap:8px}
+ #record-main #analysis-wait{gap:8px}
  #record-main #analysis-status{font-size:11px;line-height:1.4;margin:4px 0}
- #record-main #chart-help{grid-column:1/-1;grid-row:7;font-size:11px;margin:0}
- #record-main #analysis-depth{grid-column:1/-1;grid-row:8;font-size:11px;padding-top:6px;margin:0}
- #record-main .ai-review{grid-column:1/-1;grid-row:8}
- #record-main #analysis-depth{grid-row:9}
+ #record-main #analysis-depth{font-size:11px;padding-top:6px;margin:6px 0 0}
 }
 
 #record-main .point.ai-number.last:after{position:absolute;inset:15%;width:auto;height:auto;border-width:1px;pointer-events:none}
@@ -223,3 +211,56 @@ body{background:#fff}.card,.status-card{background:#fff}button:not(.point):hover
 .move-mode{font-size:10px;font-weight:650;color:#8a5a12}
 @media(max-width:480px){#record-main .record-navigation .move-label{font-size:13px;margin:0 2px}}
 @media(max-width:360px){#record-main .record-navigation{gap:3px}#record-main .record-navigation button{padding:3px 1px;white-space:nowrap;font-size:13px}#record-main .record-navigation .move-label{font-size:12px;margin:0}}
+/* Suggestions table: neutral move buttons with the side's stone, coloured assessment pills, large lead and win values. */
+#record-main .evaluation-card .ai-review{border-top:0;padding-top:0;margin-top:0;font-size:13px}
+#record-main .evaluation-card #analysis-wait:not([hidden]){margin-bottom:8px}
+#record-main .evaluation-card .ai-review-toggle{margin-top:8px}
+#ai-alternatives{min-height:0}
+#ai-alternatives .ai-move-table tbody tr{height:44px}
+.ai-move-table{margin-top:0;font-size:14px}
+.ai-move-table th,.ai-move-table td{padding:5px 4px;vertical-align:middle}
+.ai-move-table thead th{font-size:12px;line-height:1.25}
+.ai-move-table th:first-child{width:33%}
+.ai-move-table th:nth-child(2){width:21%}
+.ai-move-table th:nth-child(3){width:18%}
+.ai-move-table th:last-child{width:28%}
+:is(#ai-alternatives,#analysis-main) .ai-move-choice[data-side]{display:inline-flex;align-items:center;gap:5px;max-width:100%;min-height:34px;padding:4px 8px;background:#fff;color:#202629;border:1px solid #8b989f;font-size:15px;font-weight:650;white-space:nowrap}
+:is(#ai-alternatives,#analysis-main) .ai-move-choice[data-side][aria-pressed=true]{background:#e4f0fb;border-color:#1b5faa;color:#1b5faa}
+.ai-move-choice .move-stone{width:13px;height:13px;margin:0}
+.quality-pill{display:inline-block;max-width:100%;padding:2px 7px;border-radius:999px;font-size:12px;font-weight:650;line-height:1.35;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;vertical-align:middle;color:#fff;background:#64748b}
+.quality-pill[data-quality=best]{background:#2978ce}
+.quality-pill[data-quality=good]{background:#27834c}
+.quality-pill[data-quality=inaccuracy]{background:#d7ad20;color:#202629}
+.quality-pill[data-quality=mistake]{background:#df7a19;color:#202629}
+.quality-pill[data-quality=blunder]{background:#d33c36}
+.ai-move-table .ai-score-badge{font-size:15px;padding:3px 5px}
+.ai-move-table .ai-win-pair .ai-score-badge{font-size:14px;padding:3px 4px}
+#ai-alternatives .ai-move-table tbody th{white-space:nowrap}
+#ai-alternatives .ai-played-badge{min-height:0;margin-left:3px;padding:0 2px;font-size:14px;line-height:1;vertical-align:middle;color:#b77819}
+/* The Win % / Score switch sits on the chart legend line. */
+.chart-head{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:10px;padding-top:8px;border-top:1px solid var(--line)}
+#record-main .chart-head #chart-legend{margin:0;font-size:12px}
+#record-main .chart-head .chart-toggle{margin:0;gap:4px}
+#record-main .chart-head .chart-toggle button{min-height:26px;padding:2px 9px;font-size:12px}
+#record-main .evaluation-card #evaluation-chart{margin-top:6px}
+@media(max-width:480px){
+ .ai-move-table{font-size:13px}
+ .ai-move-table th,.ai-move-table td{padding:5px 3px}
+ .ai-move-table thead th{font-size:11px}
+ :is(#ai-alternatives,#analysis-main) .ai-move-choice[data-side]{padding:4px 6px;gap:4px;font-size:14px}
+ .quality-pill{font-size:11px;padding:2px 5px}
+ .ai-move-table .ai-score-badge{font-size:14px;padding:3px 4px}
+ .ai-move-table .ai-win-pair .ai-score-badge{font-size:13px;padding:3px 3px}
+}
+@media(max-width:360px){
+ .ai-move-table th:first-child{width:31%}
+ .ai-move-table th:nth-child(2){width:23%}
+ .ai-move-table thead th{font-size:10px}
+ .ai-move-table th,.ai-move-table td{padding-left:2px;padding-right:2px}
+ :is(#ai-alternatives,#analysis-main) .ai-move-choice[data-side]{gap:3px;padding:3px 4px;font-size:12px}
+ .ai-move-choice .move-stone{width:11px;height:11px}
+ #ai-alternatives .ai-played-badge{margin-left:1px;padding:0;font-size:12px}
+ .quality-pill{font-size:10px;padding:2px 3px}
+ .ai-move-table .ai-score-badge{font-size:13px}
+ .ai-move-table .ai-win-pair .ai-score-badge{font-size:12px;padding:3px 2px}
+}

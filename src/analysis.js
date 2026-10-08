@@ -2,6 +2,7 @@
 // One photo request reads the board; each analysis is a single short cloud request. Moves stay in this browser.
 import './site-shell.js';
 import {language,t} from './i18n.js';
+import {moveStone,qualityPill} from './move-label.js';
 import {BoardView} from './board-view.js';
 import {readSgf} from './sgf.js';
 import {PositionError,positionRequest,cloudPosition} from './position-api.js';
@@ -289,9 +290,9 @@ function renderResult(){
  const rows=analysis.moves.map((m,rank)=>{
   const tr=document.createElement('tr'),th=document.createElement('th'),button=document.createElement('button');
   th.scope='row';button.type='button';button.className='ai-move-choice';button.dataset.side=side;
-  button.textContent=letter(rank)+' · '+(moveName(m)==='pass'?t('停一手','Pass'):moveName(m));
+  button.append(moveStone(side),letter(rank)+' · '+(moveName(m)==='pass'?t('停一手','Pass'):moveName(m)));
   button.onclick=event=>{event.stopPropagation();togglePreview(rank);};th.append(button);
-  const quality=qualityOf(m,rank),rating=document.createElement('td');rating.dataset.quality=quality;rating.textContent=names[quality];
+  const quality=qualityOf(m,rank),rating=document.createElement('td');rating.append(qualityPill(quality,names[quality]));
   const leadCell=document.createElement('td'),badge=document.createElement('span'),value=Number(m.scoreLead)||0,level=Math.abs(value)<.05?'even':value>0?'black':'white',amount=level==='even'?'0.0':Math.abs(value).toFixed(1);
   badge.className='ai-score-badge ai-score-'+level;badge.textContent=amount;leadCell.append(badge);
   leadCell.setAttribute('aria-label',level==='even'?t('双方均势','Even position'):level==='black'?t('黑方领先 '+amount+' 目','Black leads by '+amount+' points'):t('白方领先 '+amount+' 目','White leads by '+amount+' points'));
