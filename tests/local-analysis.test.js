@@ -89,28 +89,28 @@ test('analysis is one request per action, blocks stones without liberties and re
 test('an empty board can be analysed, and Next to play defaults to Black after a cleared board',async()=>{
  const p=page();p.replies.push(result);await p.run('analyse()');
  assert.equal(p.requests.length,1);assert.equal(p.requests[0].body.initialBoard,'.'.repeat(361));assert.equal(p.requests[0].body.side,'B');assert.equal(p.run('stage'),'play');
- p.get('step-1').querySelector('button').onclick();p.run("board=setPoint(emptyBoard(),60,'B');resetFrames()");p.get('side-W').onclick();assert.equal(p.run('side'),'W');
+ p.get('edit-board').onclick();p.run("board=setPoint(emptyBoard(),60,'B');resetFrames()");p.get('side-W').onclick();assert.equal(p.run('side'),'W');
  p.get('clear').onclick();assert.equal(p.run('side+tool'),'BB');assert.equal(p.get('side-B').attributes['aria-pressed'],'true');
 });
 test('komi can be 7.5 or 0.5; changing it clears the result and it is saved with the position',async()=>{
  const p=page();assert.equal(p.get('komi-7.5').attributes['aria-pressed'],'true');assert.equal(p.get('komi-0.5').attributes['aria-pressed'],'false');
  p.run("board=setPoint(emptyBoard(),60,'B');resetFrames();render()");p.replies.push(result);await p.run('analyse()');assert.equal(p.requests[0].body.komi,7.5);
  assert.equal(p.get('analysis-settings').hidden,true);
- p.get('step-1').querySelector('button').onclick();assert.equal(p.run('stage'),'check');assert.equal(p.get('analysis-settings').hidden,false);assert.equal(p.get('settings-fields').hidden,false);
+ p.get('edit-board').onclick();assert.equal(p.run('stage'),'check');assert.equal(p.get('analysis-settings').hidden,false);assert.equal(p.get('settings-fields').hidden,false);
  p.get('komi-0.5').onclick();assert.equal(p.run('komi'),0.5);assert.equal(p.run('analysis'),null);assert.equal(p.get('komi-0.5').attributes['aria-pressed'],'true');
- p.replies.push(result);await p.run('analyse()');assert.equal(p.requests[1].body.komi,0.5);assert.match(p.get('analysis-time').textContent,/komi 0\.5/);
+ p.replies.push(result);await p.run('analyse()');assert.equal(p.requests[1].body.komi,0.5);assert.match(p.get('analysis-time').textContent,/Chinese rules · komi 0\.5/);
  const saved=JSON.parse(p.storage.get('weiqi.local-analysis.v1'));assert.match(saved.sgf,/KM\[0\.5\]/);assert.equal(page(saved).run('komi'),0.5);
  assert.equal(p.run('nearestKomi(0)'),0.5);assert.equal(p.run('nearestKomi(6.5)'),7.5);
 });
-test('two steps: step 1 sets up the board with the upload box, and step 1 can be reopened from the analysis',async()=>{
- const p=page(),step=n=>p.get('step-'+n).querySelector('button');
- assert.equal(p.get('step-1').dataset.state,'current');assert.equal(step(1).disabled,true);assert.equal(step(2).disabled,true);
+test('two stages: set-up shows the upload box, and Edit board returns to it from the analysis',async()=>{
+ const p=page(),edit=p.get('edit-board');
+ assert.equal(edit.hidden,true);
  p.run("board=setPoint(emptyBoard(),60,'B');resetFrames();render()");
  p.replies.push(result);await p.run('analyse()');assert.equal(p.run('stage'),'play');
  assert.equal(p.get('upload-box').hidden,true);assert.equal(p.get('check-card').hidden,true);
- assert.equal(p.get('step-1').dataset.state,'done');assert.equal(p.get('step-2').dataset.state,'done');assert.equal(step(1).disabled,false);assert.equal(step(2).disabled,true);
- step(1).onclick();assert.equal(p.run('stage'),'check');assert.equal(p.run('analysis'),null);assert.equal(p.run('board[60]'),'B');assert.equal(p.get('upload-box').hidden,false);assert.equal(p.requests.length,1);
- p.run("stage='play';busy='analysing';render()");assert.equal(step(1).disabled,true);p.run("busy=null");
+ assert.equal(edit.hidden,false);assert.equal(edit.disabled,false);
+ edit.onclick();assert.equal(edit.hidden,true);assert.equal(p.run('stage'),'check');assert.equal(p.run('analysis'),null);assert.equal(p.run('board[60]'),'B');assert.equal(p.get('upload-box').hidden,false);assert.equal(p.requests.length,1);
+ p.run("stage='play';busy='analysing';render()");assert.equal(edit.hidden,true);p.run("busy=null");
 });
 test('a photo that cannot be read keeps the board, stays on step 1 and shows the photo for placing stones by hand',async()=>{
  const p=page();p.run("board=setPoint(emptyBoard(),60,'B');resetFrames();render()");
