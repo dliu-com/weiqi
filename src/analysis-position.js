@@ -1,4 +1,4 @@
-// Position helpers for Quick AI analysis. Copyright 2026 DL; AGPL-3.0-only.
+// Position helpers for AI analysis. Copyright 2026 DL; AGPL-3.0-only.
 // Boards are 361-character strings of B, W and '.' like the rest of the site.
 import {BOARD_COLUMNS} from './board-geometry.js';
 import {groupAt,play} from './engine.js';

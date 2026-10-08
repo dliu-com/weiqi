@@ -1,4 +1,4 @@
-// Quick AI analysis page. Copyright 2026 DL; AGPL-3.0-only.
+// AI analysis page. Copyright 2026 DL; AGPL-3.0-only.
 // One photo request reads the board; each analysis is a single short cloud request. Moves stay in this browser.
 import './site-shell.js';
 import {language,t} from './i18n.js';
@@ -222,7 +222,7 @@ function restoreLocal(){
 
 function translate(){
  document.documentElement.lang=language==='zh'?'zh-CN':'en';
- document.title=t('快速 AI 分析','Quick AI analysis')+' · DL Weiqi';
+ document.title=t('AI 分析','AI analysis')+' · DL Weiqi';
  for(const {el,en,zh} of labels)el.textContent=t(zh,en);
  const aria={'board':['分析棋盘','Analysis board'],'sequence-first':['第一手','First move'],'sequence-previous':['上一手','Previous move'],'sequence-next':['下一手','Next move'],'sequence-last':['最后一手','Last move']};
  for(const [id,[zh,en]] of Object.entries(aria))$(id).setAttribute('aria-label',t(zh,en));
