@@ -1,4 +1,5 @@
 const {S3Client,GetObjectCommand,PutObjectCommand,ListObjectsV2Command} = require('@aws-sdk/client-s3');
+const LIBRARY_PAGE_SIZE=5;
 const {SQSClient,SendMessageCommand} = require('@aws-sdk/client-sqs');
 const {createHash:reportHash}=require('node:crypto');
 const libraryS3 = new S3Client({}), libraryQueue = new SQSClient({});
@@ -43,7 +44,7 @@ async function libraryHandler(event) {
     if (method==='GET' && path==='/api/library') {
       const cursor=event.queryStringParameters?.cursor;
       if (cursor && cursor.length>2048) return response(400,{message:'Invalid page cursor.'});
-      let list;try{list=await libraryS3.send(new ListObjectsV2Command({Bucket:process.env.LIBRARY_BUCKET,Prefix:'library-index/',MaxKeys:10,...(cursor?{ContinuationToken:cursor}:{})}));}catch(e){if(cursor&&e.name==='InvalidArgument')return response(400,{message:'Invalid page cursor.'});throw e;}
+      let list;try{list=await libraryS3.send(new ListObjectsV2Command({Bucket:process.env.LIBRARY_BUCKET,Prefix:'library-index/',MaxKeys:LIBRARY_PAGE_SIZE,...(cursor?{ContinuationToken:cursor}:{})}));}catch(e){if(cursor&&e.name==='InvalidArgument')return response(400,{message:'Invalid page cursor.'});throw e;}
       const games=await Promise.all((list.Contents || []).map(async p=>{try{const entry=JSON.parse(await libraryStore.get(p.Key));if(!validRecordId(entry.id))return null;return attachPlayerRanks(JSON.parse(await libraryStore.get(gamePrefix(entry.id)+'/metadata.json')));}catch(e){if(e.name==='NoSuchKey')return null;throw e;}}));
       const paused=await libraryStore.analysisPaused();
       if(paused)for(const g of games.filter(Boolean))if(!['ready','limited'].includes(g.analysis?.status))g.analysis={...g.analysis,status:'paused',reason:'monthly_budget'};

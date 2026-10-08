@@ -53,7 +53,7 @@ test('quick results are served during deeper work, then the API switches to deep
  const result=await call('/api/library/'+uploaded.id);assert.equal(result.analysis.phase,'deep');assert.equal(result.analysis.visits,1000);
 });
 
-test('library lists newest ten records and returns a cursor for the next page without duplicates',async()=>{
+test('library lists newest five records and returns a cursor for the next page without duplicates',async()=>{
  const {call,files}=api();
  for(let n=0;n<23;n++){
   const recordId='20261005'+String(n+1).padStart(2,'0');
@@ -62,10 +62,9 @@ test('library lists newest ten records and returns a cursor for the next page wi
   const stamp=String(Date.parse(metadata.uploadedAt)).replace(/[0-9]/g,d=>9-Number(d));
   files.set('library-index/'+stamp+'-'+recordId+'.json',JSON.stringify({id:recordId}));
  }
- const first=await call('/api/library');assert.equal(first.games.length,10);assert.equal(first.games[0].id,'2026100523');
- const second=await call('/api/library?cursor='+first.cursor);assert.equal(second.games.length,10);assert.equal(second.games[0].id,'2026100513');
- const last=await call('/api/library?cursor='+second.cursor);assert.equal(last.games.length,3);assert.equal(last.cursor,null);
- assert.equal(new Set([...first.games,...second.games,...last.games].map(r=>r.id)).size,23);
+ const pages=[await call('/api/library')];while(pages.at(-1).cursor)pages.push(await call('/api/library?cursor='+pages.at(-1).cursor));
+ assert.deepEqual(pages.map(p=>p.games.length),[5,5,5,5,3]);assert.equal(pages[0].games[0].id,'2026100523');assert.equal(pages[1].games[0].id,'2026100518');
+ assert.equal(new Set(pages.flatMap(p=>p.games).map(r=>r.id)).size,23);
 });
 
 test('report reads never generate artifacts or invoke document workers',async()=>{
