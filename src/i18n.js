@@ -65,6 +65,7 @@ const messages = {
   "还没有可以悔棋的记录。": "There are no moves to undo.",
   "请选择要标记的棋子。": "Choose a stone to mark.",
   "请选择执棋方。": "Choose a player.",
+  "请输入有效的胜负目数。": "Enter a valid winning margin (in steps of 0.5).",
   "请选择认输方。": "Choose the resigning player.",
   "本局已达 600 手，请双方停一手结算或另开新局。": "The 600-move limit has been reached. Pass to score or start a new game.",
   "当前棋局不能执行此操作。": "This action is not available in the current game phase.",

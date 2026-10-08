@@ -4,7 +4,7 @@ import vm from 'node:vm';
 import { readFileSync } from 'node:fs';
 import { webcrypto } from 'node:crypto';
 import { createState, transition, freshLiveGame } from '../backend/game-service.js';
-import { play, opposite, score, gameTree, reviewPosition, gameClock, sgf } from '../src/engine.js';
+import { play, opposite, score, gameTree, reviewPosition, gameClock, sgf, MIN_LIBRARY_MOVES } from '../src/engine.js';
 
 // Exercise the actual client with an isolated DOM/network/clock, never the live game.
 async function client({publish=false}={}) {
@@ -16,14 +16,16 @@ async function client({publish=false}={}) {
     append(...nodes) { this.children.push(...nodes); }
     replaceChildren(...nodes) { this.children=nodes; }
     addEventListener() {} focus() {} showModal() {this.open=true;} close() {this.open=false;}
+    setCustomValidity(message) { this.validity=message; } reportValidity() { this.reported=this.validity; return !this.validity; }
   }
+  const radios=['score-black','score-white','resign-black','resign-white','draw','unfinished'].map(value=>({value,on:false,get checked(){return this.on;},set checked(v){if(v)for(const r of radios)r.on=false;this.on=v;}})), selected=new Map();
   const get = id => { if(!elements.has(id)) elements.set(id,new Element()); return elements.get(id); };
   let remote = createState(), failAfterSave = false, failGet = false, now = Date.now();
   const context = vm.createContext({
-    mountTimeControl(){let current=null;return {render(){},fill(value){current=value;},value(){return current;}};},mountStoneSound(){},prepareStoneSound(){},playStoneSound(){},localTimestamp:()=> 'test · UTC+1', play, opposite, score, gameTree, reviewPosition, gameClock, sgf, language:'en', t: (zh,en)=>en, translateError:s=>s, setLanguage(){},
+    mountTimeControl(){let current=null;return {render(){},fill(value){current=value;},value(){return current;}};},mountStoneSound(){},prepareStoneSound(){},playStoneSound(){},localTimestamp:()=> 'test · UTC+1', play, opposite, score, gameTree, reviewPosition, gameClock, sgf, MIN_LIBRARY_MOVES, language:'en', t: (zh,en)=>en, translateError:s=>s, setLanguage(){},
     location:{search:'',assign(url){calls.push('NAVIGATE '+url);}},URLSearchParams,
-    document: {querySelector:()=>new Element(),getElementById:get,createElement:()=>new Element(),createElementNS:()=>new Element(),
-      createDocumentFragment:()=>new Element(),querySelectorAll:()=>[],addEventListener(){},visibilityState:'visible',body:new Element()},
+    document: {querySelector:s=>{const m=s.match(/input\[value="([^"]+)"\]/);if(m)return radios.find(r=>r.value===m[1]);if(s.includes(':checked'))return radios.find(r=>r.checked)||null;if(!selected.has(s))selected.set(s,new Element());return selected.get(s);},getElementById:get,createElement:()=>new Element(),createElementNS:()=>new Element(),
+      createDocumentFragment:()=>new Element(),querySelectorAll:s=>s.includes('name="result"')?radios:[],addEventListener(){},visibilityState:'visible',body:new Element()},
     window:{addEventListener(){}},setInterval(fn,ms){intervals.push({fn,ms});},setTimeout(){},clearTimeout(){},
     Date:class extends Date { static now(){return now;} },AbortSignal,TextEncoder,crypto:webcrypto,
     fetch:async (url,options)=>{
@@ -31,7 +33,7 @@ async function client({publish=false}={}) {
       if(options.method==='GET') {if(failGet)throw new Error('Offline');return {ok:true,json:async()=>({state:structuredClone(remote)})};}
       const request=JSON.parse(options.body);
       remote=transition(remote,request);
-      if(publish&&remote.phase==='ended')remote=freshLiveGame(remote,'2026100601');
+      if(publish&&remote.phase==='ended')remote=freshLiveGame(remote,remote.history.length>=MIN_LIBRARY_MOVES?'2026100601':undefined);
       if(failAfterSave)throw new Error('Response lost');
       return {ok:true,json:async()=>({state:structuredClone(remote)})};
     }
@@ -41,7 +43,12 @@ async function client({publish=false}={}) {
   vm.runInContext(readFileSync(new URL('../src/app.js',import.meta.url),'utf8').replace(/^import .*;\n/gm,''),context);
   const run = code=>vm.runInContext(code,context);
   while(run('polling')) await new Promise(resolve=>setImmediate(resolve));
-  return {run,get,calls,intervals,remote:()=>remote,move:i=>{remote=transition(remote,{expectedRevision:remote.revision,action:{type:'move',index:i}});},
+  const move=i=>{remote=transition(remote,{expectedRevision:remote.revision,action:{type:'move',index:i}});};
+  return {run,get,calls,intervals,remote:()=>remote,move,
+    // Stones on rows 0, 2 and 4 keep a liberty below, so nothing is captured.
+    seed:n=>{for(let k=0;k<n;k++)move(38*Math.floor(k/19)+k%19);},
+    choose:value=>{radios.find(r=>r.value===value).checked=true;},checked:()=>radios.find(r=>r.checked)?.value,
+    submitResult:()=>get('end-game-form').onsubmit({preventDefault(){}}),
     loseResponse:()=>{failAfterSave=true;},offline:()=>{failGet=true;},online:()=>{failGet=false;failAfterSave=false;},advance:ms=>{now+=ms;}};
 }
 test('visible idle page polls every 5 seconds without a focus event',async()=>{
@@ -101,12 +108,13 @@ test('background sync failure shows a persistent inline warning and successful r
  c.online();await c.run('sync()');assert.equal(c.get('sync-warning').hidden,true);
 });
 
-test('both resignation buttons select their own side regardless of whose turn it is',async()=>{
+test('both resignation buttons open the result dialog with that resignation selected',async()=>{
  for(const side of ['black','white']) {
   const c=await client();assert.equal(c.get('resign-'+side).textContent,side==='black'?'Black resigns':'White resigns');
-  c.get('resign-'+side).onclick();assert.equal(c.get('confirm-title').textContent,side==='black'?'Black resigns?':'White resigns?');
-  c.run('pendingConfirmation()');while(c.run('busy'))await new Promise(r=>setImmediate(r));
-  assert.equal(c.remote().result.winner,side==='black'?'white':'black');
+  c.get('resign-'+side).onclick();assert.equal(c.get('end-game-dialog').open,true);assert.notEqual(c.get('confirm-dialog').open,true);
+  assert.equal(c.checked(),'resign-'+opposite(side));
+  c.submitResult();while(c.run('busy'))await new Promise(r=>setImmediate(r));
+  assert.equal(c.remote().result.winner,opposite(side));assert.equal(c.remote().result.reason,'resign');
  }
 });
 
@@ -138,45 +146,71 @@ test('End game recovers stale finished state instead of showing disabled result 
  assert.equal(c.run('state.phase'),'play');assert.ok(c.calls.includes('HEARTBEAT'));
 });
 
-test('New game and Confirm dead stones share the result picker and automatic count',async()=>{
+test('New game and Confirm dead stones open one dialog with the automatic count selected',async()=>{
  const c=await client();c.move(180);await c.run('sync()');
  assert.equal(c.get('new').textContent,'New game');assert.equal(c.get('edit-game').textContent,'Edit game info');
  c.get('new').onclick();assert.equal(c.get('end-game-dialog').open,true);
  assert.match(c.get('result-count-summary').textContent,/Automatic count: Black/);
+ assert.equal(c.checked(),'score-black');assert.equal(c.get('margin-black').value,353.5);assert.equal(c.get('margin-white').value,'');
  c.get('end-game-cancel').onclick();assert.equal(c.get('end-game-dialog').open,false);
  await c.run("action({type:'pass'})");await c.run("action({type:'pass'})");
- c.get('confirm-score').onclick();assert.equal(c.get('end-game-dialog').open,true);
- for(const side of ['black','white','draw'])assert.equal(c.get('result-'+side).disabled,false);
- c.get('result-counted').onclick();assert.equal(c.get('confirm-dialog').open,true);
- c.get('accept-confirm').onclick();while(c.run('busy'))await new Promise(r=>setImmediate(r));
- assert.equal(c.remote().result.reason,'score');assert.equal(c.remote().phase,'ended');
+ c.get('confirm-score').onclick();assert.equal(c.get('end-game-dialog').open,true);assert.equal(c.checked(),'score-black');
+ c.submitResult();assert.notEqual(c.get('confirm-dialog').open,true);while(c.run('busy'))await new Promise(r=>setImmediate(r));
+ assert.equal(c.remote().result.reason,'score');assert.equal(c.remote().result.black,361);assert.equal(c.remote().phase,'ended');
 });
 
+test('manual results need a valid margin and send the chosen reason',async()=>{
+ const c=await client();c.move(180);await c.run('sync()');
+ c.get('new').onclick();c.choose('score-white');const posts=c.calls.filter(x=>x==='POST').length;
+ c.submitResult();assert.match(c.get('margin-white').reported,/valid winning margin/);assert.equal(c.calls.filter(x=>x==='POST').length,posts);
+ c.get('margin-white').value='2.5';c.get('margin-white').oninput();c.submitResult();while(c.run('busy'))await new Promise(r=>setImmediate(r));
+ assert.deepEqual(c.remote().result,{winner:'white',reason:'score',margin:2.5});
+ const u=await client();u.move(180);await u.run('sync()');u.get('new').onclick();u.choose('unfinished');u.submitResult();
+ while(u.run('busy'))await new Promise(r=>setImmediate(r));assert.deepEqual(u.remote().result,{winner:null,reason:'unfinished'});
+});
+
+test('a result chosen before the game changed is not sent',async()=>{
+ const c=await client();c.move(180);await c.run('sync()');c.get('new').onclick();
+ c.move(181);await c.run('sync()');const posts=c.calls.filter(x=>x==='POST').length;
+ c.submitResult();assert.equal(c.get('end-game-dialog').open,false);assert.match(c.get('notice').textContent,/changed/);
+ assert.equal(c.calls.filter(x=>x==='POST').length,posts);assert.equal(c.remote().phase,'play');
+});
+
+test('games under 50 moves end without saving and say so',async()=>{
+ const c=await client({publish:true});c.move(180);await c.run('sync()');
+ await c.run("action({type:'pass'})");await c.run("action({type:'pass'})");
+ c.get('confirm-score').onclick();assert.equal(c.get('result-short').hidden,false);assert.match(c.get('result-short').textContent,/Under 50 moves/);
+ assert.equal(c.get('end-game-confirm').textContent,'End game');
+ c.submitResult();while(c.run('busy'))await new Promise(r=>setImmediate(r));
+ assert.equal(c.run('state.history.length'),0);assert.ok(!c.calls.some(x=>x.startsWith('NAVIGATE')));
+ assert.match(c.get('notice').textContent,/not saved/);
+});
 
 test('New game keeps the player on the fresh board after either result choice',async()=>{
- for(const choice of ['result-counted','result-white']){
-  const c=await client({publish:true});c.move(180);await c.run('sync()');
-  c.get('new').onclick();c.get(choice).onclick();c.get('accept-confirm').onclick();
+ for(const choice of [null,'resign-white']){
+  const c=await client({publish:true});c.seed(MIN_LIBRARY_MOVES);await c.run('sync()');
+  c.get('new').onclick();assert.equal(c.get('result-short').hidden,true);assert.equal(c.get('end-game-confirm').textContent,'Save and start a new game');
+  if(choice)c.choose(choice);c.submitResult();
   while(c.run('busy'))await new Promise(r=>setImmediate(r));
   assert.equal(c.run('state.history.length'),0);assert.equal(c.run('state.phase'),'play');
-  assert.ok(!c.calls.some(x=>x.startsWith('NAVIGATE')));
+  assert.ok(!c.calls.some(x=>x.startsWith('NAVIGATE')));assert.match(c.get('notice').textContent,/saved to the library/);
  }
 });
 test('finishing through passes opens the saved game for counted or manual results',async()=>{
- for(const choice of ['result-counted','result-draw']){
-  const c=await client({publish:true});c.move(180);await c.run('sync()');
+ for(const choice of [null,'unfinished']){
+  const c=await client({publish:true});c.seed(MIN_LIBRARY_MOVES);await c.run('sync()');
   await c.run("action({type:'pass'})");await c.run("action({type:'pass'})");
-  c.get('confirm-score').onclick();assert.equal(c.get('result-label').textContent,'Save this game and view it');
-  c.get(choice).onclick();c.get('accept-confirm').onclick();
+  c.get('confirm-score').onclick();assert.equal(c.get('result-label').textContent,'Game result');assert.equal(c.get('end-game-confirm').textContent,'Save and view game');
+  if(choice)c.choose(choice);c.submitResult();
   while(c.run('busy'))await new Promise(r=>setImmediate(r));
   assert.deepEqual(c.calls.filter(x=>x.startsWith('NAVIGATE')),['NAVIGATE /game/2026100601']);
  }
 });
 test('a lost completion response still opens the saved game once, without replaying the result',async()=>{
- const c=await client({publish:true});c.move(180);await c.run('sync()');
+ const c=await client({publish:true});c.seed(MIN_LIBRARY_MOVES);await c.run('sync()');
  await c.run("action({type:'pass'})");await c.run("action({type:'pass'})");
- c.get('confirm-score').onclick();c.get('result-counted').onclick();c.loseResponse();
- const posts=c.calls.filter(x=>x==='POST').length;c.get('accept-confirm').onclick();
+ c.get('confirm-score').onclick();c.loseResponse();
+ const posts=c.calls.filter(x=>x==='POST').length;c.submitResult();
  while(c.run('busy'))await new Promise(r=>setImmediate(r));
  assert.equal(c.calls.filter(x=>x==='POST').length,posts+1);
  assert.deepEqual(c.calls.filter(x=>x.startsWith('NAVIGATE')),['NAVIGATE /game/2026100601']);
