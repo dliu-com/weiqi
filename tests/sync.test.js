@@ -150,7 +150,7 @@ test('New game and Confirm dead stones open one dialog with the automatic count 
  const c=await client();c.move(180);await c.run('sync()');
  assert.equal(c.get('new').textContent,'New game');assert.equal(c.get('edit-game').textContent,'Edit game info');
  c.get('new').onclick();assert.equal(c.get('end-game-dialog').open,true);
- assert.match(c.get('result-count-summary').textContent,/Automatic count: Black/);
+ assert.match(c.get('result-count-summary').textContent,/Automatic count: Black/); assert.match(c.get('result-count-winner').textContent,/wins by|Draw/);
  assert.equal(c.checked(),'score-black');assert.equal(c.get('margin-black').value,353.5);assert.equal(c.get('margin-white').value,'');
  c.get('end-game-cancel').onclick();assert.equal(c.get('end-game-dialog').open,false);
  await c.run("action({type:'pass'})");await c.run("action({type:'pass'})");
