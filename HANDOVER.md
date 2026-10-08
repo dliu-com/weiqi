@@ -98,10 +98,10 @@ Current values in `configs.yml`:
 | --- | --- |
 | Project cost limits | $15 per UTC day; $50 per calendar month |
 | Development allowance | Separate $50 total for AWS development/debugging |
-| Full-game AI allowance | 10 new eligible games per London day |
-| Quick feature allowance | $3/day conservative reservation allowance; $0.003 reserved per attempted photo/cloud-AI operation, allowing 1,000 operations globally per UTC day |
+| Full-game AI allowance | Up to 100 new games per London day (`dailyGameLimit`, IDs end 00–99), each with quick analysis on a T4; the first 10 (`dailyDeepLimit`) also get deep analysis and a report. Over the deep limit, metadata has `deep:{status:'limited'}` and the game ends `ready` with `available:'quick'` |
+| Quick feature allowance | $3/day reservation allowance; $0.0015 reserved per attempted photo/cloud-AI operation (worst case about $0.0013), allowing 2,000 operations globally per UTC day |
 | Quick concurrency | Two worker leases; duplicate request UUIDs cannot invoke again |
-| Per-connection limits | 60 edits/min and 300 quick-feature requests per UTC day per connection (one IPv4 address or IPv6 /64), plus a site-wide 120 edits/min counter. CloudFront Function `ApiViewer` overwrites `x-weiqi-viewer` with the viewer IP (clients cannot spoof it); `backend/client-limit.cjs` stores only a hashed bucket number in the `weiqi-position-usage` table. Lambda account concurrency is 400 |
+| Per-connection limits | 60 edits/min and 500 quick-feature requests per UTC day per connection (one IPv4 address or IPv6 /64), plus a site-wide 120 edits/min counter. CloudFront Function `ApiViewer` overwrites `x-weiqi-viewer` with the viewer IP (clients cannot spoof it); `backend/client-limit.cjs` stores only a hashed bucket number in the `weiqi-position-usage` table. Lambda account concurrency is 400 |
 | Recognition worker | 3,538 MB (2 CPUs, `THREADS=2`); 20-second Lambda deadline |
 | Mini AI worker | 3,008 MB; 20-second Lambda deadline; 300 visits |
 
