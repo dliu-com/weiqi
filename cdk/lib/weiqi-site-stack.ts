@@ -89,6 +89,7 @@ export class WeiqiSiteStack extends Stack {
     const queueEstimateSource=fs.readFileSync(path.join(root,'src/queue-estimate.js'),'utf8').replace(/^export /gm,'');
     const queueStatusSource=fs.readFileSync(path.join(root,'backend/queue-status.cjs'),'utf8');
     const libraryHandlerSource = fs.readFileSync(path.join(root,'backend/library-handler.cjs'),'utf8');
+    const sharePreviewSource = fs.readFileSync(path.join(root,'backend/share-preview.cjs'),'utf8').replace(/^module.exports=.*;$/gm,'');
     const handlerSource = fs.readFileSync(path.join(root, 'backend/handler.cjs'), 'utf8');
     execFileSync(process.execPath,[path.join(root,'scripts/build-report-renderer.mjs')],{stdio:'inherit'});
     const reportDeadLetters=new sqs.Queue(this,'ReportDeadLetters',{fifo:true,retentionPeriod:Duration.days(14)});
@@ -110,12 +111,13 @@ export class WeiqiSiteStack extends Stack {
       timeout: Duration.seconds(30),
       memorySize: 256,
       logGroup: new logs.LogGroup(this, 'GameLogs', { retention: logs.RetentionDays.ONE_WEEK, removalPolicy: RemovalPolicy.DESTROY }),
-      environment: { POSITION_USAGE_TABLE:'weiqi-position-usage',POSITION_RECOGNIZER:'WeiqiPositionRecognition',POSITION_ENGINE:'WeiqiPositionEngine',POSITION_DAILY_MICROS:String(Math.round(projectConfig.positionAnalysis.dailyUsd*1000000)),POSITION_REQUEST_MICROS:String(projectConfig.positionAnalysis.requestReserveMicros),CLIENT_EDITS_PER_MINUTE:'60',CLIENT_POSITIONS_PER_DAY:String(Math.floor(projectConfig.positionAnalysis.dailyUsd*1000000/projectConfig.positionAnalysis.requestReserveMicros*0.3)),DAILY_ANALYSIS_CAP:String(projectConfig.analysis.dailyGameLimit), AI_CONTROL_KEY:'control/ai-spending.json', LIBRARY_BUCKET:libraryBucket.bucketName, ANALYSIS_QUEUE:analysisQueue.queueUrl, TABLE_NAME: gameTable.tableName, REPORT_QUEUE:reportQueue.queueUrl, SITE_ORIGIN: Fn.join('', ['https://', domainName]) },
-      code: lambda.Code.fromInline([engineSource, serviceSource, sharedLibrarySource, queueEstimateSource, libraryHandlerSource, queueStatusSource, fs.readFileSync(path.join(root,'backend/client-limit.cjs'),'utf8'), fs.readFileSync(path.join(root,'backend/position-handler.cjs'),'utf8'), handlerSource].join('\n')),
+      environment: { POSITION_USAGE_TABLE:'weiqi-position-usage',POSITION_RECOGNIZER:'WeiqiPositionRecognition',POSITION_ENGINE:'WeiqiPositionEngine',POSITION_DAILY_MICROS:String(Math.round(projectConfig.positionAnalysis.dailyUsd*1000000)),POSITION_REQUEST_MICROS:String(projectConfig.positionAnalysis.requestReserveMicros),CLIENT_EDITS_PER_MINUTE:'60',CLIENT_POSITIONS_PER_DAY:String(Math.floor(projectConfig.positionAnalysis.dailyUsd*1000000/projectConfig.positionAnalysis.requestReserveMicros*0.3)),DAILY_ANALYSIS_CAP:String(projectConfig.analysis.dailyGameLimit), AI_CONTROL_KEY:'control/ai-spending.json', LIBRARY_BUCKET:libraryBucket.bucketName, SITE_BUCKET:bucket.bucketName, ANALYSIS_QUEUE:analysisQueue.queueUrl, TABLE_NAME: gameTable.tableName, REPORT_QUEUE:reportQueue.queueUrl, SITE_ORIGIN: Fn.join('', ['https://', domainName]) },
+      code: lambda.Code.fromInline([engineSource, serviceSource, sharedLibrarySource, queueEstimateSource, sharePreviewSource, libraryHandlerSource, queueStatusSource, fs.readFileSync(path.join(root,'backend/client-limit.cjs'),'utf8'), fs.readFileSync(path.join(root,'backend/position-handler.cjs'),'utf8'), handlerSource].join('\n')),
     });
     gameHandler.addToRolePolicy(new iam.PolicyStatement({actions:['lambda:InvokeFunction'],resources:[`arn:${this.partition}:lambda:${this.region}:${this.account}:function:WeiqiPositionRecognition`,`arn:${this.partition}:lambda:${this.region}:${this.account}:function:WeiqiPositionEngine`]}));
     gameHandler.addToRolePolicy(new iam.PolicyStatement({actions:['dynamodb:PutItem','dynamodb:UpdateItem'],resources:[`arn:${this.partition}:dynamodb:${this.region}:${this.account}:table/weiqi-position-usage`]}));
     reportQueue.grantSendMessages(gameHandler);
+    bucket.grantPut(gameHandler,'share/*');
     gameHandler.addToRolePolicy(new iam.PolicyStatement({actions:['batch:DescribeJobs','batch:ListJobs'],resources:['*']}));
     new events.Rule(this,'CompletedGameReport',{
       eventPattern:{source:['aws.batch'],detailType:['Batch Job State Change'],detail:{status:['SUCCEEDED'],jobName:[{prefix:'weiqi-'}]}},

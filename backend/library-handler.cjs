@@ -69,6 +69,7 @@ async function libraryHandler(event) {
     let request;try{request=JSON.parse(raw);}catch{return response(400,{message:'Invalid upload request.'});}
     const metadata=await uploadRecord(libraryStore,request.sgf,request.filename,request.id);
     await enqueueSavedRecord(metadata);
+    await saveSharePreview(request.sgf,metadata);
     return response(200,{id:metadata.id});
   } catch(e) {
     if(e.name==='NoSuchKey')return response(404,{message:'Record not found.'});
@@ -77,6 +78,12 @@ async function libraryHandler(event) {
   }
 }
 
+// Link previews are optional: a failed image never fails the saved upload.
+async function saveSharePreview(source,metadata) {
+  if(!process.env.SITE_BUCKET)return;
+  try{for(const file of shareFiles(readSgf(source),metadata))await libraryS3.send(new PutObjectCommand({Bucket:process.env.SITE_BUCKET,Key:file.key,Body:file.body,ContentType:file.type,CacheControl:'public, max-age=86400'}));}
+  catch(e){console.error('Share preview failed',{id:metadata.id,name:e.name});}
+}
 async function enqueueSavedRecord(metadata) {
     if(await libraryStore.analysisPaused())return;
     // Only eligible uploads enqueue the quick and deep cloud analyses.
