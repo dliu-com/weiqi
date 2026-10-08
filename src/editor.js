@@ -5,6 +5,7 @@ import {BoardView} from './board-view.js';
 import {recordingTree,recordingSgf,populateRecordingDetails,addRecordingMove,promoteRecordingBranch,setRecordingHandicap,setRecordingRules,recordingResultFields,recordingResultValue,newRecordingSgf,RecordingNavigation,recordingNodeIndex} from './recording-tree.js';
 import {MAX_SGF_BYTES} from './sgf.js';
 import {libraryRequest} from './library-api.js';
+import {renderMoveLabel} from './move-label.js';
 import {RecordingTreeView} from './recording-tree-view.js';
 import {RecordingSequenceEdit} from './recording-sequence-edit.js';
 import {mountStoneSound,prepareStoneSound,playStoneSound} from './stone-sound.js';
@@ -47,7 +48,7 @@ function render(refreshTree=true){
  $('draft-reload').hidden=!conflict||Boolean(sequenceEdit);$('editor-save').classList.toggle('is-loading',publishing);$('editor-save').disabled=!record||conflict||publishing||Boolean(sequenceEdit);$('editor-file').disabled=!record||publishing||conflict||Boolean(sequenceEdit);$('editor-upload-label').disabled=!record||publishing||conflict||Boolean(sequenceEdit);$('editor-delete').disabled=!selected||publishing||conflict||applyingSequence;$('editor-reposition').disabled=!selected||publishing||conflict||applyingSequence;$('editor-reposition').setAttribute('aria-pressed',String(repositioning));$('editor-insert').disabled=!record||publishing||conflict||applyingSequence;$('editor-insert').setAttribute('aria-pressed',String(inserting));$('editor-clear').disabled=!record||publishing||conflict||Boolean(sequenceEdit);$('editor-pass').disabled=!record||publishing||conflict||applyingSequence;
  renderSequenceEdit();
  timeControl.disable(Boolean(sequenceEdit)||publishing||conflict||applyingSequence);
- if(!record)return;const node=record.nodes[selected];board.render(node.board,{last:node.move?.index,turn:repositioning?node.move.side:node.turn,interactive:!publishing&&!conflict&&!applyingSequence});$('editor-move').textContent=t('第 '+node.depth+' 手','Move '+node.depth);
+ if(!record)return;const node=record.nodes[selected];board.render(node.board,{last:node.move?.index,turn:repositioning?node.move.side:node.turn,interactive:!publishing&&!conflict&&!applyingSequence});renderMoveLabel($('editor-move'),{depth:node.depth,move:node.move,t});
  if(!refreshTree)return;
  $('editor-tree').setAttribute('aria-label',t('棋谱树','Game tree'));
  $('editor-tree-help').textContent=t('当前选中的变化自动成为主分支，其他变化在下方展开。点击棋子切换局面。','The selected sequence becomes the main branch automatically. Other variations branch below. Click a stone to switch positions.');
