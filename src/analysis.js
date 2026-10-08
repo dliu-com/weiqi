@@ -189,7 +189,7 @@ async function analyse(){
   const result=await positionRequest('analyze',cloudPosition(frames,cursor,side,RULES,komi),{signal:abort.signal});
   if(token!==generation)return;
   if(!Array.isArray(result.moves))throw new PositionError('The position service could not finish. Try again shortly.');
-  analysis={...result,moves:result.moves.slice(0,3),elapsedMs:performance.now()-work.started};
+  analysis={...result,moves:result.moves.slice(0,4),elapsedMs:performance.now()-work.started};
   stage='play';autoAnalyse=true;status=null;
  }catch(error){
   if(token!==generation)return;
