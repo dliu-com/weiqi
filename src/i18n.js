@@ -67,7 +67,7 @@ const messages = {
   "请选择执棋方。": "Choose a player.",
   "请输入有效的胜负目数。": "Enter a valid winning margin (in steps of 0.5).",
   "请选择认输方。": "Choose the resigning player.",
-  "本局已达 600 手，请双方停一手结算或另开新局。": "The 600-move limit has been reached. Pass to score or start a new game.",
+  "本局已达 400 手上限，请点击“新一局”选择结果。": "This game has reached the 400-move limit. Select New game to choose the result.",
   "当前棋局不能执行此操作。": "This action is not available in the current game phase.",
   "棋谱已达保存上限，请结算当前棋局或重新开始。": "The game record has reached its storage limit. Finish scoring or start a new game.",
   "页面不存在。": "Page not found.",

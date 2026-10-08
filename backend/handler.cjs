@@ -83,7 +83,7 @@ exports.handler = async event => {
 // Save completed live games through the same idempotent library pipeline as uploads.
 async function publishLiveGame(state){
  let libraryId=state.libraryId;
- if(!libraryId&&state.history.length>=MIN_LIBRARY_MOVES){
+ if(!libraryId&&state.history.length>=MIN_LIBRARY_MOVES&&state.history.length<=MAX_GAME_MOVES){
   const hash=reportHash('sha256').update('live|'+state.createdAt+'|'+(state.generation||0)).digest('hex');
   const uploadId=hash.slice(0,8)+'-'+hash.slice(8,12)+'-'+hash.slice(12,16)+'-'+hash.slice(16,20)+'-'+hash.slice(20,32);
   const source=mainRecordingSgf(sgf(state)),metadata=await uploadRecord(libraryStore,source,'live-game.sgf',uploadId);

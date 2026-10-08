@@ -6,7 +6,7 @@ import {createHash} from 'node:crypto';
 import {createState,transition,GameError,freshLiveGame} from '../backend/game-service.js';
 import {createDraft,draftTransition,draftPublication,freshSavedDraft} from '../backend/draft-service.js';
 import {mainRecordingSgf,newRecordingSgf} from '../src/recording-tree.js';
-import {sgf,score,MIN_LIBRARY_MOVES} from '../src/engine.js';
+import {sgf,score,MIN_LIBRARY_MOVES,MAX_GAME_MOVES} from '../src/engine.js';
 import {readSgf} from '../src/sgf.js';
 function api(){
  const rows=new Map(),saved=new Map();let fail=false;
@@ -18,7 +18,7 @@ function api(){
   if(key!=='mutation-budget'&&old&&(Number(old.revision.N)!==Number((v[':expected']||v[':r']).N)||(v[':clockVersion']||v[':c'])&&Number(old.clockVersion?.N||0)!==Number((v[':clockVersion']||v[':c']).N))){const e=new Error();e.name='ConditionalCheckFailedException';throw e;}
   rows.set(key,structuredClone(p.Item));return {};
  }}
- const exports={};vm.runInNewContext(readFileSync(new URL('../backend/client-limit.cjs',import.meta.url),'utf8')+'\n'+readFileSync(new URL('../backend/handler.cjs',import.meta.url),'utf8'),{exports,require:()=>({DynamoDBClient,GetItemCommand,PutItemCommand}),Buffer,console,process:{env:{}},createState,transition,GameError,freshLiveGame,MIN_LIBRARY_MOVES,createDraft,draftTransition,draftPublication,freshSavedDraft,mainRecordingSgf,newRecordingSgf,sgf,reportHash:createHash,libraryStore:{},uploadRecord:async(store,source,name,id)=>{if(fail)throw Error('Save failed');if(!saved.has(id))saved.set(id,{id:'2026100601',sgf:source});return saved.get(id);},enqueueSavedRecord:async()=>{}});
+ const exports={};vm.runInNewContext(readFileSync(new URL('../backend/client-limit.cjs',import.meta.url),'utf8')+'\n'+readFileSync(new URL('../backend/handler.cjs',import.meta.url),'utf8'),{exports,require:()=>({DynamoDBClient,GetItemCommand,PutItemCommand}),Buffer,console,process:{env:{}},createState,transition,GameError,freshLiveGame,MIN_LIBRARY_MOVES,MAX_GAME_MOVES,createDraft,draftTransition,draftPublication,freshSavedDraft,mainRecordingSgf,newRecordingSgf,sgf,reportHash:createHash,libraryStore:{},uploadRecord:async(store,source,name,id)=>{if(fail)throw Error('Save failed');if(!saved.has(id))saved.set(id,{id:'2026100601',sgf:source});return saved.get(id);},enqueueSavedRecord:async()=>{}});
  async function call(path,body){const r=await exports.handler({rawPath:path,requestContext:{http:{method:body?'POST':'GET'}},headers:{'content-type':'application/json'},body:body?JSON.stringify(body):undefined});return {status:r.statusCode,...JSON.parse(r.body)};}
  // Stones on rows 0, 2 and 4 keep a liberty below, so the seed never captures.
  const seed=async(s,n=MIN_LIBRARY_MOVES)=>{for(let k=0;k<n;k++)s=(await call('/api/game',{expectedRevision:s.revision,action:{type:'move',index:38*Math.floor(k/19)+k%19}})).state;return s;};
@@ -88,6 +88,13 @@ test('games under 50 moves end and reset without saving to the library',async()=
  const done=await a.call('/api/game',{expectedRevision:s.revision,action:{type:'resign',side:'black'}});
  assert.equal(done.status,200);assert.equal(done.state.phase,'play');assert.equal(done.state.history.length,0);
  assert.equal(done.state.lastSavedGame,undefined);assert.equal(a.saved.size,0);
+});
+
+test('an ended live game over 400 moves resets without saving to the library',async()=>{
+ const a=api(),s=createState();s.history=Array.from({length:MAX_GAME_MOVES+1},()=>({board:s.board,side:'black',captures:{black:0,white:0},passes:0,type:'pass'}));Object.assign(s,{phase:'ended',result:{winner:null,reason:'unfinished'},revision:7});
+ a.rows.set('current',{gameId:{S:'current'},revision:{N:'7'},clockVersion:{N:'0'},state:{S:JSON.stringify(s)}});
+ const next=await a.call('/api/game');assert.equal(next.status,200);assert.equal(next.state.phase,'play');assert.equal(next.state.history.length,0);
+ assert.equal(next.state.lastSavedGame,undefined);assert.equal(a.saved.size,0);
 });
 
 test('result dialog reasons are validated and written to the SGF result',()=>{

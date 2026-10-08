@@ -4,7 +4,7 @@ import vm from 'node:vm';
 import { readFileSync } from 'node:fs';
 import { webcrypto } from 'node:crypto';
 import { createState, transition, freshLiveGame } from '../backend/game-service.js';
-import { play, opposite, score, gameTree, reviewPosition, gameClock, sgf, MIN_LIBRARY_MOVES } from '../src/engine.js';
+import { play, opposite, score, gameTree, reviewPosition, gameClock, sgf, MIN_LIBRARY_MOVES, MAX_GAME_MOVES } from '../src/engine.js';
 
 // Exercise the actual client with an isolated DOM/network/clock, never the live game.
 async function client({publish=false}={}) {
@@ -22,7 +22,7 @@ async function client({publish=false}={}) {
   const get = id => { if(!elements.has(id)) elements.set(id,new Element()); return elements.get(id); };
   let remote = createState(), failAfterSave = false, failGet = false, now = Date.now();
   const context = vm.createContext({
-    mountTimeControl(){let current=null;return {render(){},fill(value){current=value;},value(){return current;}};},mountStoneSound(){},prepareStoneSound(){},playStoneSound(){},localTimestamp:()=> 'test · UTC+1', play, opposite, score, gameTree, reviewPosition, gameClock, sgf, MIN_LIBRARY_MOVES, language:'en', t: (zh,en)=>en, translateError:s=>s, setLanguage(){},
+    mountTimeControl(){let current=null;return {render(){},fill(value){current=value;},value(){return current;}};},mountStoneSound(){},prepareStoneSound(){},playStoneSound(){},localTimestamp:()=> 'test · UTC+1', play, opposite, score, gameTree, reviewPosition, gameClock, sgf, MIN_LIBRARY_MOVES, MAX_GAME_MOVES, language:'en', t: (zh,en)=>en, translateError:s=>s, setLanguage(){},
     location:{search:'',assign(url){calls.push('NAVIGATE '+url);}},URLSearchParams,
     document: {querySelector:s=>{const m=s.match(/input\[value="([^"]+)"\]/);if(m)return radios.find(r=>r.value===m[1]);if(s.includes(':checked'))return radios.find(r=>r.checked)||null;if(!selected.has(s))selected.set(s,new Element());return selected.get(s);},getElementById:get,createElement:()=>new Element(),createElementNS:()=>new Element(),
       createDocumentFragment:()=>new Element(),querySelectorAll:s=>s.includes('name="result"')?radios:[],addEventListener(){},visibilityState:'visible',body:new Element()},
@@ -44,7 +44,8 @@ async function client({publish=false}={}) {
   const run = code=>vm.runInContext(code,context);
   while(run('polling')) await new Promise(resolve=>setImmediate(resolve));
   const move=i=>{remote=transition(remote,{expectedRevision:remote.revision,action:{type:'move',index:i}});};
-  return {run,get,calls,intervals,remote:()=>remote,move,
+  const pass=()=>{remote=transition(remote,{expectedRevision:remote.revision,action:{type:'pass'}});};
+  return {run,get,calls,intervals,remote:()=>remote,move,pass,
     // Stones on rows 0, 2 and 4 keep a liberty below, so nothing is captured.
     seed:n=>{for(let k=0;k<n;k++)move(38*Math.floor(k/19)+k%19);},
     choose:value=>{radios.find(r=>r.value===value).checked=true;},checked:()=>radios.find(r=>r.checked)?.value,
@@ -184,6 +185,15 @@ test('games under 50 moves end without saving and say so',async()=>{
  c.submitResult();while(c.run('busy'))await new Promise(r=>setImmediate(r));
  assert.equal(c.run('state.history.length'),0);assert.ok(!c.calls.some(x=>x.startsWith('NAVIGATE')));
  assert.match(c.get('notice').textContent,/not saved/);
+});
+
+test('play stops at the 400-move limit and points to New game',async()=>{
+ const c=await client();
+ // Black alone on rows 0, 2, 4… plus row 1, with White passing, never captures or double-passes.
+ for(let k=0;k<MAX_GAME_MOVES/2;k++){c.move(k<190?38*Math.floor(k/19)+k%19:19+2*(k-190));c.pass();}
+ await c.run('sync()');
+ assert.equal(c.run('state.history.length'),MAX_GAME_MOVES);assert.equal(c.run('canPlay()'),false);assert.equal(c.get('pass').disabled,true);assert.equal(c.get('new').disabled,false);
+ assert.match(c.get('detail').textContent,/400-move limit reached\. Select New game to choose the result\./);
 });
 
 test('New game keeps the player on the fresh board after either result choice',async()=>{
