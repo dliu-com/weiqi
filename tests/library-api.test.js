@@ -100,6 +100,17 @@ test('queued record reads expose a stable queue forecast without changing record
  const h=api(),upload=await h.call('/api/library',{id,sgf,filename:'queue.sgf'}),key=gamePrefix(upload.id)+'/metadata.json',m=JSON.parse(h.files.get(key));
  m.analysis={status:'queued',backend:'primary',jobId:'job',quick:{status:'queued',estimatedSeconds:60},deep:{status:'queued',estimatedSeconds:3000}};h.files.set(key,JSON.stringify(m));
  h.batchJobs.set('job',{jobId:'job',jobName:'weiqi-'+upload.id+'-a1-1234abcd',jobQueue:'gpu-queue',status:'RUNNABLE',createdAt:Date.now()});
+test('a pending quick pass forecasts its own T4 quick job, not the deep A10G job',async()=>{
+ const h=api(),upload=await h.call('/api/library',{id,sgf,filename:'quick.sgf'}),key=gamePrefix(upload.id)+'/metadata.json',m=JSON.parse(h.files.get(key));
+ m.analysis={status:'queued',backend:'primary',attempt:1,token:'main',jobId:'deep',quickJob:{attempt:1,token:'quick',jobId:'quick'},quick:{status:'queued',estimatedSeconds:60},deep:{status:'queued',estimatedSeconds:900}};h.files.set(key,JSON.stringify(m));
+ h.batchJobs.set('other',{jobId:'other',jobName:'weiqi-'+upload.id+'-a1-9999abcd',jobQueue:'a10',status:'RUNNABLE',createdAt:Date.now()-60000});
+ h.batchJobs.set('deep',{jobId:'deep',jobName:'weiqi-'+upload.id+'-a1-1234abcd',jobQueue:'a10',status:'RUNNABLE',createdAt:Date.now()});
+ h.batchJobs.set('quick',{jobId:'quick',jobName:'weiqi-'+upload.id+'-q1-5678abcd',jobQueue:'t4',status:'RUNNABLE',createdAt:Date.now()});
+ const status=(await h.call('/api/library/'+upload.id)).metadata.analysis.queueStatus;assert.equal(status.jobsAhead,0);assert.equal(status.basis,'typical_startup');
+ h.batchJobs.set('quick',{...h.batchJobs.get('quick'),status:'FAILED'});const fallback=(await h.call('/api/library/'+upload.id)).metadata.analysis.queueStatus;assert.equal(fallback.state,'queued');assert.equal(fallback.jobsAhead,1);
+ m.analysis.quick={status:'ready',owner:'quick',completedAt:new Date().toISOString()};h.files.set(key,JSON.stringify(m));
+ assert.notEqual((await h.call('/api/library/'+upload.id)).metadata.analysis.queueStatus.state,'between_passes');
+});
  const original=h.files.get(key),first=await h.call('/api/library/'+upload.id),second=await h.call('/api/library/'+upload.id);
  assert.equal(first.status,200);assert.equal(first.metadata.analysis.queueStatus.jobsAhead,0);assert.equal(first.metadata.analysis.queueStatus.basis,'typical_startup');assert.deepEqual(first.metadata.analysis.queueStatus.startsAt,second.metadata.analysis.queueStatus.startsAt);assert.equal(h.files.get(key),original);assert.equal(h.messages.length,1);
  h.failBatch();assert.equal((await h.call('/api/library/'+upload.id)).metadata.analysis.queueStatus.state,'unavailable');assert.equal(h.files.get(key),original);

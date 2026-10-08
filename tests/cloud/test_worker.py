@@ -111,4 +111,29 @@ class WorkerTest(unittest.TestCase):
   request=self.download.call_args.args[0];self.assertEqual(request.full_url,os.environ['KATAGO_MODEL_URL']);self.assertIn('KataGo-analysis-library',request.get_header('User-agent'))
   self.assertFalse(any(key.startswith('models/') for key in self.files))
   analysis=json.loads(self.files['games/20261005/01/analysis.json']['body']);self.assertEqual(analysis['modelUrl'],request.full_url);self.assertIn('modelSha256',analysis);self.assertIn('configuration',analysis)
+ def test_separate_quick_worker_uses_its_own_token_and_never_changes_main_compute(self):
+  self.files['games/20261005/01/metadata.json']['body']=json.dumps({'analysis':{'status':'queued','token':'main','quickJob':{'attempt':1,'token':'quick'},'compute':{'gpu':'NVIDIA A10G'},'quick':{'status':'queued'},'deep':{'status':'queued'}}})
+  event={**self.event,'token':'quick','role':'quick','pipeline':True,'compute':{'backend':'gpu','vCpu':4,'memoryGB':16},'phases':{'quick':{'visits':32,'estimatedSeconds':10}}}
+  output='\n'.join(json.dumps({'turnNumber':n,'rootInfo':{'scoreLead':0,'winrate':.5,'visits':32}}) for n in [0,1,2])
+  with patch.dict(os.environ,{'BACKEND':'gpu'}),patch.object(self.worker.subprocess,'run',return_value=types.SimpleNamespace(returncode=0,stdout=output)) as run,patch.object(self.worker.subprocess,'check_output',side_effect=lambda args,**kw:'Tesla T4, 15360\n' if 'nvidia-smi' in args[0] else 'KataGo test\n'):
+   self.worker.pipeline(event)
+  self.assertEqual(run.call_count,1)
+  state=json.loads(self.files['games/20261005/01/metadata.json']['body'])['analysis']
+  self.assertEqual(state['quick']['status'],'ready');self.assertEqual(state['quick']['owner'],'quick');self.assertEqual(state['quick']['compute']['gpu'],'NVIDIA T4')
+  self.assertEqual(state['compute']['gpu'],'NVIDIA A10G');self.assertEqual(state['deep']['status'],'queued');self.assertEqual(state['available'],'quick')
+  self.assertEqual(self.worker.handler({**self.event,'token':'main','role':'quick','phase':'quick'})['status'],'skipped')
+  with self.assertRaisesRegex(ValueError,'role'):self.worker.handler({**self.event,'token':'quick','role':'quick','phase':'deep'})
+ def test_a_phase_running_for_another_worker_is_skipped_and_deep_still_runs(self):
+  self.files['games/20261005/01/metadata.json']['body']=json.dumps({'analysis':{'status':'running','token':'main','quickJob':{'attempt':1,'token':'quick'},'quick':{'status':'running','owner':'quick'},'deep':{'status':'queued'}}})
+  self.assertIsNone(self.worker.update_phase(self.event['id'],'quick',{'status':'running'},'main',claim=True))
+  event={**self.event,'token':'main','pipeline':True,'compute':{'backend':'gpu','vCpu':4,'memoryGB':16,'gpu':'NVIDIA A10G','instanceType':'g5.xlarge'},'phases':{'quick':{'visits':32,'estimatedSeconds':10},'deep':{'visits':3000,'estimatedSeconds':30}}}
+  output='\n'.join(json.dumps({'turnNumber':n,'rootInfo':{'scoreLead':0,'winrate':.5,'visits':3000}}) for n in [0,1,2])
+  with patch.object(self.worker.subprocess,'run',return_value=types.SimpleNamespace(returncode=0,stdout=output)) as run,patch.object(self.worker.subprocess,'check_output',return_value='KataGo test'):
+   results=self.worker.pipeline(event)
+  self.assertEqual(results[0]['status'],'skipped');self.assertEqual(run.call_count,1)
+  state=json.loads(self.files['games/20261005/01/metadata.json']['body'])['analysis']
+  self.assertEqual(state['deep']['status'],'ready');self.assertEqual(state['deep']['owner'],'main');self.assertEqual(state['quick']['owner'],'quick');self.assertEqual(state['available'],'deep')
+ def test_quick_worker_cannot_write_after_the_game_is_waiting_to_retry(self):
+  self.files['games/20261005/01/metadata.json']['body']=json.dumps({'analysis':{'status':'retry_wait','token':'main','quickJob':{'attempt':1,'token':'quick'},'quick':{'status':'retry_wait'},'deep':{'status':'retry_wait'}}})
+  with self.assertRaisesRegex(RuntimeError,'ownership'):self.worker.update_phase(self.event['id'],'quick',{'status':'running'},'quick','quick',claim=True)
 if __name__=='__main__':unittest.main()

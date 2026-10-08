@@ -25,14 +25,22 @@ def kata_candidates(move_infos,played_move=None):
             pv.append('pass' if p.lower()=='pass' else p.upper())
         result.append({'move':'pass' if m['move'].lower()=='pass' else m['move'].upper(),'order':m['order'],'blackLead':m['scoreLead'],'blackWinrate':m['winrate'],'visits':m['visits'],'pv':pv})
     return result
-def update_phase(game_id,phase,patch,token=None):
+def owner_token(state,role='main'):
+    return (state.get('quickJob') or {}).get('token') if role=='quick' else state.get('token')
+def owns(state,token,role='main'):
+    return not token or owner_token(state,role)==token and state.get('status') not in ['retry_wait','failed','paused']
+def update_phase(game_id,phase,patch,token=None,role='main',claim=False):
+    # A claim is atomic (conditional write): a phase already finished or
+    # running for another worker is skipped and None is returned.
     key=game_prefix(game_id)+'/metadata.json'
     for attempt in range(6):
         obj=s3.get_object(Bucket=BUCKET,Key=key)
         metadata=json.loads(obj['Body'].read());state=metadata['analysis']
-        if token and (state.get('token')!=token or state.get('status') in ['retry_wait','failed','paused']):raise RuntimeError('Analysis ownership changed')
-        state[phase]={**state.get(phase,{}),**patch}
-        if patch.get('compute'):state['compute']=patch['compute']
+        if not owns(state,token,role):raise RuntimeError('Analysis ownership changed')
+        current=state.get(phase,{})
+        if claim and (current.get('status')=='ready' or current.get('status')=='running' and current.get('owner') not in [None,token]):return None
+        state[phase]={**current,**patch,**({'owner':token} if claim and token else {})}
+        if patch.get('compute') and role!='quick':state['compute']=patch['compute']
         quick=state.get('quick',{}).get('status');deep=state.get('deep',{}).get('status')
         if deep=='ready':
             state.update(status='ready',available='deep',visits=state['deep']['visits'])
@@ -52,14 +60,17 @@ def handler(event,context=None):
     production=event.get('production',False)
     phase=event.get('phase')
     if phase not in [None,'quick','deep']:raise ValueError('Invalid analysis phase')
+    role=event.get('role','main')
+    if role not in ['main','quick'] or role=='quick' and phase!='quick':raise ValueError('Invalid analysis role')
     metadata=None
     if production:
         obj=s3.get_object(Bucket=BUCKET,Key=game_prefix(event['id'])+'/metadata.json')
         metadata=json.loads(obj['Body'].read())
-        if event.get('token') and metadata['analysis'].get('token')!=event['token']:return {'status':'skipped'}
+        if event.get('token') and owner_token(metadata['analysis'],role)!=event['token']:return {'status':'skipped'}
         if metadata['analysis']['status'] in ['ready','failed','limited','paused'] or phase and metadata['analysis'].get(phase,{}).get('status') in ['ready','failed']: return {'status':'skipped'}
         patch={'status':'running','startedAt':datetime.datetime.now(datetime.timezone.utc).isoformat(),'visits':event['query']['maxVisits'],'estimatedSeconds':event.get('estimatedSeconds',300),**({'compute':event['compute']} if event.get('compute') else {})}
-        if phase:update_phase(event['id'],phase,patch,event.get('token'))
+        if phase:
+            if update_phase(event['id'],phase,patch,event.get('token'),role,claim=True) is None:return {'status':'skipped'}
         else:
             metadata['analysis']={**metadata['analysis'],**patch}
             s3.put_object(Bucket=BUCKET,Key=game_prefix(event['id'])+'/metadata.json',Body=json.dumps(metadata).encode(),ContentType='application/json',IfMatch=obj['ETag'])
@@ -130,10 +141,10 @@ def handler(event,context=None):
         if production:
             if event.get('token'):
                 owned=json.loads(s3.get_object(Bucket=BUCKET,Key=prefix+'/metadata.json')['Body'].read())['analysis']
-                if owned.get('token')!=event['token'] or owned.get('status') in ['retry_wait','failed','paused']:raise RuntimeError('Analysis ownership changed')
+                if not owns(owned,event['token'],role):raise RuntimeError('Analysis ownership changed')
         s3.put_object(Bucket=BUCKET,Key=result_key,Body=json.dumps(analysis).encode(),ContentType='application/json')
         if production:
-            if phase:update_phase(event['id'],phase,{'status':'ready','visits':visits,'completedAt':analysis['completedAt']},event.get('token'))
+            if phase:update_phase(event['id'],phase,{'status':'ready','visits':visits,'completedAt':analysis['completedAt']},event.get('token'),role)
             else:
                 latest=s3.get_object(Bucket=BUCKET,Key=prefix+'/metadata.json')
                 metadata=json.loads(latest['Body'].read());metadata['analysis']={'status':'ready','visits':visits,'completedAt':analysis['completedAt']}
@@ -154,12 +165,14 @@ def actual_gpu_compute(compute):
     return {**compute,'gpu':label,'instanceType':instance,'gpuCount':1,'gpuMemoryGB':round(float(memory)/1024,1)}
 
 def pipeline(event):
-    # One GPU allocation serves both passes. Each pass still downloads the
-    # official model afresh; model files are never persisted in the library.
+    # The deep worker runs both passes unless the quick worker claimed quick
+    # first. Each pass downloads the official model afresh; model files are
+    # never persisted in the library.
     event={**event,'compute':actual_gpu_compute(event['compute'])}
     results=[]
     for phase in ['quick','deep']:
-        settings=event['phases'][phase]
+        settings=event['phases'].get(phase)
+        if not settings:continue
         results.append(handler({**event,'phase':phase,'query':{**event['query'],'maxVisits':settings['visits'],'id':event['id']+'-'+phase},'estimatedSeconds':settings['estimatedSeconds']}))
     return results
 
