@@ -38,8 +38,8 @@ const serverZh={
  'The position service could not finish.':'服务未能完成，请稍后再试。',
  'Position analysis is not configured.':'服务暂未开放。',
  'The network connection failed.':'网络连接失败，请检查网络后重试。',
- 'Use a photo smaller than 25 MB.':'请使用小于 25 MB 的照片。',
- 'Use a photo no larger than 18 megapixels.':'请使用不超过 1800 万像素的照片。',
+ 'Use a photo smaller than 50 MB.':'请使用小于 50 MB 的照片。',
+ 'Use a photo no larger than 70 megapixels.':'请使用不超过 7000 万像素的照片。',
  'This photo is too large. Try a smaller image.':'照片太大，请换一张较小的照片。',
  'This file could not be opened as a photo. Use a JPEG or PNG image.':'无法打开此文件。请使用 JPEG 或 PNG 照片。'
 };
@@ -71,11 +71,11 @@ function cancelWork(reason='cancel'){
 
 // Photos are reduced to about 1 MB in the browser before the single recognition request.
 async function encodePhoto(file,token){
- if(file.size>25*1024*1024)throw Error('Use a photo smaller than 25 MB.');
+ if(file.size>50*1024*1024)throw Error('Use a photo smaller than 50 MB.');
  const image=new Image();image.src=work.pendingPhoto;
  try{await image.decode();}catch{throw Error('This file could not be opened as a photo. Use a JPEG or PNG image.');}
  if(token!==generation)return null;
- if(image.naturalWidth*image.naturalHeight>18000000)throw Error('Use a photo no larger than 18 megapixels.');
+ if(image.naturalWidth*image.naturalHeight>70000000)throw Error('Use a photo no larger than 70 megapixels.');
  let edge=3072,blob;
  do{
   const factor=Math.min(1,edge/Math.max(image.naturalWidth,image.naturalHeight)),canvas=document.createElement('canvas');
