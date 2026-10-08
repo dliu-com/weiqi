@@ -50,7 +50,7 @@ function quickAnalysisCost(){
  table.className='cost-table';
  const head=document.createElement('tr');head.append(cell('th',''),cell('th',t('每次','Each')),cell('th',t('每 1000 次','Per 1,000')),cell('th',t('内存 × 平均时间','Memory × average time')));
  table.append(head);
- for(const [zh,en,each,thousand,use] of [['照片识别','Photo recognition','US$0.00013','US$0.13','1.8 GB × 4.6 s'],['AI 分析','AI analysis','US$0.00008','US$0.08','3 GB × 1.6 s']]){const row=document.createElement('tr');row.append(cell('th',t(zh,en)),cell('td',each),cell('td',thousand),cell('td',use));table.append(row);}
+ for(const [zh,en,each,thousand,use] of [['照片识别','Photo recognition','US$0.00013','US$0.13','1.8 GB × 4.6 s'],['AI 分析','AI analysis','US$0.00015','US$0.15','3 GB × 3.0 s']]){const row=document.createElement('tr');row.append(cell('th',t(zh,en)),cell('td',each),cell('td',thousand),cell('td',use));table.append(row);}
  const note=document.createElement('p');note.className='licence-line';note.textContent=t('AWS Lambda（爱尔兰）实测，含冷启动；CloudFront 和日志另有极少费用。','Measured on AWS Lambda in Ireland, including cold starts; CloudFront and logs add a tiny amount.');
  const f=document.createDocumentFragment();f.append(table,note);return f;
 }

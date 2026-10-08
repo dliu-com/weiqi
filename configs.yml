@@ -24,4 +24,4 @@ positionAnalysis:
   recognitionTimeoutSeconds: 25
   aiMemoryMb: 3008
   aiTimeoutSeconds: 20
-  aiVisits: 128
+  aiVisits: 300
