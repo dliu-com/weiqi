@@ -97,8 +97,8 @@ test('actual comparison table shows leader-coloured absolute points and both win
  assert.equal(c.run("tableRows[0].children[2].children[0].textContent"),'2.0');assert.equal(c.run("tableRows[0].children[2].children[0].className"),'ai-score-badge ai-score-black');
  assert.equal(c.run("tableRows[0].children[2].attrs['aria-label']"),'Black leads by 2.0 points');
  assert.deepEqual(Array.from(c.run("tableRows[0].children[3].children[0].children.map(e=>e.textContent)")),['70.0','30.0']);assert.equal(c.run("tableRows[0].children[3].attrs['aria-label']"),'Black 70.0%, White 30.0%');
- assert.equal(c.run("tableRows[1].children[2].children[0].textContent"),'≈ 4.0');assert.equal(c.run("tableRows[1].children[2].children[0].className"),'ai-score-badge ai-score-white');assert.equal(c.run("tableRows[1].children[2].attrs['aria-label']"),'White leads by 4.0 points (estimated)');
- assert.deepEqual(Array.from(c.run("tableRows[1].children[3].children[1].children.map(e=>e.textContent)")),['25.0','75.0']);
+ assert.equal(c.run("tableRows[1].children[2].children[0].textContent"),'4.0');assert.equal(c.run("tableRows[1].children[2].children[0].className"),'ai-score-badge ai-score-white');assert.equal(c.run("tableRows[1].children[2].attrs['aria-label']"),'White leads by 4.0 points');assert.equal(c.run("$('ai-alternatives').children.some(e=>e.tag==='small')"),false);
+ assert.equal(c.run("tableRows[1].children[3].children.length"),1);assert.deepEqual(Array.from(c.run("tableRows[1].children[3].children[0].children.map(e=>e.textContent)")),['25.0','75.0']);
  c.run("analyses.delete(1);renderSuggestions()");const cells=c.get('ai-alternatives').children.find(e=>e.tag==='table').children[1].children[1].children;assert.equal(cells[2].textContent,'—');assert.equal(cells[3].textContent,'—');
 });
 test('White-to-play comparison keeps Black-perspective scores and paired percentages, with zero neutral',()=>{
