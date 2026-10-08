@@ -82,6 +82,7 @@ test('record library uses a separate retained private bucket and a queue without
  template.resourceCountIs('AWS::Batch::ComputeEnvironment',0);
  template.resourceCountIs('AWS::Lambda::EventSourceMapping',1);
  template.hasResourceProperties('AWS::Lambda::Function',{Environment:{Variables:Match.objectLike({LIBRARY_BUCKET:Match.anyValue(),ANALYSIS_QUEUE:Match.anyValue()})}});
+ template.hasResourceProperties('AWS::Lambda::Function',{Environment:{Variables:Match.objectLike({DAILY_UPLOAD_CAP:'100',DAILY_ANALYSIS_CAP:'10'})}});
 });
 
 test('validated upload queue can be selected while retaining the old queue for draining',()=>{

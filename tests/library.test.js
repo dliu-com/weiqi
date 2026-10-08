@@ -27,26 +27,41 @@ test('daily IDs are sequential, concurrent-safe and upload retries reuse their I
  const files=new Map(),store={get:async key=>{if(!files.has(key))throw Object.assign(Error(),{name:'NoSuchKey'});return files.get(key);},create:async(key,value)=>{if(files.has(key))return false;files.set(key,value);return true;}};
  const now=new Date('2026-10-05T15:00:00Z'),other='22345678-1234-1234-1234-123456789abc';
  const [a,b]=await Promise.all([uploadRecord(store,sample,'a.sgf',id,now),uploadRecord(store,sample,'b.sgf',other,now)]);
- assert.deepEqual([a.id,b.id].sort(),['2026100501','2026100502']);
+ assert.deepEqual([a.id,b.id].sort(),['2026100500','2026100501']);
  assert.equal((await uploadRecord(store,sample,'a.sgf',id,new Date('2026-10-06'))).id,a.id);
  await assert.rejects(()=>uploadRecord(store,'(;SZ[19])','other.sgf',id,now),e=>e.statusCode===409);
- const third='32345678-1234-1234-1234-123456789abc';const [c,d]=await Promise.all([uploadRecord(store,sample,'c.sgf',third,now),uploadRecord(store,sample,'c.sgf',third,now)]);assert.equal(c.id,'2026100503');assert.equal(d.id,c.id);
+ const third='32345678-1234-1234-1234-123456789abc';const [c,d]=await Promise.all([uploadRecord(store,sample,'c.sgf',third,now),uploadRecord(store,sample,'c.sgf',third,now)]);assert.equal(c.id,'2026100502');assert.equal(d.id,c.id);
 });
 function memoryStore(){const files=new Map();return {files,get:async key=>{if(!files.has(key))throw Object.assign(Error(),{name:'NoSuchKey'});return files.get(key);},create:async(key,value)=>{if(files.has(key))return false;files.set(key,value);return true;}};}
 const uploadId=n=>String(n).padStart(8,'0')+'-1234-1234-1234-123456789abc';
-test('concurrent uploads claim at most 10 paid slots, keeping later records replayable',async()=>{
+test('concurrent uploads claim at most 10 deep slots; later games get quick analysis only',async()=>{
  const store=memoryStore(),now=new Date('2026-10-05T15:00:00Z');
  const records=await Promise.all(Array.from({length:21},(_,n)=>uploadRecord(store,sample,'game.sgf',uploadId(n),now)));
- assert.equal(records.filter(r=>r.analysis.status==='queued').length,10);
- const limited=records.find(r=>r.analysis.status==='limited');assert.equal(limited.analysis.dailyLimit,10);assert.equal(await store.get(gamePrefix(limited.id)+'/original.sgf'),sample);
+ assert.equal(records.filter(r=>r.analysis.status==='queued').length,21);
+ assert.equal(records.filter(r=>!r.analysis.deep).length,10);
+ const quickOnly=records.filter(r=>r.analysis.deep?.status==='limited');assert.equal(quickOnly.length,11);assert.equal(quickOnly[0].analysis.deep.dailyLimit,10);assert.equal(await store.get(gamePrefix(quickOnly[0].id)+'/original.sgf'),sample);
  assert.equal([...store.files.keys()].filter(k=>k.startsWith('daily-analysis/')).length,10);
+ assert.deepEqual((await uploadRecord(store,sample,'game.sgf',uploadId(20),now)).analysis,records[20].analysis);
+});
+test('at most 100 new games per London day, numbered 00 to 99',async()=>{
+ const store=memoryStore(),now=new Date('2026-10-05T15:00:00Z');
+ const records=[];for(let n=0;n<100;n++)records.push(await uploadRecord(store,sample,'game.sgf',uploadId(n),now));
+ assert.equal(records[0].id,'2026100500');assert.equal(records[99].id,'2026100599');
+ await assert.rejects(()=>uploadRecord(store,sample,'game.sgf',uploadId(100),now),e=>e.statusCode===429);
+});
+test('upload retries saved before quick-only games keep their original analysis',async()=>{
+ const store=memoryStore(),now=new Date('2026-10-05T15:00:00Z');
+ await store.create('uploads/'+uploadId(1)+'.json',JSON.stringify({id:'2026100507',analysisAllowed:true,analysisPaused:false}));
+ await store.create('uploads/'+uploadId(2)+'.json',JSON.stringify({id:'2026100508',analysisAllowed:false,analysisPaused:false}));
+ assert.deepEqual((await uploadRecord(store,sample,'a.sgf',uploadId(1),now)).analysis,{status:'queued'});
+ assert.equal((await uploadRecord(store,sample,'b.sgf',uploadId(2),now)).analysis.status,'limited');
 });
 test('operator benchmarks do not consume public paid slots; retries and the London day are respected',async()=>{
  const store=memoryStore(),now=new Date('2026-10-05T22:59:59Z');
  for(let n=100;n<121;n++)await uploadRecord(store,sample,'benchmark.sgf',uploadId(n),now,{analysis:false});
- const record=await uploadRecord(store,sample,'game.sgf',uploadId(200),now);assert.equal(record.id,'2026100522');assert.equal(record.analysis.status,'queued');
+ const record=await uploadRecord(store,sample,'game.sgf',uploadId(200),now);assert.equal(record.id,'2026100521');assert.deepEqual(record.analysis,{status:'queued'});
  await uploadRecord(store,sample,'game.sgf',uploadId(200),now);assert.equal([...store.files.keys()].filter(k=>k.startsWith('daily-analysis/')).length,1);
- const next=await uploadRecord(store,sample,'game.sgf',uploadId(201),new Date('2026-10-05T23:00:01Z'));assert.equal(next.id,'2026100601');
+ const next=await uploadRecord(store,sample,'game.sgf',uploadId(201),new Date('2026-10-05T23:00:01Z'));assert.equal(next.id,'2026100600');
  assert.equal([...store.files.keys()].filter(k=>k.startsWith('daily-analysis/')).length,2);
  await assert.rejects(()=>uploadRecord(store,'(;SZ[9])','bad.sgf',uploadId(202),now));assert.equal([...store.files.keys()].filter(k=>k.startsWith('daily-analysis/')).length,2);
 });

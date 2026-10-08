@@ -20,7 +20,7 @@ async function pauseGame(job){
   const o=await s3.send(new GetObjectCommand({Bucket:bucket,Key:path})),m=JSON.parse(await o.Body.transformToString()),s=m.analysis;
   if(s.deep?.status==='ready'||['ready','limited','paused'].includes(s.status))return;
   s.status='paused';s.reason=(await control()).reason||'spending_budget';s.pausedAt=new Date().toISOString();delete s.retryAt;delete s.retrySentAt;
-  for(const p of ['quick','deep'])if(s[p]&&s[p].status!=='ready')s[p]={...s[p],status:'paused'};
+  for(const p of ['quick','deep'])if(s[p]&&!['ready','limited'].includes(s[p].status))s[p]={...s[p],status:'paused'};
   try{await s3.send(new PutObjectCommand({Bucket:bucket,Key:path,Body:JSON.stringify(m),ContentType:'application/json',IfMatch:o.ETag}));return;}catch(e){if(![409,412].includes(e.$metadata?.httpStatusCode)||n===5)throw e;}
  }
 }

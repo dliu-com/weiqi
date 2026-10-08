@@ -5,6 +5,8 @@ const yaml=require('js-yaml');
 export const projectConfig=yaml.safeLoad(fs.readFileSync(path.join(__dirname,'../../configs.yml'),'utf8'));
 if(projectConfig.aws.region!=='eu-west-1')throw Error('Weiqi resources must stay in Ireland.');
 for(const [name,value]of Object.entries(projectConfig.analysis))if(!Number.isInteger(value)||Number(value)<=0)throw Error('Invalid analysis setting: '+name);
+if(projectConfig.analysis.dailyGameLimit>100)throw Error('Game IDs have two digits for the daily sequence, so at most 100 games per day.');
+if(projectConfig.analysis.dailyDeepLimit>projectConfig.analysis.dailyGameLimit)throw Error('Deep analysis limit cannot exceed the daily game limit.');
 if(!Number.isFinite(projectConfig.budget.monthlyUsd)||projectConfig.budget.monthlyUsd<=0)throw Error('Invalid monthly budget.');
 if(!Number.isFinite(projectConfig.budget.dailyUsd)||projectConfig.budget.dailyUsd<=0)throw Error('Invalid daily budget.');
 if(!Number.isFinite(projectConfig.positionAnalysis.dailyUsd)||projectConfig.positionAnalysis.dailyUsd<=0||projectConfig.positionAnalysis.dailyUsd>projectConfig.budget.dailyUsd)throw Error('Invalid public position allowance.');

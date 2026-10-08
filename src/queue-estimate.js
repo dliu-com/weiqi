@@ -1,7 +1,7 @@
 const time=value=>typeof value==='number'?value:Date.parse(value);
 const seconds=stage=>Number.isFinite(stage?.estimatedSeconds)&&stage.estimatedSeconds>0?stage.estimatedSeconds:null;
 function duration(analysis){
- const quick=analysis.quick?.status==='ready'?0:seconds(analysis.quick),deep=analysis.deep?.status==='ready'?0:seconds(analysis.deep);
+ const quick=analysis.quick?.status==='ready'?0:seconds(analysis.quick),deep=['ready','limited'].includes(analysis.deep?.status)?0:seconds(analysis.deep);
  return quick===null||deep===null?null:quick+deep;
 }
 function finish(job,analysis){

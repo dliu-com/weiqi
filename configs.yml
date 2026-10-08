@@ -9,7 +9,10 @@ budget:
   dailyUsd: 15
   # AI stays paused until an administrator deliberately resumes it.
 analysis:
-  dailyGameLimit: 10
+  # Per London day: up to 100 new games (IDs end 00-99). Every game gets quick
+  # analysis on T4 (about US$0.05); only the first 10 also get deep analysis.
+  dailyGameLimit: 100
+  dailyDeepLimit: 10
   quickVisits: 32
   # Deep visits per position on every GPU. A 250-move game takes about 15 minutes
   # on A10G and 36 minutes on T4; results stay close to 12,000 visits.
