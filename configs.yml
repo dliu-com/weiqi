@@ -11,10 +11,9 @@ budget:
 analysis:
   dailyGameLimit: 10
   quickVisits: 32
-  # Deep visits per position, chosen so a 250-move game takes about 45-60 minutes.
-  # A10G On-Demand is tried first; the Spot pool and the T4 backup use the T4 setting.
-  deepVisitsA10G: 12000
-  deepVisitsT4: 5000
+  # Deep visits per position on every GPU. A 250-move game takes about 15 minutes
+  # on A10G and 36 minutes on T4; results stay close to 12,000 visits.
+  deepVisits: 3000
   capacityFallbackSeconds: 180
   jobTimeoutSeconds: 7200
 

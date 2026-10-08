@@ -19,9 +19,9 @@ test('production uses A10G first, then Spot and T4 across three zones, delayed f
  prod.resourceCountIs('AWS::Batch::ComputeEnvironment',3);
  prod.hasResourceProperties('AWS::Batch::ComputeEnvironment',{ComputeResources:Match.objectLike({MinvCpus:0,MaxvCpus:8,InstanceTypes:['g4dn.xlarge'],Subnets:Match.arrayWith([{Ref:'CapacitySubnet'}])})});
  prod.resourceCountIs('AWS::Lambda::EventSourceMapping',2);
- prod.hasResourceProperties('AWS::Lambda::Function',{Environment:{Variables:Match.objectLike({QUICK_VISITS:'32',DEEP_VISITS_A10G:'12000',DEEP_VISITS_T4:'5000',GPU_FALLBACK_WAIT_SECONDS:'180',FALLBACK_GPU_QUEUE:Match.anyValue(),FALLBACK_SPOT_QUEUE:Match.anyValue()})}});
+ prod.hasResourceProperties('AWS::Lambda::Function',{Environment:{Variables:Match.objectLike({QUICK_VISITS:'32',DEEP_VISITS:'3000',GPU_FALLBACK_WAIT_SECONDS:'180',FALLBACK_GPU_QUEUE:Match.anyValue(),FALLBACK_SPOT_QUEUE:Match.anyValue()})}});
  prod.hasResourceProperties('AWS::Batch::ComputeEnvironment',{ComputeResources:Match.objectLike({MinvCpus:0,MaxvCpus:8,InstanceTypes:['g5.xlarge']})});
- prod.hasResourceProperties('AWS::Batch::JobDefinition',{ContainerProperties:Match.objectLike({Environment:Match.arrayWith([{Name:'MAX_VISITS',Value:'12000'}])})});
+ prod.hasResourceProperties('AWS::Batch::JobDefinition',{ContainerProperties:Match.objectLike({Environment:Match.arrayWith([{Name:'MAX_VISITS',Value:'3000'}])})});
  const functions=Object.values(prod.findResources('AWS::Lambda::Function'));for(const fn of functions)expect(JSON.stringify(fn.Properties.Environment||{})).not.toContain('CPU_JOB_DEFINITION');
  prod.hasResourceProperties('AWS::Batch::JobDefinition',{Timeout:{AttemptDurationSeconds:7200},ContainerProperties:Match.objectLike({Environment:Match.arrayWith([{Name:'ANALYSIS_TIMEOUT_SECONDS',Value:'7100'}])})});
  const rules=Object.values(prod.findResources('AWS::Events::Rule'));for(const rule of rules)expect(rule.Properties.ScheduleExpression).toBeUndefined();
