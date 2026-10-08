@@ -46,7 +46,7 @@ function renderContents(){document.title=(data?.metadata.name || t('棋谱','Gam
 }
 function pendingMessage(){
  const state=data.metadata.analysis,stage=pendingAnalysis(state)||state;
- if(state.status==='retry_wait'){const remaining=Math.max(0,Math.ceil((Date.parse(state.retryAt)-Date.now())/1000));return t('AI 分析暂时失败。棋谱和已完成的分析已保存。','AI analysis temporarily failed. Your record and completed analysis are safe.')+'\n'+t('自动重试 ','Automatic retry ')+(state.attempt||1)+'/2 · '+formatAnalysisEstimate(Date.parse(state.retryAt))+'\n'+(remaining>0?t('还需约 '+Math.ceil(remaining/60)+' 分钟。','About '+Math.ceil(remaining/60)+' min until retry.'):t('重试已到期，等待调度。','Retry is due; awaiting dispatch.'))+(data.analysis?'':'\n'+t('每分钟检查一次。','Checking once a minute.'));}
+ if(state.status==='retry_wait'){const remaining=Math.max(0,Math.ceil((Date.parse(state.retryAt)-Date.now())/1000));return quickShownLine()+t(failedAnalysisName()+'失败 · 自动重试 ',failedAnalysisName()+' failed · automatic retry ')+(state.attempt||1)+'/2 · '+formatAnalysisEstimate(Date.parse(state.retryAt))+'\n'+(remaining>0?t('还需约 '+Math.ceil(remaining/60)+' 分钟。','About '+Math.ceil(remaining/60)+' min until retry.'):t('重试已到期，等待调度。','Retry is due; awaiting dispatch.'))+(data.analysis?'':'\n'+t('每分钟检查一次。','Checking once a minute.'));}
  const deep=stage.phase==='deep'||data.metadata.benchmark?.queueKind==='deep';
  if(data.metadata.benchmark&&!data.metadata.benchmark.workflow){const started=stage.startedAt||state.startedAt;return (state.status==='queued'?t('基准测试排队中。','Benchmark queued.'):t('基准分析运行中 · 已运行 ','Benchmark analysis running · elapsed ')+Math.floor(Math.max(0,Date.now()-Date.parse(started))/60000)+t(' 分钟',' min')+'\n'+t('开始于：','Started: ')+formatAnalysisTime(Date.parse(started)));}
  const wait=analysisWait(stage,data.metadata.moves),completion=analysisCompletion(stage,data.metadata.moves),duration=t(Math.max(1,Math.ceil(wait.seconds/60))+' 分钟',Math.max(1,Math.ceil(wait.seconds/60))+' min');
@@ -70,7 +70,9 @@ function pendingMessage(){
  return showing+retry+name+progress+started+estimate;
 }
 function pausedAnalysisMessage(){return t('AI 分析已暂停：本站费用达到限额。棋谱和已有分析仍可查看。','AI analysis is paused because the site’s spending threshold was reached. Your game and completed analysis remain available.');}
-function terminalAnalysisMessage(){return (data.metadata.analysis.error||t('AI 分析失败。','AI analysis failed.'))+' '+t('已完成两次自动重试。棋谱和已有分析仍可查看。','Both automatic retries have been used. Your record and completed analysis remain available.');}
+function quickShownLine(){return data.analysis?t('已显示快速分析。','Quick analysis shown.')+'\n':'';}
+function failedAnalysisName(){return data.analysis?t('深度分析','Deep analysis'):t('AI 分析','AI analysis');}
+function terminalAnalysisMessage(){return quickShownLine()+t(failedAnalysisName()+'失败，两次自动重试均未成功。',failedAnalysisName()+' failed after 2 automatic retries.');}
 function formatAnalysisTime(timestamp){return localTimestamp(timestamp,document.documentElement.lang==='zh-CN'?'zh':'en',{seconds:false});}
 function formatAnalysisEstimate(timestamp){return formatAnalysisTime(conservativeMinute(timestamp));}
 function scheduleStatusTicker(){clearInterval(statusTimer);if(record&&!document.hidden&&pendingAnalysis(data.metadata.analysis))statusTimer=setInterval(()=>{if(trialOffset)return;const message=pendingMessage();if($('analysis-status').textContent!==message)$('analysis-status').textContent=message;},1000);}
@@ -82,7 +84,7 @@ function showLoadError(){
  const link=document.createElement('a');link.href='/game';link.textContent=t('查看棋谱库','Go to the game library');
  $('record-message').replaceChildren(text+' ',...(record?[]:[link]));
 }
-async function load(){if(loading)return;loading=true;render();try{if(!/^(?:[0-9]{10,14}|[a-f0-9-]{36})$/.test(id || ''))throw Object.assign(Error('Invalid game link.'),{kind:'invalid-link'});const next=await libraryRequest('/api/library/'+id);const parsed=readSgf(next.sgf);if(next.analysis && next.analysis.sgfSha256!==Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(next.sgf))),b=>b.toString(16).padStart(2,'0')).join(''))throw Object.assign(Error('Analysis does not match this record.'),{kind:'mismatch'});data=next;record=parsed;handicap=Number(parseSgf(next.sgf).nodes[0].HA?.[0]||0);analyses=new Map((data.analysis?.positions || []).map(p=>[p.nodeId,p]));if(selected>=record.nodes.length)selected=0;drawBoard();loadError=null;$('record-message').textContent='';}catch(e){loadError=e;showLoadError();}finally{loading=false;render();schedulePoll();scheduleStatusTicker();}}
+async function load(){if(loading)return;loading=true;render();try{if(!/^(?:[0-9]{10,14}|[a-f0-9-]{36})$/.test(id || ''))throw Object.assign(Error('Invalid game link.'),{kind:'invalid-link'});const next=await libraryRequest('/api/library/'+id);const parsed=readSgf(next.sgf);if(next.analysis && next.analysis.sgfSha256!==Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(next.sgf))),b=>b.toString(16).padStart(2,'0')).join(''))throw Object.assign(Error('Analysis does not match this record.'),{kind:'mismatch'});data=next;record=parsed;handicap=Number(parseSgf(next.sgf).nodes[0].HA?.[0]||0);analyses=new Map((data.analysis?.positions || []).map(p=>[p.nodeId,p]));if(selected===null||selected>=record.nodes.length)selected=record.mainLine.at(-1);drawBoard();loadError=null;$('record-message').textContent='';}catch(e){loadError=e;showLoadError();}finally{loading=false;render();schedulePoll();scheduleStatusTicker();}}
 function soundCurrentMove(){const node=trials[trialOffset-1]||aiLine?.frames[aiLine.offset]||record?.nodes[selected];if(node?.move&&node.move.index!==null)playStoneSound();}
 function selectPosition(node){aiHover=null;aiHoverBlocked=false;prepareStoneSound();const forward=record.nodes[node].depth>record.nodes[selected].depth;selected=node;try{sessionStorage.setItem('weiqi.replay.'+id,String(node));}catch{}trials=[];trialOffset=0;aiLine=null;$('record-message').textContent='';render();if(forward)soundCurrentMove();}
 function step(amount){
@@ -163,7 +165,7 @@ function analysisCompute(a){
  return t('计算资源：','Compute: ')+(parts.length?parts.join(' · '):t('未记录','not recorded'));
 }
 
-function restorePosition(){try{const requested=new URLSearchParams(location.search).get('move');const n=Number(requested===null?sessionStorage.getItem('weiqi.replay.'+id):requested);return Number.isInteger(n)&&n>=0?n:0;}catch{return 0;}}
+function restorePosition(){try{const requested=new URLSearchParams(location.search).get('move')??sessionStorage.getItem('weiqi.replay.'+id);const n=requested===null||requested===''?NaN:Number(requested);return Number.isInteger(n)&&n>=0?n:null;}catch{return null;}}
 
 function analysisTotal(a){
  const elapsed=analysisTotalMillis(a,data?.metadata);
