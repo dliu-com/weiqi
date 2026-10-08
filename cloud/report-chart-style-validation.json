@@ -2,7 +2,7 @@
   "verifiedAt": "2026-10-06T14:35:17.072Z",
   "region": "eu-west-1",
   "provisioning": "CloudFormation only",
-  "recordUrl": "https://weiqi.dliu.com/record/2026100621/report?lang=en",
+  "recordUrl": "https://weiqi.dliu.com/game/2026100621/report?lang=en",
   "renderVersion": "abed6cf5a21a9dc1",
   "changes": [
     "Six graphs share the replay grey canvas and axis palette",

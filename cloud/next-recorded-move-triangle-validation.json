@@ -1,6 +1,6 @@
 {
   "verifiedAt": "2026-10-06T14:54:11.359232+00:00",
-  "recordUrl": "https://weiqi.dliu.com/record/2026100620?move=170",
+  "recordUrl": "https://weiqi.dliu.com/game/2026100620?move=170",
   "region": "eu-west-1",
   "deployment": "Static update in the existing CloudFormation-managed site; no new resources",
   "testingScope": "Representative positions only; no full-game replay",

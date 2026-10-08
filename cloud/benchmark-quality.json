@@ -12,6 +12,6 @@
   "meanAbsoluteWinratePercentagePointDifference": 1.2342864607791921,
   "maxAbsolutePointDifference": 3.57547199,
   "maxAbsoluteWinratePercentagePointDifference": 18.634091399999996,
-  "recordUrl": "https://weiqi.dliu.com/record/2026100620",
+  "recordUrl": "https://weiqi.dliu.com/game/2026100620",
   "note": "Same-game/model consistency comparison; not independent accuracy validation."
 }

@@ -13,7 +13,7 @@ import {drawEvaluationChart} from './evaluation-chart.js';
 import {readSgf,parseSgf} from './sgf.js';
 import {libraryRequest,requestErrorText} from './library-api.js';
 import {renderMoveLabel,qualityPill} from './move-label.js';
-const $=id=>document.getElementById(id),id=location.pathname.match(/^\/(?:record|game)\/([0-9]{10,14}|[a-f0-9-]{36})\/?$/)?.[1] || new URLSearchParams(location.search).get('game');
+const $=id=>document.getElementById(id),id=location.pathname.match(/^\/game\/([0-9]{10,14}|[a-f0-9-]{36})\/?$/)?.[1] || new URLSearchParams(location.search).get('game');
 mountStoneSound($('game-sound'));
 let data=null,record=null,handicap=0,selected=restorePosition(),loading=false,points=[],analyses=new Map(),trials=[],trialOffset=0,chartMode='score',pollTimer=null,statusTimer=null,aiLine=null,suggestions=true;
 const boardCandidates=new Map(),boardRecordedMoves=new Map();

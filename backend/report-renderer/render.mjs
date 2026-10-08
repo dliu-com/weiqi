@@ -16,14 +16,14 @@ export async function renderReports(report,{htmlOnly=false}={}){
     try{
      const url=new URL(request.url());if(['data:','blob:'].includes(url.protocol)){await request.continue();return;}if(url.origin!=='https://weiqi.dliu.com'){await request.abort();return;}
      if(url.pathname==='/api/library/'+report.id+'/report'){await request.respond({status:200,contentType:'application/json',body:JSON.stringify(report)});return;}
-     if(url.pathname==='/record/'+report.id+'/report'){await request.respond({status:200,contentType:'text/html',body:await readFile(directory+'render.html')});return;}
+     if(url.pathname==='/game/'+report.id+'/report'){await request.respond({status:200,contentType:'text/html',body:await readFile(directory+'render.html')});return;}
      const file=url.pathname.slice(1);if(!/^[a-z0-9.-]+$/.test(file)){await request.abort();return;}
      const type=file.endsWith('.js')?'text/javascript':file.endsWith('.css')?'text/css':file.endsWith('.otf')?'font/otf':'text/plain';
      await request.respond({status:200,contentType:type,body:await readFile(directory+'assets/'+file)});
     }catch{if(!request.isInterceptResolutionHandled())await request.abort();}
    });
    page.on('pageerror',error=>console.error('Report rendering error:',error.message));
-   await page.goto('https://weiqi.dliu.com/record/'+report.id+'/report?lang='+language,{waitUntil:'networkidle0',timeout:45000});
+   await page.goto('https://weiqi.dliu.com/game/'+report.id+'/report?lang='+language,{waitUntil:'networkidle0',timeout:45000});
    await page.waitForFunction(()=>document.querySelectorAll('.report-sheet').length>0,{timeout:45000});
    await page.addStyleTag({content:fontStyle});await page.evaluate(()=>document.fonts.ready);
    const content=await page.evaluate(()=>{const main=document.querySelector('main').cloneNode(true);for(const a of main.querySelectorAll('a[href]'))a.setAttribute('href',a.dataset.reportPage?'#report-page-'+a.dataset.reportPage:new URL(a.getAttribute('href'),location.origin).href);return {html:main.outerHTML,pages:main.querySelectorAll('.report-sheet').length};});

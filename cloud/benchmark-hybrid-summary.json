@@ -1,5 +1,5 @@
 {
-  "recordUrl": "https://weiqi.dliu.com/record/2026100611",
+  "recordUrl": "https://weiqi.dliu.com/game/2026100611",
   "gameMoves": 321,
   "region": "eu-west-1",
   "clockOrigin": "SQS enqueue, shared by both phases",
@@ -55,7 +55,7 @@
     "meanAbsoluteWinratePercentagePointDifference": 1.705443034646273,
     "maxAbsolutePointDifference": 4.05800943,
     "maxAbsoluteWinratePercentagePointDifference": 22.767430599999994,
-    "recordUrl": "https://weiqi.dliu.com/record/2026100611",
+    "recordUrl": "https://weiqi.dliu.com/game/2026100611",
     "note": "Paired same-game, same-model workflow agreement; not independent accuracy measurement."
   },
   "pricingNote": "USD estimate covers CPU task billing and complete GPU allocation through automatic shutdown, with public IP and GPU storage allowance. Small API/S3/log/transfer usage is additional; this is not a final invoice.",
@@ -70,7 +70,7 @@
   },
   "estimatedWholeGameComputeIpStorageUSD": 0.2864044100611111,
   "capacityFallbackValidation": {
-    "recordUrl": "https://weiqi.dliu.com/record/2026100612",
+    "recordUrl": "https://weiqi.dliu.com/game/2026100612",
     "gameMoves": 321,
     "enqueuedAt": "2026-10-06T02:02:02.062Z",
     "historicalGpuWaitThresholdSeconds": 600,
