@@ -76,7 +76,7 @@ Prepared 7 October 2026. Project: **DL Weiqi**, <https://weiqi.dliu.com>. Reposi
 - Replay estimates include move count and queue/startup time. Preserve honest “estimate unavailable” states instead of moving expired finish timestamps forward forever.
 - Completed deep analysis triggers saved report JSON plus background preparation of English/Chinese HTML and fixed A4 PDFs. Viewing a report, switching language or downloading PDF reads prepared files; it must not generate a report or launch KataGo on interaction.
 - Report preparation uses the FIFO queue and pinned Chromium/Puppeteer renderer. Original records/analysis remain in protected library storage; immutable prepared HTML/PDFs are in the private site bucket. Renderer version changes require rebuilding assets and explicitly preparing affected old reports.
-- Reports include metadata, six game-wide charts, five worst qualifying moves per side and detailed board reviews for the leading three per side, with searchable bilingual PDFs and contents/review links. Preserve measured data and preparation/version checks when changing presentation.
+- Reports include metadata, a numbered full game record (final board plus a list of captured moves/passes), six game-wide charts, five worst qualifying moves per side and detailed board reviews for the leading three per side, with searchable bilingual PDFs and contents/review links. Preserve measured data and preparation/version checks when changing presentation.
 
 ### Quick analysis on `/analysis`
 

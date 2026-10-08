@@ -4,7 +4,7 @@ import {createHash} from 'node:crypto';
 const root=fileURLToPath(new URL('../',import.meta.url)),destination=root+'backend/report-renderer/assets/';
 await mkdir(destination,{recursive:true});
 await rm(destination+'report-pdf.js',{force:true});
-const files=['report-render.js','report.css','report-stat-charts.js','report-highlights.js','report-document.js','library-api.js','board-diagram.js','board-geometry.js','evaluation-chart.js','sgf.js','ai-review.js','engine.js','game-result.js','report-font.otf'];
+const files=['report-render.js','report.css','report-stat-charts.js','report-highlights.js','report-game-record.js','report-document.js','library-api.js','board-diagram.js','board-geometry.js','evaluation-chart.js','sgf.js','ai-review.js','engine.js','game-result.js','report-font.otf'];
 for(const file of files)await copyFile(root+'src/'+file,destination+file);
 const license=await readFile(root+'backend/report-renderer/FONT-LICENSE.txt');await writeFile(destination+'FONT-LICENSE.txt',license);
 const hash=createHash('sha256');for(const file of files)hash.update(await readFile(destination+file));
