@@ -1,5 +1,6 @@
 import './site-shell.js';
 import {t} from './i18n.js';
+import {flow,lanes,stats,callout,svg,more as details} from './flow-diagram.js';
 const sections=[
  ['全站公开','A public shared site','所有棋谱、现场棋局和记录草稿都公开，无须登录。任何访问者都能修改当前现场棋局或公共草稿。请勿填写私人信息。已保存的棋谱不会随草稿修改。','Games, live play and the recording draft are public, with no sign-in. Anyone can edit the current live game or shared draft. Do not enter private information. Editing the draft does not change games already saved in the library.'],
  ['1. 现场对弈 /play','1. Live play /play','全站同时只有一盘 19 路现场棋局。可在同一设备操作双方，或在不同设备打开同一页面。可在开始前或途中填写棋手、名称、日期、规则及贴目。段级位和用时设置选填；用时设置记录棋局信息，现场计时仍显示已用时间。支持停一手和认输；悔棋会永久删除最近一手。数子界面提供中国数子法估计，请自行确认结果。点击“新一局”或“确认死子”，选择数子结果、黑胜、白胜或和棋。本局自动保存到棋谱库。点击“新一局”后留在现场页面，棋盘清空并开始新一局；双方停一手后确认结果，则打开已保存的棋谱。','There is one shared 19 × 19 live game. Play both sides on one device, or open the same page on different devices. Game details can be set before starting or edited during play. Player ranks and time control are optional. Time control describes the game; the live clock continues to show elapsed time. Pass and resignation are available. Undo permanently removes the last move. The counting screen offers a Chinese area-score estimate; confirm the result yourself. Choose New game or Confirm dead stones, then use the counted result or select Black wins, White wins or Draw. The game saves to the library. New game keeps you on the live page with a fresh board. After both players pass, confirming the result opens the saved game.'],
@@ -10,5 +11,55 @@ const sections=[
  ['推荐着法与试下','Suggested moves and exploration','默认显示 AI 推荐，可关闭。字母表示当前局面的下一手候选；蓝色为首选，绿色为其他好棋。三角形标示下一手实战：绿色为好棋，黄色为不精确，橙色为失误，红色为严重失误，灰色为未评定。点击推荐表格的一行，棋盘显示完整的编号变化；再次点击同一行恢复原棋盘。桌面鼠标悬停时临时预览，离开后恢复原棋盘或已选中的变化。表格保留并标示选中行；评估属于原局面。领先目数用领先方的黑白底色显示，胜率并列显示黑方和白方；≈ 表示估计。点击棋盘推荐点或“逐手试下”，从第一手开始，之后可继续点击已保存的后续推荐点；编号接续已落棋步，例如第六手后显示 7。并非每个选点都有后续变化；没有时会提示。左右键在变化中逐手前后移动；“实战”按钮前往实战着法，“返回原局面”恢复原局面，退回变化起点也会自动返回主棋谱。试下不改动已保存棋谱，也不启动新计算。好棋、不精确、失误和严重失误按估计损失目数使用 0.5、2、5 目阈值；这些是本站点评规则，并非棋手等级。','AI suggestions are on by default and can be toggled. Letters mark candidates for the next move from the displayed position: blue for the first choice and green for other good moves. A triangle marks the next actual move: green for good, yellow for inaccuracy, orange for mistake, red for blunder and grey for unrated. Click a table row to pin its full numbered continuation; click the same row again to restore the original board. On desktop, hovering previews temporarily and leaving restores the previous board or pinned line. The table keeps its position and highlights the previewed row. Evaluations belong to the original position. Lead badges use the leading side’s colour; winning percentages show Black and White side by side. ≈ marks estimates. Click a board suggestion or Explore line to start at the first move, then click available saved follow-up points. Their numbers continue the sequence, such as 7 after six moves. Some choices have no saved continuation; the page says when none is available. Arrows step within the line. Played opens the recorded move; Return to original position restores the original position, as does stepping back to the line’s origin. Exploration changes no saved game and starts no computation. Good, Inaccuracy, Mistake and Blunder use estimated point-loss thresholds of 0.5, 2 and 5 points. These are site review labels, not player ranks.'],
  ['AI 报告与下载','AI reports and downloads','深度分析完成后，系统自动准备中英文报告及 PDF。“查看 AI 报告”打开报告，语言菜单切换中英文，“保存 PDF”下载已经生成的文件，不启动新计算。报告先展示全局目差与胜率，再展示着法质量、典型损失、棋局阶段和关键失误。双方各五手失误列在表格，前三手详细复盘。报告时间使用服务器 UTC；其他页面使用设备本地时间并标明 UTC 偏移。下载 SGF 可保存棋谱。','After deep analysis, both language reports and PDFs are prepared automatically. View AI report opens the report, the language menu switches languages, and Save PDF downloads an existing file without new computation. Reports begin with game-wide point advantage and winning chances, then show move quality, typical losses, game phases and key mistakes. Each side’s five worst moves appear in a table, with three reviewed in detail. Report timestamps use server UTC; other pages use your device’s local time with a UTC offset. Download SGF saves the record.']
 ];
-function render(){document.title=t('使用指南','User guide')+' · DL Weiqi';document.getElementById('guide-title').textContent=t('使用指南','User guide');const fragment=document.createDocumentFragment();for(const [zh,en,bodyZh,bodyEn]of sections){const article=document.createElement('article'),h=document.createElement('h2'),p=document.createElement('p');h.textContent=t(zh,en);p.textContent=t(bodyZh,bodyEn);article.append(h,p);fragment.append(article);}document.getElementById('guide-content').replaceChildren(fragment);}
+function el(tag,className,text){const node=document.createElement(tag);if(className)node.className=className;if(text!=null)node.textContent=text;return node;}
+function figure(title,...children){const f=el('figure','dg');f.append(el('figcaption','',title),...children);return f;}
+function startLanes(){
+ return lanes({title:t('从这里开始','Where to start'),lanes:[
+  {icon:'play',href:'/play',title:t('对弈','Play game'),steps:[{icon:'play',title:t('双方轮流落子','Play both sides'),text:t('一台或多台设备','One or more devices')},{icon:'flag',title:t('停一手两次或认输','Pass twice or resign')},{icon:'check',title:t('确认结果','Confirm the result'),text:t('数子估计供参考','Count estimate helps')},{icon:'library',title:t('自动存入棋谱库','Recorded to the library'),tone:'good'}]},
+  {icon:'record',href:'/record',title:t('记录棋局','Record game'),steps:[{icon:'record',title:t('点击记录着法','Click to add moves'),text:t('或打开 SGF','Or open an SGF')},{icon:'retry',title:t('草稿自动保存','Draft saves itself'),text:t('可在任何设备继续','Continue on any device')},{icon:'branch',title:t('分支与编辑','Branches and edits')},{icon:'gpu',title:t('记录 → 深度 AI 分析','Record → deep AI analysis'),tone:'good'}]},
+  {icon:'katago',href:'/analysis',title:t('AI 分析','AI analysis'),steps:[{icon:'camera',title:t('照片 / SGF / 摆子','Photo / SGF / set up')},{icon:'eye',title:t('照片识别','Photo detection'),text:t('约 8 秒','About 8 s')},{icon:'flag',title:t('检查琥珀色框','Check amber boxes'),text:t('点击修改棋子','Tap to fix a stone')},{icon:'chart',title:t('快速 AI 分析','Quick AI analysis'),text:t('推荐着法','Suggested moves'),tone:'good'}]}
+ ]});
+}
+function afterRecord(){
+ return flow({title:t('记录之后','After you record'),numbered:true,steps:[
+  {icon:'library',title:t('记录','Record'),text:t('存入棋谱库','Into the library')},
+  {icon:'eye',title:t('立即复盘','Replay now'),text:t('棋局页面','Game page')},
+  {icon:'clock',title:t('快速 AI','Quick AI'),text:t('≈ 5 分钟','≈ 5 min')},
+  {icon:'gpu',title:t('深度 AI','Deep AI'),text:t('≈ 1 小时，最多 2 小时','≈ 1 h, up to 2 h')},
+  {icon:'report',title:t('AI 报告','AI report'),text:t('中英文 · PDF','EN / 中文 · PDF'),tone:'good'}
+ ],note:t('每天前 10 局有 AI 分析；之后的棋局只记录，不分析。失败后 5 分钟、15 分钟自动重试。快速分析出现后，刷新页面查看深度分析。','The first 10 recorded games each day get AI analysis; later games are recorded without AI. Failures retry after 5 and 15 minutes. After quick AI appears, refresh to see deep AI.')});
+}
+function gameLayout(){
+ const block=(text,kind)=>el('div','dg-block'+(kind?' '+kind:''),text),labels=()=>({meta:t('棋局信息','Game details'),volume:t('音量','Volume'),chart:t('胜率图','Win-rate chart'),board:t('棋盘','Board'),nav:t('◀ ▶ 按钮','◀ ▶ buttons'),table:t('推荐表格','Suggestions table')});
+ const l=labels(),wrap=el('div','dg-layouts');
+ const phone=el('div','dg-device'),phoneScreen=el('div','dg-screen phone');phoneScreen.append(block(l.meta),block(l.volume),block(l.chart,'chart'),block(l.board,'board'),block(l.nav),block(l.table,'table'));phone.append(phoneScreen,el('span','',t('手机','Phone')));
+ const desk=el('div','dg-device'),deskScreen=el('div','dg-screen desktop'),left=el('div','dg-col'),right=el('div','dg-col');left.append(block(l.board,'board'),block(l.nav));right.append(block(l.meta),block(l.volume),block(l.chart,'chart'),block(l.table,'table'));deskScreen.append(left,right);desk.append(deskScreen,el('span','',t('电脑','Desktop')));
+ wrap.append(phone,desk);
+ const f=figure(t('棋局页面','Game page'),wrap);f.append(el('p','dg-note',t('点击或拖动胜率图可跳到该手。点击推荐表格的一行，在棋盘上显示变化；再点一次恢复。','Tap or drag the chart to jump to a move. Tap a table row to show its line on the board; tap again to go back.')));return f;
+}
+function boardSymbols(){
+ const list=el('ul','dg-legend');
+ const add=(mark,text)=>{const li=el('li');li.append(mark,el('span','',text));list.append(li);};
+ const circle=(letter,colour)=>{const s=el('span','dg-symbol',letter);s.style.background=colour;return s;};
+ const triangle=colour=>svg({viewBox:'0 0 100 100',class:'dg-tri','aria-hidden':'true'},[['polygon',{points:'50,8 92,88 8,88',fill:colour,stroke:'#fff','stroke-width':6,'stroke-linejoin':'round'}]]);
+ add(circle('A','#2978ce'),t('AI 首选','AI best move'));add(circle('B','#327e53'),t('其他好棋','Other good move'));
+ for(const [colour,zh,en]of [['#27834c','实战：好棋','Played: good'],['#d7ad20','实战：不精确','Played: inaccuracy'],['#df7a19','实战：失误','Played: mistake'],['#d33c36','实战：严重失误','Played: blunder'],['#64748b','实战：未评定','Played: unrated']])add(triangle(colour),t(zh,en));
+ const keys=el('span','dg-keys');keys.append(el('kbd','','←'),el('kbd','','→'));add(keys,t('上一手 / 下一手','Previous / next move'));
+ const f=figure(t('棋盘符号','Board symbols'),list);f.append(el('p','dg-note',t('△ 是棋谱中的下一手，颜色表示 AI 对它的评价。','△ marks the next recorded move; its colour is the AI rating.')));return f;
+}
+function branchTree(){
+ const black='#28323a',white='#fff',main='#147cab',side='#8c9ba4',stone=(x,y,n,colour,star)=>[['circle',{cx:x,cy:y,r:16,fill:colour,stroke:'#74818a','stroke-width':1.5}],['text',{x,y:y+4.5,'text-anchor':'middle','font-size':13,'font-weight':650,fill:colour===black?'#fff':'#28323a','font-family':'system-ui'},String(n)],...(star?[['text',{x:x+14,y:y-12,'font-size':12,fill:'#8c651e','font-family':'system-ui'},'★']]:[])];
+ const parts=[['path',{d:'M30 40H330',stroke:main,'stroke-width':3,fill:'none'}],['path',{d:'M150 40C180 40 180 105 210 105H270',stroke:side,'stroke-width':2.5,fill:'none'}],['circle',{cx:30,cy:40,r:16,fill:'#e6ebed',stroke:'#52636c','stroke-dasharray':'3 3'}],...stone(90,40,1,black,true),...stone(150,40,2,white,true),...stone(210,40,3,black,true),...stone(270,40,4,white,true),...stone(330,40,5,black,true),...stone(210,105,3,black),...stone(270,105,4,white),['text',{x:362,y:44,'font-size':13,fill:'#35434b','font-family':'system-ui'},t('主分支','Main line')],['text',{x:302,y:109,'font-size':13,fill:'#52636c','font-family':'system-ui'},t('分支','Branch')]];
+ const tree=svg({viewBox:'0 0 440 135',class:'dg-tree',role:'img','aria-label':t('棋谱树示例','Example game tree')},parts);
+ const f=figure(t('分支','Branches'),tree);f.append(el('p','dg-note',t('回到早先一手再下另一手，就会生成分支。点击棋子跳到该手。★ 为主分支；记录时只保存所选分支。','Go back and play a different move to make a branch. Tap a stone to jump to it. ★ marks the main line; Record keeps only the selected branch.')));return f;
+}
+function render(){
+ document.title=t('使用指南','User guide')+' · DL Weiqi';document.getElementById('guide-title').textContent=t('使用指南','User guide');
+ const fragment=document.createDocumentFragment();
+ fragment.append(callout('users',t('全站公开，无须登录：任何人都能修改现场棋局和记录草稿。请勿填写私人信息。','Public site, no sign-in: anyone can edit the live game and the record draft. Do not enter private information.')),startLanes(),afterRecord(),stats([['10',t('每天有 AI 分析的棋局','games with AI each day'),'gpu'],['100',t('每天新棋谱','new records a day'),'library'],['≈ 1,000',t('每天局面分析（全站）','position analyses a day'),'katago'],['2',t('失败自动重试','automatic retries'),'retry']]),gameLayout(),boardSymbols(),branchTree());
+ const detail=document.createDocumentFragment();
+ for(const [zh,en,bodyZh,bodyEn]of sections){const article=el('article'),h=el('h2','',t(zh,en)),p=el('p','',t(bodyZh,bodyEn));article.append(h,p);detail.append(article);}
+ fragment.append(details(t('完整文字说明','Full text guide'),detail));
+ document.getElementById('guide-content').replaceChildren(fragment);
+}
 window.addEventListener('site-language-change',render);render();

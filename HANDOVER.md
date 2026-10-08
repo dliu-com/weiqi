@@ -100,6 +100,7 @@ Current values in `configs.yml`:
 | Full-game AI allowance | 10 new eligible games per London day |
 | Quick feature allowance | $3/day conservative reservation allowance; $0.003 reserved per attempted photo/cloud-AI operation, allowing 1,000 operations globally per UTC day |
 | Quick concurrency | Two worker leases; duplicate request UUIDs cannot invoke again |
+| Per-connection limits | 60 edits/min and 300 quick-feature requests per UTC day per connection (one IPv4 address or IPv6 /64), plus a site-wide 120 edits/min counter. CloudFront Function `ApiViewer` overwrites `x-weiqi-viewer` with the viewer IP (clients cannot spoof it); `backend/client-limit.cjs` stores only a hashed bucket number in the `weiqi-position-usage` table. Lambda account concurrency is 400 |
 | Recognition worker | 1,769 MB; 25-second Lambda deadline |
 | Mini AI worker | 3,008 MB; 20-second Lambda deadline; 300 visits |
 
@@ -199,6 +200,7 @@ Run focused checks for the behaviour being changed, then the required broader re
 | Sound | `src/stone-sound.js`, `stone-placement.mp3` and its licence file |
 | Quick-analysis browser code | `src/analysis.js` (page), `analysis-position.js` (board helpers), `position-api.js` (API client); shared `board-view.js`, `sgf.js`, `site-shell.js`, `styles.css` |
 | Quick-analysis page/build | `src/photo.html`, `photo.css`; public explanation `photo-recognition.html` + `documents.js` (update it when the pipeline or results change); `scripts/build-photo-analysis.mjs`; generated `src/photo-assets/` is ignored |
+| Diagram pages | `src/flow-diagram.js` (icons, flow, tiers, lanes, stats, callout, details) + `.dg*` CSS in `site.css`; used by `/about` (`about.js`), `/guide` (`how-to-use.js`) and `/security` (`documents.js` `securityOverview`/`securityExtra`). Keep text short; old long text sits in collapsed details |
 | Cost page (`/cost`) | `src/cost.html` + `documents.js` (`costFlows`, `costGroups`, `costSummary`, `costDetails`), CSS in `site.css`. Two flow cards, each with cost and limits (1 Game library, 2 AI analysis), a shared spending-guard box ($15/day, $50/month), then details grouped per flow. Keep the figures in step with `configs.yml`, the backend limits and the About cost table |
 | Quick-analysis cloud | `backend/position-handler.cjs`, `backend/position/{recognize,moku,grid,board,analyze}.py`; `cdk/lib/weiqi-position-stack.ts` |
 | Full-game GPU workflow | `backend/gpu-production.cjs`, `gpu-fallback.cjs`, `cloud/gpu/`, `cdk/lib/weiqi-gpu-benchmark-stack.ts` |
