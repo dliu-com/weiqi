@@ -102,7 +102,7 @@ Current values in `configs.yml`:
 | Quick feature allowance | $3/day conservative reservation allowance; $0.003 reserved per attempted photo/cloud-AI operation, allowing 1,000 operations globally per UTC day |
 | Quick concurrency | Two worker leases; duplicate request UUIDs cannot invoke again |
 | Per-connection limits | 60 edits/min and 300 quick-feature requests per UTC day per connection (one IPv4 address or IPv6 /64), plus a site-wide 120 edits/min counter. CloudFront Function `ApiViewer` overwrites `x-weiqi-viewer` with the viewer IP (clients cannot spoof it); `backend/client-limit.cjs` stores only a hashed bucket number in the `weiqi-position-usage` table. Lambda account concurrency is 400 |
-| Recognition worker | 1,769 MB; 25-second Lambda deadline |
+| Recognition worker | 3,538 MB (2 CPUs, `THREADS=2`); 20-second Lambda deadline |
 | Mini AI worker | 3,008 MB; 20-second Lambda deadline; 300 visits |
 
 Recognition plus cloud AI usually consumes two quick-feature operations. These reservations are limits, not actual cost measurements. An operation can consume its allowance even if processing fails or capacity is busy.
@@ -125,46 +125,40 @@ The development ledger is `cloud/development-cost-ledger.json`; it contains cons
 
 ### 1. Reliable automatic real-photo recognition
 
-Deployed pipeline `tiled-colour-20261007` (`backend/position/recognize.py`, `board.py`, `grid.py`). It still uses Moku v4 with ONNX Runtime on CPU in Lambda:
+Deployed pipeline `lines-loose-20261008` (`backend/position/recognize.py`, `board.py`, `grid.py`, `moku.py`). It still uses Moku v4 with ONNX Runtime on CPU in Lambda:
 
 1. Find the corners automatically. If that fails, merge corner peaks from a mirrored pass and retry.
-2. Rectify the board to 800 × 800 pixels.
-3. Detect stones on the whole board and on four overlapping crops, because one Moku pass returns at most 300 detections.
-4. Refit the grid to the stone centres.
-5. Reject narrow detections such as stickers and markers.
-6. Check each candidate's colour against black, white and empty-board colours sampled from nearby points in the same photo.
-7. Count a tall stone seen at an angle only once.
-8. Return `review` points: overruled, borderline or duplicate candidates. The page outlines them in amber and names them in its message; tapping a point clears its outline.
+2. If the grid still cannot be verified, rescue: rerun Moku on closer and rotated views around the densest stones, then on views re-framed around the best grid (`grid.RESCUE_PLAN`).
+3. Line check: the board's own grid lines confirm the stone grid, replace it when they clearly disagree, or the photo is refused.
+4. Rectify the board to 800 × 800 pixels and detect stones on the whole board and on four overlapping crops (one Moku pass returns at most 300 detections).
+5. Refit the grid to the stone centres; reject narrow detections (stickers, markers); check each candidate's colour against nearby black, white and empty-board samples.
+6. Echo filter (`board.ECHO = 0.9`): a weaker detection within 0.9 squares of a stronger stone is kept only if its own intersection shows that colour.
+7. Refuse a dense board that reads as nearly empty.
+8. Return `review` points; the page outlines them in amber.
 
-References: the user supplied 4 real photos (`training image/`, private), plus screenshots of the correct positions from a separate paid tool. These references are used only for scoring.
+Moku runs 6 times for a normal photo, 9 for a typical rescue and at most 13.
 
-| Pipeline | Unchanged uploads exact | 48 upload conditions exact | Errors on 48 | Local time |
-| --- | ---: | ---: | ---: | ---: |
-| `grid-fit-20261007` (previous) | 1/4 (10 errors) | 12 (1 failure) | 126 | under 1 s |
-| `tiled-colour-20261007` (deployed) | 4/4 | 43 | 7 extra white stones | about 2.2 s |
+References: 6 user photos (`training image/`, private). Photos 1–5 have screenshots from a separate paid tool; photo 6 was corrected visually by the assistant (not independently verified) and is scored from a re-saved copy because the original file is unreadable on this Mac. 10 public web photos were transcribed by hand (`training image/web/`, gitignored). References are used only for scoring.
 
-The 48 conditions apply resizing, darkness, glare, low contrast, warm and blue colour casts, uneven lighting, blur, 4° rotation and JPEG quality 60 to the same 4 photos. Each is then encoded as the page uploads it.
+| Pipeline | User photos, 72 samples: exact / failures / errors | Web photos, 120 samples: exact / failures / errors | Local time |
+| --- | ---: | ---: | ---: |
+| `tiled-colour-20261007` (previous) | 43 / 13 / 1,021 | 83 / 24 / 113 | median 2.2 s |
+| `lines-loose-20261008` (deployed) | 53 / 0 / 49 | 99 / 5 / 17 | median 2.3 s, max 5.5 s |
 
-Live check after deployment (4 photos, then 2 repeats): all 4 boards were exact. Round trips took 13.6 s cold (Lambda 9.0 s, including 1.8 s model start-up) and 7.2–7.8 s warm (Lambda about 6.8 s). An upload through the live page on a phone-sized browser took 7.5 s, and showed and cleared the review highlight.
+Live check (8 October 2026): photos 1–4 and 6 exact, photo 5 has 2 extra white stones (same as local). At 1,769 MB, warm calls took 9.2–9.6 s (15.6 s rescued), too close to the old 25 s timeout. At 3,538 MB with 2 threads: 5.3–5.7 s Lambda and about 6 s round trip for normal photos, 9–10 s rescued, 10.3 s cold. Cost per photo rose about 17% (about US$0.0004 average).
 
-Limits:
+Evaluated and not pursued (see `scripts/photo-benchmark/README.md`):
 
-- The thresholds were developed on these 4 photos, so there is a risk of overfitting.
-- Remaining stress-test errors are extra white stones: a white sticker at the board edge in dark or low-contrast versions, and glare, blur or a blue cast on the bamboo board.
-- The review outlines catch only 2 of the 7 errors.
+- Hard photos: photo 5's remaining errors come from glare and colour casts (bright125 10, cool 7). More tuning on 6 photos risks overfitting.
+- Angled photos: synthetic tilt warps (opt-in `TILT` conditions in `real_photos.py`) show the pipeline refuses or misreads strongly tilted boards. The page asks for a photo taken from above.
 
-Next work:
-
-- Ask the user for new photos with paid-tool reference screenshots, kept separate from tuning.
-- Rescore them with `scripts/photo-benchmark/real_photos.py` and `score.py`.
-- Change thresholds only if held-out results improve.
-- Keep telling users to compare the board with the photo before analysis.
+Next work only if the user supplies new photos with references: rescore them with `real_photos.py` and `score.py`, kept separate from tuning, and change thresholds only if held-out results improve. Keep telling users to compare the board with the photo before analysis.
 
 Acceptance should still include the user's physical phone, automatic corners, review and correction usability, and total time to useful analysis within the one- and two-minute targets.
 
 Evidence and reproducible scripts:
 
-- `cloud/photo-recognition-real-20261007.json` — current pipeline changes, the reference-photo results above, timings and caveats.
+- `cloud/photo-recognition-real-20261008.json` — current pipeline changes, the results above, tilt evaluation, live timings and caveats. `photo-recognition-real-20261007.json` is the previous pipeline.
 - `scripts/photo-benchmark/README.md`, `real_photos.py`, `score.py` — rerun instructions. Labels must enter scoring only, never inference.
 - `cloud/photo-recognition-benchmark-20261007.{json,md}`, `photo-detection-fix-20261007.json`, `alternative-photo-models-20261007.json` — earlier Lambda/CPU/GPU tests, the previous grid fix, and the YOLO/EfficientNet/image2sgf comparisons. These are historical; their provisional assistant labels came before the paid-tool references. The alternatives were not deployed. `patch_models.py` uses the previous pipeline.
 - `photo-analysis/SOURCES.json` — pinned model and source revisions, hashes and licensing. The standalone recognition integration is AGPL-3.0-only; KataGo components have their recorded MIT terms. Preserve the corresponding-source download when publishing changes. image2sgf was a private experiment; resolve its upstream licensing before any product use.
