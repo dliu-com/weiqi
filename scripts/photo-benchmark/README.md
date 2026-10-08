@@ -45,6 +45,46 @@ python scripts/photo-benchmark/score.py /private/path/references.json /private/p
 
 The 7 October results are in `cloud/photo-recognition-real-20261007.json`. The references are the user's four photos, read correctly by a separate paid tool. On unchanged uploads, the deployed pipeline went from 1/4 exact boards (10 errors) to 4/4. Across all 48 conditions, it went from 12 exact boards to 43. The thresholds were developed on these four photos, so rescore on new, held-out photos before trusting a change. Keep the photos, references and raw results private.
 
+The 8 October pipeline (`lines-loose-20261008`) adds fallbacks for photos the 7 October pipeline could not read. These include a low camera angle among bowls and hands (photo5), a small, rotated electronic board (photo6), and similar web photos.
+- **Rescue.** When the whole-photo grid cannot be verified, `moku.rescue_corners` reruns Moku on up to six square views around the densest stone detections, some of them rotated. It pools corner peaks across the views and ranks grids with a lattice score that tolerates the shift of tall stones.
+- **Orientation.** `grid.upright` takes the corner order with the smallest in-plane rotation.
+- **Line check.** `grid.line_check` fits the printed lines with stones masked out. It keeps the stone grid where the lines agree (`lineCheck: agree`). It replaces the grid where both axes and the board-edge offsets are clear (`lines`). Otherwise it refuses the photo with "The board grid is uncertain".
+- **Off-point stones.** `board.read` also reads isolated, stone-sized detections up to half a square from an intersection, and marks them for review.
+- **Echo filter.** A weaker detection within 0.9 squares of a stronger stone (an echo of a tall stone, or glare beside it) is kept only if its own intersection shows the stone's colour (`board.ECHO`). Removed points are marked for review.
+
+Results report `gridCheck` (`default` or `rescue`) and `lineCheck`.
+
+Results over 12 conditions per photo (misplaced = missed + extra + wrong colour; photo6 uses a visually corrected reference, because the paid-tool reference looks one column out in one corner):
+
+| Photo | Live `tiled-colour-20261007` | `lines-loose-20261008` | Unchanged upload |
+|---|---|---|---|
+| photo1–4 | 0, 3, 0, 4 | 0, 3, 0, 4 | 0 each |
+| photo5 | 12 failures ("grid uncertain") | 35, no failures | 2 |
+| photo6 | 1,036 and 1 failure | 7, no failures | 0 |
+| web01–10 | 22 failures on web05/06; web10 111 and 1 failure | 17, 5 refusals | 0, except web06 at 1 |
+
+The 5 web refusals are web05@warm, web05@blur, web06@warm, web09@warm and web10@blur. A refusal shows "The board grid is uncertain" instead of a wrong board.
+
+The rescue path takes about 3.5–6.6 s locally on one thread, against about 2.4 s for the default path. The new thresholds were tuned while looking at photos 5–6 and the web photos, so those photos are no longer held out.
+
+### Hard and angled photos: evaluated, no further work
+
+**Hard photos (glare, low light, blur).** photo5's remaining errors are phantom white stones on glare spots. Per condition: base 2, edge1200 4, dark70 1, dark55 2, bright125 10, lowcontrast 2, warm 2, cool 7, shade 0, blur 4, rot+4 1, q60 0. Glare is almost pure white, like a white stone. These were tried and rejected, because each removed real white stones or moved errors elsewhere: a printed-line dip test under the stone, a dark rim / edge ring test, and a colour (chroma) test. Only the echo filter above was kept. Fixing the rest needs a new stone model trained on glare. **Decision: not pursued.** The page already marks uncertain points for review.
+
+**Angled photos.** `real_photos.py` has opt-in camera-tilt conditions (`--conditions tilt20,tilt35,tilt50,side30`). They warp the photo so the far edge shrinks (keystone). This is a best case: a flat warp does not hide points behind tall stones, as a real low angle does. Misplaced stones per photo (`lines-loose-20261008` / live; F = refused or failed):
+
+| Photo | tilt20 | tilt35 | tilt50 | side30 |
+|---|---|---|---|---|
+| photo1 | 0 / 46 | 0 / F | 0 / F | 2 / 2 |
+| photo2 | 0 / 0 | 0 / 0 | 87 / F | 0 / 0 |
+| photo3 | 0 / 0 | 0 / 0 | 1 / 1 | 0 / 0 |
+| photo4 | 0 / 0 | 0 / 0 | 0 / 0 | 0 / 0 |
+| photo5 | 1 / F | 2 / F | 1 / F | 1 / F |
+| photo6 | 0 / 89 | 113 / 98 | 96 / 95 | 96 / 103 |
+| web01–10 total | 1 + 1 F / 77 + 2 F | 1 / 2 + 3 F | 0 + 2 F / 1 + 5 F | 1 / 2 + 2 F |
+
+photo5 and photo6 are already real low-angle photos, and both read well at their own angle. photo6 fails only when a further 35° or more is added on top, which makes the board extremely oblique. photo2 fails only at tilt50, where the board is small and very skewed. Typical phone angles are handled. Reading extreme angles needs 3D stone handling (tall stones hide the points behind them) and a new model. **Decision: not pursued.** For best results, take the photo from above.
+
 ## Manual references
 
 For real photos, a separate reference may be created by visual inspection. Use `?` for any uncertain intersection; the scorer excludes it. Report the reference's provenance and whether it was independently verified. Label a photo before comparing model predictions, and retain uncertain labels rather than guessing. Do not describe assistant labels as independently established ground truth.
