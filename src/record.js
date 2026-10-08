@@ -231,20 +231,18 @@ function renderSuggestions(){
      const lead=document.createElement('td');
      if(Number.isFinite(row.blackLead)){
       const badge=document.createElement('span'),even=Math.abs(row.blackLead)<.05,side=even?'even':row.blackLead>0?'black':'white',amount=even?'0.0':Math.abs(row.blackLead).toFixed(1);
-      badge.className='ai-score-badge ai-score-'+side;badge.textContent=(row.estimated?'≈ ':'')+amount;
-      lead.setAttribute('aria-label',(even?t('双方均势','Even position'):side==='black'?t('黑方领先 '+amount+' 目','Black leads by '+amount+' points'):t('白方领先 '+amount+' 目','White leads by '+amount+' points'))+(row.estimated?t('（估计）',' (estimated)'):''));lead.append(badge);
+      badge.className='ai-score-badge ai-score-'+side;badge.textContent=amount;
+      lead.setAttribute('aria-label',(even?t('双方均势','Even position'):side==='black'?t('黑方领先 '+amount+' 目','Black leads by '+amount+' points'):t('白方领先 '+amount+' 目','White leads by '+amount+' points')));lead.append(badge);
      }else lead.textContent='—';
      const win=document.createElement('td');
      if(Number.isFinite(row.blackWinrate)){
       const black=Math.max(0,Math.min(1,row.blackWinrate))*100,white=100-black,pair=document.createElement('span');pair.className='ai-win-pair';
       for(const [side,value] of [['black',black],['white',white]]){const badge=document.createElement('span');badge.className='ai-score-badge ai-score-'+side;badge.textContent=value.toFixed(1);pair.append(badge);}
-      if(row.estimated){const estimate=document.createElement('span');estimate.className='ai-win-estimate';estimate.textContent='≈';win.append(estimate);}
-      win.setAttribute('aria-label',t('黑方 '+black.toFixed(1)+'%，白方 '+white.toFixed(1)+'%','Black '+black.toFixed(1)+'%, White '+white.toFixed(1)+'%')+(row.estimated?t('（估计）',' (estimated)'):''));win.append(pair);
+      win.setAttribute('aria-label',t('黑方 '+black.toFixed(1)+'%，白方 '+white.toFixed(1)+'%','Black '+black.toFixed(1)+'%, White '+white.toFixed(1)+'%'));win.append(pair);
      }else win.textContent='—';
      tr.append(move,rating,lead,win);body.append(tr);
    }
    table.append(body);$('ai-alternatives').append(table);
-   if(next.rows.some(row=>row.estimated)){const note=document.createElement('small');note.className='ai-comparison-note';note.textContent=t('≈ 表示由实战后的局面估计；该选点的搜索不足。','≈ Estimated from the position after the played move; that choice had insufficient search.');$('ai-alternatives').append(note);}
  }
  if(!preserveAiTable&&next.unavailable){const note=document.createElement('span');note.textContent=!data.analysis?t('AI 推荐将在分析完成后显示。','Suggestions appear when analysis is ready.'):!analyses.has(selected)?t('此 SGF 分支尚未分析。','This SGF branch has not been analysed.'):data.analysis.schemaVersion>=2?t('此局面没有已搜索的候选着法。','No searched candidate moves in this position.'):t('此分析未保存推荐变化；新上传棋谱将包含此功能。','Suggestions were not saved in this analysis. New uploads include them.');$('ai-alternatives').append(note);}
  if(preserveAiTable)for(const row of $('ai-alternatives').querySelectorAll('tr[data-move]')){const chosen=!!aiLine?.overview&&row.dataset.move===aiLine.rootCandidate.move;row.classList.toggle('ai-selected-move',chosen);row.querySelector('.ai-move-choice').setAttribute('aria-pressed',String(chosen));}
