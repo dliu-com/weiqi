@@ -232,15 +232,6 @@ function translate(){
  for(const [id,key] of [['tool-B','B'],['tool-W','W'],['tool-E','D'],['undo','Ctrl+Z']])$(id).title=t('快捷键 ','Shortcut: ')+key;
 }
 
-function renderSteps(){
- const states=stage==='check'?['current','todo']:['done',analysis?'done':'current'];
- states.forEach((state,i)=>{
-  const li=$('step-'+(i+1)),button=li.querySelector('button');li.dataset.state=state;
-  if(state==='current')li.setAttribute('aria-current','step');else li.removeAttribute('aria-current');
-  button.disabled=!!busy||!(i===0&&stage==='play');
-  if(button.disabled)button.removeAttribute('title');else button.title=t('返回第 1 步修改棋子','Go back to step 1 to edit the stones');
- });
-}
 function editStones(){
  if(busy)return;
  stage='check';tool=side;undo=[];review=new Set();clearAnalysis();autoAnalyse=false;fromPhoto=false;
@@ -295,12 +286,6 @@ function qualityOf(m,rank){
 function renderResult(){
  $('result-card').hidden=!analysis||busy!==null||stage!=='play';
  if(!analysis)return;
- const lead=Number(analysis.rootScoreLead)||0,even=Math.abs(lead)<.05;
- $('lead').textContent=even?t('双方均势','Even position'):lead>0?t('黑方领先 '+lead.toFixed(1)+' 目','Black leads by '+lead.toFixed(1)+' points'):t('白方领先 '+(-lead).toFixed(1)+' 目','White leads by '+(-lead).toFixed(1)+' points');
- $('lead').dataset.leader=even?'even':lead>0?'black':'white';
- const black=Math.max(0,Math.min(100,(Number(analysis.rootWinRate)||0)*100)),white=100-black;
- $('black-probability-label').textContent=t('黑方 ','Black ')+black.toFixed(1)+'%';$('white-probability-label').textContent=t('白方 ','White ')+white.toFixed(1)+'%';
- $('black-probability').style.width=black+'%';$('probability-bar').setAttribute('aria-label',t('胜率：黑方 ','Win probability: Black ')+black.toFixed(1)+'%, '+t('白方 ','White ')+white.toFixed(1)+'%');
  const names={best:t('最佳','Best'),good:t('好棋','Good'),inaccuracy:t('欠佳','Inaccuracy'),mistake:t('失误','Mistake'),blunder:t('大恶手','Blunder')};
  const rows=analysis.moves.map((m,rank)=>{
   const tr=document.createElement('tr'),th=document.createElement('th'),button=document.createElement('button');
@@ -322,7 +307,7 @@ function renderResult(){
  });
  $('suggestions').replaceChildren(...rows);
  renderSelection();
- $('analysis-time').textContent=seconds(analysis.elapsedMs)+t(' 秒',' s')+(analysis.rootVisits?' · '+analysis.rootVisits+t(' 次搜索',' visits'):'')+' · '+t('贴 '+komi+' 目','komi '+komi)+' · '+t(sideName(side)+'下',sideName(side)+' to play');
+ $('analysis-time').textContent=seconds(analysis.elapsedMs)+t(' 秒',' s')+(analysis.rootVisits?' · '+analysis.rootVisits+t(' 次搜索',' visits'):'')+' · '+t('中国规则','Chinese rules')+' · '+t('贴 '+komi+' 目','komi '+komi)+' · '+t(sideName(side)+'下',sideName(side)+' to play');
 }
 function renderSelection(){
  if(!analysis)return;
@@ -337,7 +322,7 @@ function togglePreview(rank){pinned=pinned===rank?null:rank;hovered=null;renderP
 function render(){
  main.dataset.stage=stage;
  const reading=busy==='reading';
- renderSteps();
+ $('edit-board').hidden=stage!=='play'||!!busy;
  $('upload-box').hidden=stage!=='check'||reading;
  $('photo-button').textContent=failed?t('换一张照片','Try another photo'):t('上传照片','Upload photo');
  $('progress-card').hidden=!reading;
@@ -399,7 +384,7 @@ $('sequence-next').onclick=()=>navigate(cursor+1);$('sequence-last').onclick=()=
 $('sequence-pass').onclick=()=>playMove(null);
 $('play-preview').onclick=()=>{const m=pinned!==null?analysis?.moves[pinned]:null;if(m){pinned=null;playMove(m.x<0||m.y<0?null:m.y*19+m.x);}};
 $('clear-preview').onclick=()=>{pinned=null;hovered=null;renderPreview();};
-$('step-1').querySelector('button').onclick=editStones;
+$('edit-board').onclick=editStones;
 
 for(const zone of [$('board-wrap'),$('upload-box')]){
  zone.addEventListener('dragover',event=>{if(!event.dataTransfer?.types?.includes('Files'))return;event.preventDefault();zone.classList.add('drag-over');});
@@ -420,7 +405,7 @@ document.addEventListener('keydown',event=>{
   if(event.key==='ArrowLeft'){event.preventDefault();navigate(cursor-1);}else if(event.key==='ArrowRight'){event.preventDefault();navigate(cursor+1);}
  }
 });
-// On phones the heading and steps sit above the board, so the AI results can follow the board directly.
+// On phones the heading sits above the board, so the AI results can follow the board directly.
 function arrangeIntro(){
  const intro=$('analysis-intro'),panel=document.querySelector('#analysis-main>.workspace-panel'),playArea=document.querySelector('#analysis-main>.play-area');
  if(phone.matches){if(intro.nextElementSibling!==playArea)playArea.before(intro);}else if(intro.parentElement!==panel)panel.prepend(intro);

@@ -11,17 +11,6 @@
 @media(prefers-reduced-motion:reduce){.scan{animation:none;top:auto;bottom:0;height:4px}}
 .stage-chip{position:absolute;left:50%;bottom:14px;transform:translateX(-50%);margin:0;padding:8px 14px;border-radius:999px;background:#0f1e26e6;color:#fff;font-size:14px;font-weight:600;white-space:nowrap}
 .stage-close{position:absolute;right:12px;top:12px;background:#fff!important;color:#202629;font-size:14px;padding:8px 14px;box-shadow:0 2px 8px #0005}
-.analysis-steps{list-style:none;display:flex;gap:6px;padding:0;margin:0 0 14px;counter-reset:none}
-.analysis-steps li{flex:1;display:flex;min-width:0}
-.analysis-steps button{flex:1;display:flex;align-items:center;gap:6px;min-width:0;min-height:40px;padding:7px 8px;border:0;border-radius:7px;background:#f1f4f6;color:#5d6b72;font-size:13px;line-height:1.2;text-align:left;cursor:default;opacity:1;-webkit-tap-highlight-color:transparent}
-.analysis-steps span{flex-shrink:0;display:grid;place-items:center;width:22px;height:22px;border-radius:50%;background:#d7dee2;color:#38464d;font-size:12px;font-weight:700}
-.analysis-steps b{font-weight:600;min-width:0}
-.analysis-steps li[data-state=current] button{background:#e2f0f8;color:#0f4c6a}
-.analysis-steps li[data-state=current] span{background:#176b92;color:#fff}
-.analysis-steps li[data-state=done] span{background:#2e8656;color:#fff}
-.analysis-steps li button:not(:disabled){cursor:pointer;color:#1f5137;box-shadow:inset 0 0 0 1px #b8d4c3}
-.analysis-steps li button:not(:disabled) b{text-decoration:underline;text-decoration-color:#2e865680;text-underline-offset:3px}
-.analysis-steps li button:not(:disabled):hover,.analysis-steps li button:not(:disabled):active{background:#e3efe7}
 .upload-tip{margin:10px 0 0;font-size:13px;color:#41606f}
 .upload-buttons{display:grid;grid-template-columns:1fr 1fr;gap:8px}
 #upload-box .upload-buttons button{min-height:50px;padding:10px 8px;font-size:16px}
@@ -50,6 +39,10 @@
 .tool-switch{display:grid!important;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;margin:10px 0}
 .tool-switch button,.side-switch button{min-height:40px}
 .tool-switch[hidden]{display:none!important}
+.edit-board{display:block;width:100%;min-height:44px;margin:12px 0;padding:10px 14px;border:1.5px solid #176b92!important;border-radius:8px;background:#fff;color:#176b92;font-size:15px;font-weight:650}
+.edit-board::before{content:'✎';margin-right:6px}
+.edit-board:not(:disabled):hover{background:#e2f0f8}
+.edit-board[hidden]{display:none!important}
 .tool-switch.on-board{grid-template-columns:repeat(4,minmax(0,1fr));width:100%;margin:8px 0 0}
 .tool-switch.on-board button{padding-inline:4px;white-space:nowrap}
 #tool-E{display:flex;align-items:center;justify-content:center;gap:6px}
@@ -87,12 +80,10 @@
 @media(max-width:850px){
  #analysis-main .play-area{min-height:0}
  #analysis-main .board-wrap{width:min(100%,calc(100svh - var(--record-header-height,48px) - 120px))}
- .analysis-steps button{font-size:12px;padding:6px;min-height:44px}
- /* On phones the heading and steps sit above the board (moved by analysis.js), so the AI results follow the board directly. */
+  /* On phones the heading sits above the board (moved by analysis.js), so the AI results follow the board directly. */
  #analysis-main>.analysis-intro{padding:8px 6px 0}
  #analysis-main>.analysis-intro .editor-heading{margin-bottom:8px}
- #analysis-main>.analysis-intro .analysis-steps{margin:0}
-}
+ #analysis-main>.analysis-intro }
 @media(max-width:520px){.tool-switch button{min-height:44px}}
 @media(max-width:360px){
  .settings-grid{grid-template-columns:1fr}

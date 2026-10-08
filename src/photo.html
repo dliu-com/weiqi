@@ -14,8 +14,7 @@
 <div class="review-controls editor-navigation" id="sequence-controls" hidden><button type="button" id="sequence-first" aria-label="First move">|←</button><button type="button" id="sequence-previous" aria-label="Previous move">←</button><span id="sequence-position"></span><button type="button" id="sequence-next" aria-label="Next move">→</button><button type="button" id="sequence-last" aria-label="Last move">→|</button><button type="button" id="sequence-pass"></button></div>
 </section>
 <aside class="workspace-panel">
-<div class="analysis-intro" id="analysis-intro"><div class="editor-heading"><h1 data-zh="AI 分析">AI analysis</h1></div>
-<ol class="analysis-steps"><li id="step-1"><button type="button" disabled><span>1</span><b data-zh="摆好棋盘">Set up the board</b></button></li><li id="step-2"><button type="button" disabled><span>2</span><b data-zh="AI 分析">AI analysis</b></button></li></ol></div>
+<div class="analysis-intro" id="analysis-intro"><div class="editor-heading"><h1 data-zh="AI 分析">AI analysis</h1></div></div>
 <div class="editor-upload-box" id="upload-box">
 <div class="upload-buttons"><button type="button" id="photo-button" data-zh="上传照片">Upload photo</button><button type="button" id="sgf-button" data-zh="上传 SGF">Upload SGF</button></div>
 <input id="photo-file" type="file" accept="image/*" hidden>
@@ -41,13 +40,12 @@
 </section>
 <section id="result-card" class="card analysis-card" hidden>
 <h2 data-zh="AI 评估">AI evaluation</h2>
-<p id="lead" class="evaluation"></p>
-<div class="probability"><div class="probability-labels"><span id="black-probability-label"></span><span id="white-probability-label"></span></div><div id="probability-bar" class="probability-bar" role="img"><span id="black-probability" class="probability-black"></span><span class="probability-white"></span></div></div>
 <table class="ai-move-table"><thead><tr><th scope="col" data-zh="选点">Move</th><th scope="col" data-zh="评价">Assessment</th><th scope="col" data-zh="领先（目）">Lead (points)</th><th scope="col" data-zh="胜率（%）">Win %</th></tr></thead><tbody id="suggestions"></tbody></table>
 <p class="note" id="preview-help" data-zh="选择推荐着法预览，或在棋盘上落子。">Select a suggestion to preview it, or play on the board.</p>
 <div class="editor-toolbar"><button type="button" id="play-preview" class="primary" hidden></button><button type="button" id="clear-preview" hidden data-zh="返回当前局面">Back to the position</button></div>
 <p id="analysis-time" class="note"></p>
 </section>
+<button type="button" id="edit-board" class="edit-board" hidden data-zh="编辑棋盘">Edit board</button>
 <form id="analysis-settings" class="card analysis-card" hidden novalidate>
 <h2 id="settings-title" data-zh="设置并分析">Settings and analysis</h2>
 <div class="settings-grid" id="settings-fields">
