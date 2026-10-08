@@ -1,4 +1,4 @@
-// Quick AI analysis cloud requests. Copyright 2026 DL; AGPL-3.0-only.
+// AI analysis cloud requests. Copyright 2026 DL; AGPL-3.0-only.
 // Photos and positions are sent only when the user selects a photo or requests analysis.
 export class PositionError extends Error{constructor(message,status=0){super(message);this.status=status;}}
 const aborted=()=>new DOMException('The request was cancelled.','AbortError');

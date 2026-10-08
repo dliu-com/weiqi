@@ -1,4 +1,4 @@
-/* Quick AI analysis page. Board, layout, cards and AI tables come from styles.css and site.css. */
+/* AI analysis page. Board, layout, cards and AI tables come from styles.css and site.css. */
 #analysis-main [hidden]{display:none!important}
 #analysis-main .board-wrap{position:relative}
 #photo-stage{position:absolute;inset:0;z-index:6;display:none;border-radius:4px;overflow:hidden}

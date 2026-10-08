@@ -77,7 +77,7 @@ Prepared 7 October 2026. Project: **DL Weiqi**, <https://weiqi.dliu.com>. Reposi
 
 ### Quick analysis on `/analysis`
 
-- The page is deployed, uses the shared site layout and has a main-page entry. Its current user-facing name is **Quick AI analysis**, reflecting the cloud option.
+- The page is deployed, uses the shared site layout and has a main-page entry. Its user-facing name is **AI analysis** (AI 分析).
 - It accepts local SGF, camera input or an uploaded photo. It has board navigation and trial play, without `/play` clocks/game-ending controls. Only one sequence is retained; playing from an earlier position replaces its later moves.
 - Browser storage restores positions/moves/settings after refresh. Photos and AI results are not saved there. Clearing browser data removes the local game.
 - Photos are compressed and transmitted to Lambda for automatic recognition. Analysis transmits the position and available history. Neither saves photos, game records or AI results in cloud storage; short-lived request hashes/quota/lease records are stored. Do not restore the earlier blanket claim that “everything is local.”
