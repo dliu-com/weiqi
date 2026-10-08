@@ -83,8 +83,18 @@ export function transition(current, request) {
       next.result = { winner: s.winner, reason: 'score', black: s.black, white: s.white, margin: s.margin }; next.phase = 'ended';
     }
   } else if(a.type==='result'&&current.phase!=='ended'){
-    if(!['black','white','draw'].includes(a.winner))throw new GameError('请选择执棋方。');
-    next.result={winner:a.winner==='draw'?null:a.winner,reason:'agreed'};next.phase='ended';
+    if(a.reason===undefined){
+      if(!['black','white','draw'].includes(a.winner))throw new GameError('请选择执棋方。');
+      next.result={winner:a.winner==='draw'?null:a.winner,reason:'agreed'};
+    } else if(a.reason==='unfinished')next.result={winner:null,reason:'unfinished'};
+    else if(a.reason==='draw')next.result={winner:null,reason:'score',margin:0};
+    else {
+      if(!['black','white'].includes(a.winner))throw new GameError('请选择执棋方。');
+      if(a.reason==='resign')next.result={winner:a.winner,reason:'resign'};
+      else if(a.reason==='score'&&typeof a.margin==='number'&&a.margin>0&&a.margin<=400&&Number.isInteger(a.margin*2))next.result={winner:a.winner,reason:'score',margin:a.margin};
+      else throw new GameError('请输入有效的胜负目数。');
+    }
+    next.phase='ended';
   } else if (a.type === 'resign' && current.phase !== 'ended') {
     if (!['black','white'].includes(a.side)) throw new GameError('请选择认输方。');
     next.result = { winner: opposite(a.side), reason: 'resign' }; next.phase = 'ended';

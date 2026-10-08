@@ -4,7 +4,7 @@ import {BoardView} from './board-view.js';
 import {mountStoneSound,prepareStoneSound,playStoneSound} from './stone-sound.js';
 import {localTimestamp} from './site-time.js';
 import { t, language, setLanguage, translateError } from './i18n.js';
-import { play, opposite, score, gameTree, reviewPosition, gameClock, sgf } from './engine.js';
+import { play, opposite, score, gameTree, reviewPosition, gameClock, sgf, MIN_LIBRARY_MOVES } from './engine.js';
 const $ = id => document.getElementById(id);
 mountStoneSound($('play-sound'));
 const timeControl=mountTimeControl($('edit-form'),t);
@@ -21,7 +21,7 @@ function showSyncWarning(failed) {
   $('sync-warning').textContent = t('同步中断：无法连接服务器，棋盘可能不是最新状态。请检查网络；连接恢复后会自动更新。','Sync interrupted: the server could not be reached. This board may be out of date. Check your connection; syncing resumes when the connection returns.');
 }
 let moveStatus = null;
-let viewSavedGame = false, pendingSavedGeneration = null;
+let viewSavedGame = false, pendingSavedGeneration = null, resultRevision = null, countedResult = null;
 let reviewing = null, treeRenderKey = '', trialMoves = [];
 function previewMove(index) {
   if (reviewing === null || busy || !state) return;
@@ -56,13 +56,13 @@ function adopt(next) {
   if (state && gameTree(next).nodes.length < gameTree(state).nodes.length) { reviewing = null; trialMoves = []; treeRenderKey = ''; }
   if (state && (state.generation || 0) !== (next.generation || 0)) reviewing = null;
   if (reviewing !== null && reviewing >= gameTree(next).nodes.length) reviewing = null;
-  const freshGame=state&&(state.generation||0)!==(next.generation||0);
+  const freshGame=state&&(state.generation||0)!==(next.generation||0),previousGeneration=state?.generation||0;
   const newStone=state&&!freshGame&&next.history.length===state.history.length+1&&next.history.at(-1)?.type==='move';
   state = next; render();if(newStone)playStoneSound();
   if (pendingSavedGeneration !== null && next.lastSavedGame?.generation === pendingSavedGeneration) {
     pendingSavedGeneration = null; location.assign('/game/' + encodeURIComponent(next.lastSavedGame.id));
   }
-  if(freshGame)notice(t('棋局已保存到棋谱库，新一局已准备好。','Game saved to the library. A new game is ready.'));
+  if(freshGame)notice(next.lastSavedGame?.generation===previousGeneration?t('棋局已保存到棋谱库，新一局已准备好。','Game saved to the library. A new game is ready.'):t(`不足 ${MIN_LIBRARY_MOVES} 手，本局未保存。新一局已准备好。`,`Under ${MIN_LIBRARY_MOVES} moves, so the game was not saved. A new game is ready.`));
 }
 async function sync(manual = false) {
   if (busy || polling) return;
@@ -115,8 +115,8 @@ function render() {
     el.setAttribute('aria-label',coord(i) + (value === 'B' ? t(" 黑子"," black stone") : value === 'W' ? t(" 白子"," white stone") : t(" 空点"," empty intersection")) + ((!review && state.dead.includes(i)) ? t(" 已标记死子"," marked dead") : ''));
     el.setAttribute('aria-disabled',String(busy || (!review && (!!archiveId || ended || (!scoring && !canPlay())))));
   }
-  $('turn').textContent = ended ? (state.result.winner ? names[state.result.winner] + t("胜"," wins") : t("和棋","Draw")) : scoring ? t("双方数子","Scoring") : t("轮到","To play: ") + names[state.turn];
-  $('detail').textContent = ended ? (state.result.reason === 'resign' ? t("对方认输，本局结束。","The opponent resigned. Game over.") : state.result.reason==='agreed'?t('双方约定结果，棋局已保存。','Agreed result; game saved.'):t(`胜差 ${state.result.margin} 目 · 白贴 ${state.komi} 目`,`Margin: ${state.result.margin} points · White komi: ${state.komi}`)) : scoring ? t("标记所有死子，然后确认胜负。","Mark all dead stones, then confirm the result.") : (canPlay() ? '' : t("等待对方落子…","Waiting for the other player…")) + t(' 白贴 '+state.komi+' 目。',' White komi: '+state.komi+' points.');
+  $('turn').textContent = ended ? (state.result.winner ? names[state.result.winner] + t("胜"," wins") : state.result.reason==='unfinished' ? t('未完成','Unfinished') : t("和棋","Draw")) : scoring ? t("双方数子","Scoring") : t("轮到","To play: ") + names[state.turn];
+  $('detail').textContent = ended ? (state.result.reason==='unfinished' ? t('本局未完成。','The game was not finished.') : state.result.reason === 'resign' ? t("对方认输，本局结束。","The opponent resigned. Game over.") : state.result.reason==='agreed'?t('双方约定结果，棋局已保存。','Agreed result; game saved.'):t(`胜差 ${state.result.margin} 目 · 白贴 ${state.komi} 目`,`Margin: ${state.result.margin} points · White komi: ${state.komi}`)) : scoring ? t("标记所有死子，然后确认胜负。","Mark all dead stones, then confirm the result.") : (canPlay() ? '' : t("等待对方落子…","Waiting for the other player…")) + t(' 白贴 '+state.komi+' 目。',' White komi: '+state.komi+' points.');
   $('black-captures').textContent = displayed.captures.black; $('white-captures').textContent = displayed.captures.white;
   const undoSide = state.history.at(-1)?.side;
   $('undo').textContent = undoSide ? t('悔棋（' + names[undoSide] + '）', 'Undo ' + names[undoSide]) : t('悔棋','Undo');
@@ -146,10 +146,7 @@ function render() {
   }
   $('turn').className = 'turn-label' + (!review && (state.phase === 'play' || state.result?.winner) ? ' turn-' + (moveStatus?.side || state.result?.winner || state.turn) : '');
   $('new').textContent=t('新一局','New game');$('end-game-cancel').textContent=t('取消','Cancel');
-  $('result-label').textContent=viewSavedGame?t('保存本局，查看棋谱','Save this game and view it'):t('保存本局，开始新一局','Save this game and start a new one');
-  const counted=totals||score(state.board,state.size,state.dead,state.komi);
-  $('result-count-summary').textContent=t(`自动数子：黑 ${counted.black} 目 · 白 ${counted.white} + ${state.komi} 目 → ${counted.winner ? names[counted.winner] + '胜 ' + counted.margin + ' 目' : '和棋'}`,`Automatic count: Black ${counted.black} · White ${counted.white} + ${state.komi} → ${counted.winner ? names[counted.winner] + ' wins by ' + counted.margin + ' points' : 'Draw'}`);
-  $('result-counted').textContent=t('采用数子结果','Use counted result');$('result-counted').disabled=busy||ended||reviewing!==null;for(const [key,zh,en] of [['black','黑方获胜','Black wins'],['white','白方获胜','White wins'],['draw','和棋 / 未完成','Draw / unfinished']]){$('result-'+key).textContent=t(zh,en);$('result-'+key).disabled=busy||ended||reviewing!==null;}
+  renderResultDialog();
   if (review) $('turn').className = 'turn-label turn-' + displayed.turn;
   $('trial-controls').hidden = !review;
   $('trial-undo').disabled = !trialMoves.length;
@@ -240,16 +237,58 @@ const boardView=new BoardView($('board'),{onPoint:i=>{if(busy||!state)return;pre
 const points=boardView.points;
 function confirmAction(title,text,operation,acceptLabel=t('确认','Confirm')) { $('accept-confirm').textContent=acceptLabel; $('confirm-title').className=''; const revision = state.revision; pendingConfirmation = () => { if (state.revision !== revision) { notice(t('棋局已更新，请重新确认。','The game has changed. Please confirm again.')); return; } operation(); }; $('confirm-title').textContent=title; $('confirm-text').textContent=text; $('confirm-dialog').showModal(); }
 $('cancel-confirm').onclick=()=>$('confirm-dialog').close(); $('accept-confirm').onclick=()=>{ $('confirm-dialog').close(); pendingConfirmation?.(); };
-function chooseGameResult(openSaved = false){if(!state||busy||archiveId||reviewing!==null)return;viewSavedGame=openSaved;if(state.phase==='ended')sync(true);else {render();$('end-game-dialog').showModal();}}
-function finishGame(result){pendingSavedGeneration=viewSavedGame?(state.generation||0):null;return action(result);}
+function renderResultDialog(){
+  const counted=score(state.board,state.size,state.dead,state.komi),short=state.history.length<MIN_LIBRARY_MOVES;
+  $('result-label').textContent=t('本局结果','Game result');
+  $('result-options').setAttribute('aria-label',t('结果','Result'));
+  $('result-count-summary').textContent=t(`自动数子：黑 ${counted.black} 目 · 白 ${counted.white} + ${state.komi} 目 → ${counted.winner ? names[counted.winner] + '胜 ' + counted.margin + ' 目' : '和棋'}`,`Automatic count: Black ${counted.black} · White ${counted.white} + ${state.komi} → ${counted.winner ? names[counted.winner] + ' wins by ' + counted.margin + ' points' : 'Draw'}`);
+  for(const side of ['black','white']){$('result-score-'+side+'-text').textContent=t(names[side]+'胜',names[side]+' wins by');$('result-resign-'+side+'-text').textContent=t(names[side]+'中盘胜',names[side]+' wins by resignation');}
+  for(const unit of document.querySelectorAll('#result-options .result-unit'))unit.textContent=t('目','points');
+  $('result-draw-text').textContent=t('和棋','Draw');$('result-unfinished-text').textContent=t('未完成','Unfinished');
+  document.querySelector('#result-options [data-row="draw"]').hidden=!!counted.winner&&!document.querySelector('#result-options input[value="draw"]').checked;
+  $('result-short').hidden=!short;$('result-short').textContent=t(`不足 ${MIN_LIBRARY_MOVES} 手：本局不会保存到棋谱库，也不做 AI 分析。`,`Under ${MIN_LIBRARY_MOVES} moves: this game will not be saved to the library or analysed.`);
+  $('end-game-confirm').textContent=short?t('结束本局','End game'):viewSavedGame?t('保存并查看棋谱','Save and view game'):t('保存并开始新一局','Save and start a new game');
+  $('end-game-confirm').disabled=busy;$('end-game-cancel').textContent=t('取消','Cancel');
+}
+const selectResult=value=>{const input=document.querySelector(`#result-options input[value="${value}"]`);if(input)input.checked=true;};
+// One dialog for every ending; the automatic count is selected unless a resign button opened it.
+function chooseGameResult(openSaved = false, preset = null){
+  if(!state||busy||archiveId||reviewing!==null)return;
+  viewSavedGame=openSaved;
+  if(state.phase==='ended'){sync(true);return;}
+  const counted=score(state.board,state.size,state.dead,state.komi);
+  countedResult={choice:counted.winner?'score-'+counted.winner:'draw',margin:counted.margin};resultRevision=state.revision;
+  for(const side of ['black','white']){$('margin-'+side).value=counted.winner===side?counted.margin:'';$('margin-'+side).setCustomValidity('');}
+  for(const input of document.querySelectorAll('#result-options input[name="result"]'))input.checked=false;
+  selectResult(preset||countedResult.choice);render();$('end-game-dialog').showModal();
+}
+function finishGame(result){pendingSavedGeneration=viewSavedGame&&state.history.length>=MIN_LIBRARY_MOVES?(state.generation||0):null;return action(result);}
+for(const side of ['black','white']){
+  const margin=$('margin-'+side);
+  margin.onfocus=()=>selectResult('score-'+side);margin.oninput=()=>{margin.setCustomValidity('');selectResult('score-'+side);};
+  document.querySelector(`#result-options input[value="score-${side}"]`).onchange=()=>{if(!margin.value)margin.focus();};
+}
+$('end-game-form').onsubmit=event=>{
+  event.preventDefault();
+  if(!state||busy)return;
+  if(state.revision!==resultRevision||state.phase==='ended'){$('end-game-dialog').close();notice(t('棋局已更新，请重新确认。','The game has changed. Please confirm again.'));return;}
+  const choice=document.querySelector('#result-options input[name="result"]:checked')?.value;if(!choice)return;
+  const [kind,side]=choice.split('-');let result;
+  if(kind==='score'){
+    const input=$('margin-'+side),margin=Number(input.value);
+    if(!input.value||!(margin>0&&margin<=400&&Number.isInteger(margin*2))){input.setCustomValidity(t('请输入有效的胜负目数。','Enter a valid winning margin (in steps of 0.5).'));input.reportValidity();return;}
+    result=choice===countedResult.choice&&margin===countedResult.margin?{type:'finish'}:{type:'result',winner:side,reason:'score',margin};
+  } else if(kind==='resign')result={type:'resign',side:opposite(side)};
+  else if(kind==='draw')result=countedResult.choice==='draw'?{type:'finish'}:{type:'result',reason:'draw'};
+  else result={type:'result',reason:'unfinished'};
+  $('end-game-dialog').close();finishGame(result);
+};
 $('new').onclick=()=>chooseGameResult(false);
 $('end-game-cancel').onclick=()=>$('end-game-dialog').close();
-for(const winner of ['black','white','draw'])$('result-'+winner).onclick=()=>{$('end-game-dialog').close();confirmAction(t('确认结果并保存？','Confirm result and save?'),t('本局结束并自动保存到公共棋谱库。','The game will finish and save automatically to the public library.'),()=>finishGame({type:'result',winner}));};
 $('undo').onclick=()=>confirmAction(t('撤回' + names[state.history.at(-1)?.side] + '的上一手？','Undo ' + names[state.history.at(-1)?.side] + '’s last move?'),t("永久删除最近一手，不保留分支；双方设备都会更新。请先征得对方同意。","Permanently remove the last move on all devices; no variation is saved. Please agree with your opponent first."),()=>action({type:'undo'}));
-for (const side of ['black','white']) $('resign-' + side).onclick=()=>{ confirmAction(names[side]+t("认输？"," resigns?"),t("确认后本局结束。","Confirm to end this game."),()=>action({type:'resign',side})); };
+for (const side of ['black','white']) $('resign-' + side).onclick=()=>chooseGameResult(false,'resign-'+opposite(side));
 $('pass').onclick=()=>action({type:'pass'}); $('resume').onclick=()=>action({type:'resume'});
 $('confirm-score').onclick=()=>chooseGameResult(true);
-$('result-counted').onclick=()=>{$('end-game-dialog').close();confirmAction(t('确认数子结果并保存？','Confirm counted result and save?'),$('result-count-summary').textContent,()=>finishGame({type:'finish'}));};
 $('auto').onchange=()=>{automatic=$('auto').checked; if(automatic){lastActivity=Date.now();sync(true);}};
 setInterval(()=>{ if(!automatic)return; if(Date.now()-lastActivity>=10*60*1000){automatic=false;$('auto').checked=false;$('sync').textContent=t("10 分钟无落子，已暂停自动同步","Auto-sync paused after 10 minutes without a move");return;} if(document.visibilityState==='visible')sync(); },5000);
 window.addEventListener('focus',()=>{if(automatic)sync();}); window.addEventListener('online',()=>{if(automatic)sync();}); document.addEventListener('visibilitychange',()=>{if(automatic&&document.visibilityState==='visible')sync();});
