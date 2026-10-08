@@ -344,7 +344,7 @@ function render(){
  if(reading)renderProgress();
  $('status').hidden=!status||reading;
  if(status){$('status').textContent=t(status.zh,status.en);$('status').dataset.tone=status.tone;}
- $('check-card').hidden=stage!=='check'||reading;
+ $('check-card').hidden=stage!=='check'||reading;document.querySelector('.tool-switch').hidden=$('check-card').hidden;
  if(stage==='check'){
   const {black,white}=stoneCounts(board);
   $('count-B').textContent=black;$('count-W').textContent=white;$('check-summary').setAttribute('aria-label',t('黑子 '+black+'，白子 '+white,black+' black, '+white+' white'));
@@ -428,7 +428,14 @@ function arrangeIntro(){
  const intro=$('analysis-intro'),panel=document.querySelector('#analysis-main>.workspace-panel'),playArea=document.querySelector('#analysis-main>.play-area');
  if(phone.matches){if(intro.nextElementSibling!==playArea)playArea.before(intro);}else if(intro.parentElement!==panel)panel.prepend(intro);
 }
-phone.addEventListener?.('change',arrangeIntro);arrangeIntro();
+// On phones the Black/White/Delete tools and Undo sit right under the board, so editing never needs scrolling.
+function arrangeTools(){
+ const tools=document.querySelector('.tool-switch'),toolbar=document.querySelector('#check-card .editor-toolbar'),undo=$('undo');
+ if(phone.matches){if(tools.previousElementSibling!==$('board-wrap'))$('board-wrap').after(tools);if(undo.parentElement!==tools)tools.append(undo);}
+ else{if(tools.parentElement!==$('check-card'))$('review-note').before(tools);if(undo.parentElement!==toolbar)toolbar.prepend(undo);}
+ tools.classList.toggle('on-board',phone.matches);
+}
+phone.addEventListener?.('change',()=>{arrangeIntro();arrangeTools();});arrangeIntro();arrangeTools();
 window.addEventListener('site-language-change',()=>{translate();render();});
 window.addEventListener('pagehide',()=>{cancelWork();if(photo)URL.revokeObjectURL(photo);});
 
