@@ -16,7 +16,7 @@ const resources=await aws(['cloudformation','list-stack-resources','--stack-name
 const jobQueue=queueKind==='deep'?resources.StackResourceSummaries.find(r=>r.LogicalResourceId==='DeepQueue').PhysicalResourceId:outputs.JobQueue;
 const site=await aws(['cloudformation','describe-stacks','--stack-name','WeiqiSite']);
 const bucket=site.Stacks[0].Outputs.find(o=>o.OutputKey==='LibraryBucketName').OutputValue;
-const latest=model==='latest'?await katagoModels.resolveLatestModel():null;
+const latest=model==='latest'?await katagoModels.resolveAnalysisModel():null;
 const source=await readFile(filename,'utf8'),record=readSgf(source),runId=new Date().toISOString().replace(/[:.]/g,'-');
 const workerUrl=(await execute('aws',['s3','presign','s3://'+bucket+'/code/fargate-worker.py','--expires-in','3600','--region',region])).stdout.trim();
 const results=[];

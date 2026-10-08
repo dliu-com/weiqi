@@ -40,7 +40,7 @@ exports.handler=async event=>{
   const sgfObj=await storage.send(new GetObjectCommand({Bucket:bucket,Key:gamePrefix(id)+'/original.sgf'})),source=await sgfObj.Body.transformToString(),record=readSgf(source);
   const gpu=process.env.ANALYSIS_BACKEND==='gpu';
   const configs=gpu?{quick:{visits:8,cpu:32,memory:61440,estimatedSeconds:Math.ceil(15+record.mainLine.length*.58)},deep:{visits:1000,cpu:4,memory:10000,estimatedSeconds:Math.ceil(20+record.mainLine.length*3)}}:{quick:{visits:10,cpu:32,memory:61440,estimatedSeconds:Math.max(30,Math.ceil(15+record.mainLine.length*.70))},deep:{visits:128,cpu:32,memory:61440,estimatedSeconds:Math.max(60,Math.ceil(15+record.mainLine.length*7.5))}};
-  const model=metadata.analysis.model||await resolveLatestModel();
+  const model=metadata.analysis.model||await resolveAnalysisModel();
   const sent=Number(message.attributes?.SentTimestamp);
   if(!metadata.analysis.queueMessageId&&Number.isFinite(sent)&&sent>0)metadata.analysis.enqueuedAt=new Date(sent).toISOString();
   metadata.analysis={...metadata.analysis,enqueuedAt:metadata.analysis.enqueuedAt||new Date(Number(message.attributes?.SentTimestamp)||Date.now()).toISOString(),model,status:'queued',dispatchId:randomUUID(),dispatchedAt:new Date().toISOString()};

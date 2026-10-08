@@ -17,7 +17,7 @@ const aws=async args=>JSON.parse((await execute('aws',[...args,'--region',region
 const wait=()=>new Promise(r=>setTimeout(r,30000));
 const stack=await aws(['cloudformation','describe-stacks','--stack-name','WeiqiGpuBenchmark']);
 const outputs=Object.fromEntries(stack.Stacks[0].Outputs.map(o=>[o.OutputKey,o.OutputValue]));
-const bucket='weiqisite-recordlibrary34c28f86-bfnqhy6739na',source=await readFile(filename,'utf8'),record=readSgf(source),model=await katagoModels.resolveLatestModel();
+const bucket='weiqisite-recordlibrary34c28f86-bfnqhy6739na',source=await readFile(filename,'utf8'),record=readSgf(source),model=await katagoModels.resolveAnalysisModel();
 const prices=JSON.parse(await readFile('/private/tmp/weiqi-gpu-prices.json','utf8'));
 const specs={T4:'g4dn.xlarge',A10G:'g5.xlarge',L4:'g6.xlarge'},runId=new Date().toISOString().replace(/[:.]/g,'-');
 const report={runId,bucket,model:model.name,moves:record.mainLine.length-1,rules:record.rules||'japanese',analysisThreads,maxBatchSize,results:[],instances:[],pricing:prices};
