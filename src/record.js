@@ -37,7 +37,7 @@ function renderContents(){document.title=(data?.metadata.name || t('棋谱','Gam
  const state=data.metadata.analysis.status,pending=pendingAnalysis(data.metadata.analysis);$('analysis-wait').hidden=!pending&&!!data.analysis&&!trialOffset&&!aiLine&&analyses.has(selected)&&data.metadata.analysis.deep?.status!=='failed'&&state!=='failed'&&state!=='paused';$('analysis-wait').classList.toggle('is-loading',!!pending);const evaluation=trialOffset||aiLine?null:analyses.get(selected);$('analysis-depth').textContent='';
  if(data.analysis){
   const a=data.analysis,network=a.model.match(/b(\d+)c(\d+)/),engine=a.engineVersion.startsWith(a.engine)?a.engineVersion:a.engine+' '+a.engineVersion;
-  const phase=a.phase==='quick'?t('快速分析（临时结果）','Quick analysis (preliminary)'):a.phase==='deep'?(a.compute?.instanceType==='g5.xlarge'?t('深度分析（GPU 后备）','Deep analysis (GPU fallback)'):t('深度分析','Deep analysis')):'';
+  const phase=a.phase==='quick'?t('快速分析（临时结果）','Quick analysis (preliminary)'):a.phase==='deep'?t('深度分析','Deep analysis'):'';
   $('analysis-depth').textContent=[phase,engine+' · '+(network?network.slice(1).join(' × ')+t(' 网络',' network'):a.model)+' · '+(evaluation?.visits??'—')+' / '+a.visits+t(' 次访问',' visits'),analysisCompute(a),t('分析规则：','Analysis rules: ')+a.rules+' · '+t('贴目 ','Komi ')+a.komi,analysisRuntime(a),analysisTotal(a),t('完成于：','Completed: ')+localTimestamp(a.completedAt,document.documentElement.lang==='zh-CN'?'zh':'en')].filter(Boolean).join('\n');
  }
  if(data.analysis&&evaluation){$('analysis-status').textContent=state==='paused'?pausedAnalysisMessage():pending?pendingMessage():data.metadata.analysis.deep?.status==='failed'?terminalAnalysisMessage():'';}
