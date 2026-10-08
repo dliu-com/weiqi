@@ -27,6 +27,12 @@ class WorkerTest(unittest.TestCase):
    self.assertEqual(json.loads(self.files['games/20261005/01/metadata.json']['body'])['analysis']['status'],'ready')
    timing=json.loads(self.files['jobs/2026100501/timings.json']['body'])['timings'];self.assertIn('engineLoadAndAnalysisMs',timing);self.assertIn('saveResultsAndStatusMs',timing)
    self.assertEqual(self.worker.handler(self.event)['status'],'skipped')
+ def test_configured_deep_visits_are_accepted_and_larger_requests_rejected(self):
+  output='\n'.join(json.dumps({'turnNumber':n,'rootInfo':{'scoreLead':n,'winrate':.5,'visits':5000}}) for n in [0,1,2])
+  with patch.dict(os.environ,{'MAX_VISITS':'5000'}),patch.object(self.worker.subprocess,'run',return_value=types.SimpleNamespace(returncode=0,stdout=output)),patch.object(self.worker.subprocess,'check_output',return_value='KataGo test\n'):
+   with self.assertRaisesRegex(ValueError,'Invalid'):self.worker.handler({**self.event,'query':{**self.event['query'],'maxVisits':5001}})
+   self.worker.handler({**self.event,'query':{**self.event['query'],'maxVisits':5000}})
+  self.assertEqual(json.loads(self.files['games/20261005/01/metadata.json']['body'])['analysis']['status'],'ready')
  def test_incomplete_results_never_publish_ready(self):
   with patch.object(self.worker.subprocess,'run',return_value=types.SimpleNamespace(returncode=0,stdout='')):
    with self.assertRaisesRegex(RuntimeError,'Incomplete'):self.worker.handler(self.event)

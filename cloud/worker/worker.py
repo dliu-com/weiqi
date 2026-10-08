@@ -75,7 +75,7 @@ def handler(event,context=None):
 
     timings['downloadExtractKataGoMs']=round((time.time()-engine_download_started)*1000)
     query={**event['query'],'analysisPVLen':11}; visits=query['maxVisits']
-    if query['boardXSize']!=19 or query['boardYSize']!=19 or not 1<=visits<=3000: raise ValueError('Invalid benchmark request')
+    if query['boardXSize']!=19 or query['boardYSize']!=19 or not 1<=visits<=int(os.environ.get('MAX_VISITS','5000')): raise ValueError('Invalid benchmark request')
     prefix=event['outputPrefix']
     if not (prefix.startswith('benchmarks/') or production and prefix==game_prefix(event['id'])) or '..' in prefix: raise ValueError('Invalid output prefix')
     model=pathlib.Path(os.environ.get('KATAGO_MODEL_PATH','/tmp/katago-model.bin.gz'))
