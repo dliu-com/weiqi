@@ -182,7 +182,7 @@ function renderSuggestions(){
  $('ai-suggestions').checked=suggestions;
  $('ai-suggestions-label').textContent=t('棋步点评与 AI 推荐','Move review & AI suggestions');
  $('ai-review-content').hidden=$('ai-review-notes').hidden=!suggestions;
- boardCandidates.clear();boardRecordedMoves.clear();for(const point of points){delete point.dataset.quality;delete point.dataset.aiCandidate;delete point.dataset.nextQuality;delete point.dataset.recordedMove;point.classList.remove('ai-candidate','ai-best','ai-good','next-recorded-move');point.removeAttribute('title');}
+ boardCandidates.clear();boardRecordedMoves.clear();for(const point of points){delete point.dataset.quality;delete point.dataset.aiCandidate;delete point.dataset.nextQuality;delete point.dataset.nextSide;delete point.dataset.recordedMove;point.classList.remove('ai-candidate','ai-best','ai-good','next-recorded-move');point.removeAttribute('title');}
  if(!suggestions)return;
  const review=reviewMove(record,selected,analyses,data.analysis?.phase),next=nextMoveComparison(record,selected,analyses,data.analysis?.phase),quality=$('move-quality');
  quality.hidden=!!aiLine||!!trialOffset||!record.nodes[selected].move||!review.unavailable;
@@ -213,7 +213,7 @@ function renderSuggestions(){
    const point=points[actualMove.index],ns='http://www.w3.org/2000/svg',svg=document.createElementNS(ns,'svg'),triangle=document.createElementNS(ns,'polygon');
    svg.setAttribute('viewBox','0 0 100 100');svg.setAttribute('aria-hidden','true');svg.classList.add('recorded-triangle');triangle.setAttribute('points','50,8 92,88 8,88');svg.append(triangle);point.replaceChildren(svg);
    if(actualRow?.label){const letter=document.createElement('span');letter.className='recorded-candidate-letter';letter.textContent=actualRow.label;point.append(letter);}
-   point.classList.add('next-recorded-move');point.dataset.nextQuality=actualRow?.quality||'unrated';point.dataset.recordedMove=coord(actualMove.index);boardRecordedMoves.set(actualMove.index,actualNode);
+   point.classList.add('next-recorded-move');point.dataset.nextQuality=actualRow?.quality||'unrated';point.dataset.nextSide=actualMove.side;point.dataset.recordedMove=coord(actualMove.index);boardRecordedMoves.set(actualMove.index,actualNode);
    point.title=t('下一手实战：','Next recorded move: ')+(actualMove.side==='B'?t('黑方 ','Black '):t('白方 ','White '))+coord(actualMove.index)+' · '+(names[actualRow?.quality]||t('未评定','Unrated'));point.setAttribute('aria-label',point.title+' · '+t('前往实战着法','Go to recorded move'));
  }
  if(!preserveAiTable&&next.rows.length){
@@ -269,7 +269,7 @@ function renderContinuations(){
 // Keep the origin table mounted while previews change, so pointer entry/exit
 // and keyboard focus stay attached to the same rows.
 function renderBoard(node){
- points.forEach((p,i)=>{delete p.dataset.quality;delete p.dataset.aiCandidate;delete p.dataset.nextQuality;delete p.dataset.recordedMove;p.removeAttribute('title');p.className='point'+(node.board[i]==='B'?' black':node.board[i]==='W'?' white':'')+(node.move?.index===i?' last':'');p.disabled=node.board[i]!=='.';p.textContent='';if(aiLine&&!trialOffset){for(let n=1;n<=aiLine.offset;n++){const m=aiLine.frames[n].move;if(m.index===i&&node.board[i]===m.side)p.textContent=String(n);}}if(p.textContent)p.classList.add('ai-number');p.setAttribute('aria-label',coord(i)+' '+(node.board[i]==='B'?t('黑子','Black stone'):node.board[i]==='W'?t('白子','White stone'):t('空点','Empty')));});
+ points.forEach((p,i)=>{delete p.dataset.quality;delete p.dataset.aiCandidate;delete p.dataset.nextQuality;delete p.dataset.nextSide;delete p.dataset.recordedMove;p.removeAttribute('title');p.className='point'+(node.board[i]==='B'?' black':node.board[i]==='W'?' white':'')+(node.move?.index===i?' last':'');p.disabled=node.board[i]!=='.';p.textContent='';if(aiLine&&!trialOffset){for(let n=1;n<=aiLine.offset;n++){const m=aiLine.frames[n].move;if(m.index===i&&node.board[i]===m.side)p.textContent=String(n);}}if(p.textContent)p.classList.add('ai-number');p.setAttribute('aria-label',coord(i)+' '+(node.board[i]==='B'?t('黑子','Black stone'):node.board[i]==='W'?t('白子','White stone'):t('空点','Empty')));});
  $('board').dataset.preview=node.turn==='B'?'black':'white';
 }
 function renderAiTable(){

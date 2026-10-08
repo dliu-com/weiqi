@@ -1,5 +1,5 @@
 import {t} from './i18n.js';
-const key='weiqi.stone-volume',defaultVolume=10,controls=[];
+const key='weiqi.stone-volume',defaultVolume=5,controls=[];
 let context=null,volume=defaultVolume;
 try{const saved=localStorage.getItem(key);if(saved!==null&&Number.isFinite(Number(saved)))volume=Math.max(0,Math.min(100,Number(saved)));}catch{}
 
