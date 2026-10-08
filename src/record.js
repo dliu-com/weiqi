@@ -109,29 +109,36 @@ window.addEventListener('site-language-change',()=>{render();showLoadError();});
 const mobileReplay=window.matchMedia('(max-width:850px)');
 const replayNavigation=document.querySelector('.record-navigation');
 function arrangeReplayControls(){
- // On phones the game summary (name, files, players, result) sits above the board.
- const summary=document.querySelector('.record-summary'),playArea=document.querySelector('#record-main>.play-area');
- if(mobileReplay.matches){if(summary.nextElementSibling!==playArea)playArea.before(summary);}else if(summary.parentElement!==document.querySelector('#record-main>aside'))document.querySelector('#record-main>aside').prepend(summary);
- const target=document.querySelector(mobileReplay.matches?'.play-area':'.record-summary');
- if(mobileReplay.matches)target.insertBefore(replayNavigation,$('trial-controls'));else target.append(replayNavigation);
- document.documentElement.style.setProperty('--record-header-height',document.querySelector('header').getBoundingClientRect().height+'px');
+ // Phones: summary, chart, board and move controls, then the table. Desktop: board and move controls on the left; summary, chart and table on the right.
+ const summary=document.querySelector('.record-summary'),playArea=document.querySelector('#record-main>.play-area'),aside=document.querySelector('#record-main>aside'),chart=$('chart-panel');
+ if(mobileReplay.matches){if(summary.nextElementSibling!==chart||chart.nextElementSibling!==playArea)playArea.before(summary,chart);}
+ else{if(summary.parentElement!==aside)aside.prepend(summary);if(chart.nextElementSibling!==$('ai-review'))$('ai-review').before(chart);}
+ if(replayNavigation.nextElementSibling!==$('trial-controls'))playArea.insertBefore(replayNavigation,$('trial-controls'));
+ const root=document.documentElement.style;
+ root.setProperty('--record-header-height',document.querySelector('header').getBoundingClientRect().height+'px');
+}
+// Desktop boards leave room for the move controls below them.
+function measureNavigation(){
+ const root=document.documentElement.style,space=Math.ceil(replayNavigation.getBoundingClientRect().height+8)+'px';
+ if(mobileReplay.matches)root.removeProperty('--record-nav-space');else if(root.getPropertyValue('--record-nav-space')!==space)root.setProperty('--record-nav-space',space);
 }
 // On phones, size the board so that with the board scrolled to the top, the table header and first three suggestions still fit on screen.
-// Header and row heights are remembered so the board keeps its size while suggestions are hidden or still loading.
-const tableSize={head:40,row:47};
+// The table offset, header and row heights are remembered so the board keeps its size while suggestions are hidden or still loading.
+const tableSize={offset:16,head:40,row:47};
 function fitBoardWithTable(){
  const root=document.documentElement.style,card=$('ai-review').closest('.card');
  if(!mobileReplay.matches){root.removeProperty('--record-below-board');return;}
  if(!card.getClientRects().length)return;
  const head=$('ai-alternatives').querySelector('thead'),row=$('ai-alternatives').querySelector('tbody tr');
- if(head?.getClientRects().length)tableSize.head=head.getBoundingClientRect().height;
+ if(head?.getClientRects().length){tableSize.offset=head.getBoundingClientRect().top-card.getBoundingClientRect().top;tableSize.head=head.getBoundingClientRect().height;}
  if(row?.getClientRects().length)tableSize.row=row.getBoundingClientRect().height;
- const reserve=Math.ceil(card.getBoundingClientRect().top-document.querySelector('#record-main .board-wrap').getBoundingClientRect().bottom+parseFloat(getComputedStyle(card).paddingTop)+tableSize.head+3*tableSize.row+6);
+ const reserve=Math.ceil(card.getBoundingClientRect().top-document.querySelector('#record-main .board-wrap').getBoundingClientRect().bottom+tableSize.offset+tableSize.head+3*tableSize.row+4);
  if(root.getPropertyValue('--record-below-board')!==reserve+'px')root.setProperty('--record-below-board',reserve+'px');
 }
-mobileReplay.addEventListener('change',()=>{arrangeReplayControls();fitBoardWithTable();});
+mobileReplay.addEventListener('change',()=>{arrangeReplayControls();measureNavigation();fitBoardWithTable();});
 window.addEventListener('resize',()=>{arrangeReplayControls();fitBoardWithTable();});
 arrangeReplayControls();
+if(typeof ResizeObserver!=='undefined')new ResizeObserver(measureNavigation).observe(replayNavigation);
 if(typeof ResizeObserver!=='undefined')new ResizeObserver(fitBoardWithTable).observe($('ai-review').closest('.card'));
 if(typeof ResizeObserver!=='undefined')new ResizeObserver(()=>{document.documentElement.style.setProperty('--record-header-height',document.querySelector('header').getBoundingClientRect().height+'px');}).observe(document.querySelector('header'));
 
@@ -178,13 +185,11 @@ function renderSuggestions(){
  boardCandidates.clear();boardRecordedMoves.clear();for(const point of points){delete point.dataset.quality;delete point.dataset.aiCandidate;delete point.dataset.nextQuality;delete point.dataset.recordedMove;point.classList.remove('ai-candidate','ai-best','ai-good','next-recorded-move');point.removeAttribute('title');}
  if(!suggestions)return;
  const review=reviewMove(record,selected,analyses,data.analysis?.phase),next=nextMoveComparison(record,selected,analyses,data.analysis?.phase),quality=$('move-quality');
- quality.hidden=!!aiLine||!!trialOffset||!record.nodes[selected].move;
+ quality.hidden=!!aiLine||!!trialOffset||!record.nodes[selected].move||!review.unavailable;
  const names={best:t('最佳','Best'),good:t('好棋','Good'),inaccuracy:t('不精确','Inaccuracy'),mistake:t('失误','Mistake'),blunder:t('严重失误','Blunder')};
  const last=record.nodes[selected].move?.index;
  if(!aiLine&&!trialOffset&&last!==null&&last!==undefined&&review.quality){points[last].dataset.quality=review.quality;points[last].setAttribute('aria-label',points[last].getAttribute('aria-label')+' · '+names[review.quality]);}
- quality.dataset.quality=review.quality||'';
- quality.textContent=review.unavailable?(!data.analysis?t('AI 推荐将在分析完成后显示。','Suggestions appear when analysis is ready.'):!analyses.has(review.anchor)?t('此 SGF 分支尚未分析。','This SGF branch has not been analysed.'):data.analysis.schemaVersion>=2?t('此局面没有已搜索的候选着法。','No searched candidate moves in this position.'):t('此分析未保存推荐变化；新上传棋谱将包含此功能。','Suggestions were not saved in this analysis. New uploads include them.')):review.played?t('第 '+record.nodes[selected].depth+' 手 · ','Move '+record.nodes[selected].depth+' · ')+(review.side==='B'?t('黑方 ','Black '):t('白方 ','White '))+review.played+' · '+(names[review.quality]||t('未评定','Unrated'))+(review.loss!==null&&review.quality!=='best'?' · '+t('损失 '+review.loss.toFixed(1)+' 目',review.loss.toFixed(1)+' points lost'):'')+(review.preliminary?t('（快速估计）',' (preliminary)'):''):t('AI 推荐首手','Recommended next moves');
- quality.title=t('按估计损失目数评级：好棋 ≤ 0.5；不精确 ≤ 2；失误 ≤ 5；严重失误 > 5。最佳为 KataGo 首选，不代表数学上的完美。','Estimated point loss: Good ≤ 0.5; Inaccuracy ≤ 2; Mistake ≤ 5; Blunder > 5. Best means KataGo’s top choice, not mathematical perfection.');
+ quality.textContent=review.unavailable?(!data.analysis?t('AI 推荐将在分析完成后显示。','Suggestions appear when analysis is ready.'):!analyses.has(review.anchor)?t('此 SGF 分支尚未分析。','This SGF branch has not been analysed.'):data.analysis.schemaVersion>=2?t('此局面没有已搜索的候选着法。','No searched candidate moves in this position.'):t('此分析未保存推荐变化；新上传棋谱将包含此功能。','Suggestions were not saved in this analysis. New uploads include them.')):'';
  $('ai-next-label').hidden=!aiLine&&!trialOffset;
  $('ai-next-label').textContent=aiLine?aiLine.overview?t('完整推荐变化预览；下表评估属于第 '+record.nodes[aiLine.anchor].depth+' 手后的局面。','Full line preview; table evaluations belong to the position after move '+record.nodes[aiLine.anchor].depth+'.'):t('继续点击棋盘上的推荐点，或使用方向键。只显示已保存的变化，不估算后续局面分数。','Click a suggested point or use the arrows to continue. Saved continuations only; no new position scores.'):trialOffset?t('试下局面未分析。','Preview positions are not analysed.'):'';
  if(!preserveAiTable)$('ai-alternatives').replaceChildren();$('ai-alternatives').hidden=!!trialOffset;
@@ -221,7 +226,7 @@ function renderSuggestions(){
      const move=document.createElement('th');move.scope='row';const button=document.createElement('button');button.type='button';button.className='ai-move-choice';button.dataset.side=next.side;button.append((row.label?row.label+' · ':'')+(row.move==='pass'?t('停一手','Pass'):row.move));
      const preview=()=>chooseAiRow(next,row);button.onclick=event=>{event.stopPropagation();preview();};tr.onclick=preview;tr.onmouseenter=()=>{if(hoverAiSuggestions.matches)hoverAiRow(next,row);};tr.onmouseleave=leaveAiRow;button.setAttribute('aria-pressed',String(!!aiLine?.overview&&row.candidate===aiLine.rootCandidate));
      button.setAttribute('aria-label',(next.side==='B'?t('黑方','Black'):t('白方','White'))+' · '+button.textContent+' · '+(row.candidate?t('预览完整推荐变化','Preview full recommended line'):t('查看实战着法','View recorded move')));move.append(button);
-     if(row.actual){const badge=document.createElement('button');badge.type='button';badge.className='ai-played-badge';badge.textContent='△';badge.title=t('实战','Played');badge.setAttribute('aria-label',t('前往实战着法','Go to recorded move'));badge.onclick=event=>{event.stopPropagation();selectPosition(row.actualNode);};move.append(badge);}
+     if(row.actual){const badge=document.createElement('button');badge.type='button';badge.className='ai-played-badge';badge.dataset.quality=row.quality||'unrated';const ns='http://www.w3.org/2000/svg',icon=document.createElementNS(ns,'svg'),shape=document.createElementNS(ns,'polygon');icon.setAttribute('viewBox','0 0 100 100');icon.setAttribute('aria-hidden','true');shape.setAttribute('points','50,8 92,88 8,88');icon.append(shape);badge.append(icon);badge.title=t('实战','Played');badge.setAttribute('aria-label',t('前往实战着法','Go to recorded move'));badge.onclick=event=>{event.stopPropagation();selectPosition(row.actualNode);};move.append(badge);}
      const rating=document.createElement('td');rating.append(qualityPill(row.quality||'unrated',names[row.quality]||t('未评定','Unrated')));
      const lead=document.createElement('td');
      if(Number.isFinite(row.blackLead)){

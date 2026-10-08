@@ -9,10 +9,10 @@
 
 button.is-loading:before{content:'';display:inline-block;width:12px;height:12px;margin-right:8px;vertical-align:-2px;border:2px solid currentColor;border-top-color:transparent;border-radius:50%;animation:analysis-spin .8s linear infinite}
 
-#next-recorded-legend{display:flex;flex-wrap:wrap;gap:5px 12px;align-items:center}
-.next-move-legend-title{flex-basis:100%}
-.next-move-legend-item{display:inline-flex;gap:5px;align-items:center;white-space:nowrap}
-.next-move-swatch{display:inline-block;width:11px;height:11px;clip-path:polygon(50% 0,100% 100%,0 100%);background:#64748b}
+#next-recorded-legend{display:flex;flex-wrap:wrap;gap:4px 6px;align-items:center}
+.next-move-legend-title{white-space:nowrap}
+.next-move-legend-item{display:inline-flex;gap:3px;align-items:center;white-space:nowrap}
+.next-move-swatch{display:inline-block;width:10px;height:10px;clip-path:polygon(50% 0,100% 100%,0 100%);background:#64748b}
 .next-move-swatch[data-quality=best]{background:#2978ce}
 .next-move-swatch[data-quality=good]{background:#27834c}
 .next-move-swatch[data-quality=inaccuracy]{background:#d7ad20}
