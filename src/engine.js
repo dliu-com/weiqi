@@ -2,6 +2,8 @@ export const opposite = side => side === 'black' ? 'white' : 'black';
 export const stone = side => side === 'black' ? 'B' : 'W';
 // Shorter live games are not saved to the library or analysed.
 export const MIN_LIBRARY_MOVES = 50;
+// Hard cap for live and recorded games, counting passes like the library does.
+export const MAX_GAME_MOVES = 400;
 export function neighbors(index, size) {
   const x = index % size, y = Math.floor(index / size);
   return [x > 0 ? index - 1 : -1, x < size - 1 ? index + 1 : -1, y > 0 ? index - size : -1, y < size - 1 ? index + size : -1].filter(i => i >= 0);

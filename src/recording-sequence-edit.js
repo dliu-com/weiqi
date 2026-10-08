@@ -1,5 +1,5 @@
-import {play} from './engine.js';
-import {recordingSgf,recordingNodeIndex,updateMainLine} from './recording-tree.js';
+import {play,MAX_GAME_MOVES} from './engine.js';
+import {recordingSgf,recordingNodeIndex,updateMainLine,recordingDepth,recordingLimitError} from './recording-tree.js';
 
 // This workspace lives only in memory. Replaying here is a board preview,
 // never an acceptance check: only the draft API can accept a correction.
@@ -23,6 +23,7 @@ export class RecordingSequenceEdit{
  insert(parent,index){
   const r=this.record,node=r.nodes[parent];if(!node)throw Error('Invalid move.');
   if(this.count()>=2000)throw Error('The draft may contain at most 2,000 positions.');
+  if(recordingDepth(r,parent)>=MAX_GAME_MOVES)throw recordingLimitError();
   const id=r.nodes.length;r.nodes.push({parent,move:{side:node.turn,index},children:node.children.slice(),comment:''});
   for(const child of node.children)r.nodes[child].parent=id;
   node.children=[id];this.selected=id;return this.refresh();

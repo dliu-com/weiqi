@@ -1,6 +1,7 @@
 import test from 'node:test';import assert from 'node:assert/strict';import vm from 'node:vm';import {readFileSync} from 'node:fs';
 import {recordingTree,recordingSgf,newRecordingSgf,addRecordingMove,promoteRecordingBranch,deleteRecordingBranch,mainRecordingSgf,RecordingNavigation,recordingTreeLayout,recordingNodeIndex,populateRecordingDetails,deleteRecordingMove,insertRecordingMove,repositionRecordingMove,setRecordingHandicap,defaultRecordingKomi,setRecordingRules} from '../src/recording-tree.js';
 import {boardDisplayPoint} from '../src/board-geometry.js';
+import {RecordingSequenceEdit} from '../src/recording-sequence-edit.js';
 import {createDraft,draftTransition,draftPublication} from '../backend/draft-service.js';import {readSgf} from '../src/sgf.js';import {createState,transition} from '../backend/game-service.js';import {sgf} from '../src/engine.js';
 test('recording branches promote and prune the selected main line without losing setup, captures or passes',()=>{
  const r=recordingTree('(;SZ[19]RU[Japanese]KM[6.5]PL[B]AB[ab][ba][cb]AW[bb];B[bc](;W[dd];B[])(;W[pp];B[qq]))');assert.equal(r.nodes[1].board[20],'.');const alternate=r.nodes[1].children[1];promoteRecordingBranch(r,alternate);assert.equal(readSgf(mainRecordingSgf(recordingSgf(r))).nodes[2].move.index,300);const added=addRecordingMove(r,1,180);assert.equal(r.nodes[1].children.length,3);const deleted=deleteRecordingBranch(r,added);assert.equal(deleted.selected,1);assert.equal(deleted.record.nodes[1].children.length,2);
@@ -95,4 +96,19 @@ test('komi defaults follow rules and handicap while preserving explicitly suppli
  const custom=recordingTree('(;SZ[19]RU[Japanese]KM[0])');populateRecordingDetails(custom);assert.equal(custom.komi,0);assert.equal(setRecordingRules(custom,'Chinese').komi,0);assert.equal(setRecordingHandicap(custom,2).komi,0.5);
  const sgf=recordingTree('(;SZ[19]RU[Chinese]KM[6.5])');populateRecordingDetails(sgf);assert.equal(sgf.komi,6.5);
  assert.equal(recordingTree(mainRecordingSgf('(;SZ[19]RU[Chinese];B[dd])')).komi,7.5);
+});
+test('recorded games are capped at 400 moves in the editor, the draft API and on save',()=>{
+ const passes=n=>'(;SZ[19]GN[Long]PB[A]PW[B]DT[2026-10-08]RU[Japanese]KM[6.5]RE[B+R]'+Array.from({length:n},(_,i)=>';'+(i%2?'W':'B')+'[]').join('')+')',id='12345678-1234-1234-1234-123456789abc';
+ const full=recordingTree(passes(400));
+ assert.throws(()=>addRecordingMove(full,full.mainLine.at(-1),60),e=>e.code==='move-limit'&&/400 moves/.test(e.message));
+ assert.throws(()=>insertRecordingMove(full,10,60),e=>e.code==='move-limit');
+ assert.throws(()=>new RecordingSequenceEdit(full,10).insert(10,60),e=>e.code==='move-limit');
+ const shorter=recordingTree(passes(399));assert.equal(shorter.nodes[addRecordingMove(shorter,shorter.mainLine.at(-1),60)].depth,400);
+ const d=draftTransition(createDraft(),{expectedRevision:0,sgf:passes(400),selected:0});
+ assert.throws(()=>draftTransition(d,{expectedRevision:d.revision,sgf:passes(401),selected:0}),e=>e.statusCode===400&&/400 moves/.test(e.message));
+ assert.equal(draftPublication(d,{expectedRevision:d.revision,id}).publication.status,'pending');
+ // A draft saved before the cap can be shortened, but not saved until it fits.
+ const legacy={revision:5,sgf:passes(402),selected:0};
+ assert.equal(draftTransition(legacy,{expectedRevision:5,sgf:passes(401),selected:0}).revision,6);
+ assert.throws(()=>draftPublication(legacy,{expectedRevision:5,id}),e=>e.statusCode===400&&/This game has 402/.test(e.message));
 });

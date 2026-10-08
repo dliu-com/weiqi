@@ -1,4 +1,4 @@
-import { opposite, play, groupAt, score, gameTree, gameClock } from '../src/engine.js';
+import { opposite, play, groupAt, score, gameTree, gameClock, MAX_GAME_MOVES } from '../src/engine.js';
 export class GameError extends Error {
   constructor(message, statusCode = 400) { super(message); this.statusCode = statusCode; }
 }
@@ -100,7 +100,7 @@ export function transition(current, request) {
     next.result = { winner: opposite(a.side), reason: 'resign' }; next.phase = 'ended';
   } else if ((a.type === 'move' || a.type === 'pass') && current.phase === 'play') {
     if (next.clock.paused) throw new GameError('请先恢复计时。');
-    if (a.type === 'move' && current.history.length >= 600) throw new GameError('本局已达 600 手，请双方停一手结算或另开新局。');
+    if (current.history.length >= MAX_GAME_MOVES) throw new GameError('本局已达 400 手上限，请点击“新一局”选择结果。');
     const entry = { type: a.type, side: current.turn, board: current.board, captures: { ...current.captures }, passes: current.passes };
     if (a.type === 'move') {
       let move;

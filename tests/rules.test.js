@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { play, score, gameTree, reviewPosition } from '../src/engine.js';
+import { play, score, gameTree, reviewPosition, MAX_GAME_MOVES } from '../src/engine.js';
 import { createState, transition, freshLiveGame } from '../backend/game-service.js';
 const act = (s,action) => transition(s,{expectedRevision:s.revision,action});
 test('capture removes a group with its last liberty filled',()=>{
@@ -35,9 +35,12 @@ test('resume and resignation work',()=>{
  let s=act(act(createState(),{type:'pass'}),{type:'pass'});s=act(s,{type:'resume'});assert.equal(s.passes,0);
  s=act(s,{type:'resign',side:'white'});assert.equal(s.result.winner,'black');assert.throws(()=>act(s,{type:'pass'}));
 });
-test('history limit still allows passing to finish, item remains below DynamoDB limit',()=>{
- let s=createState();s.history=Array.from({length:600},()=>({board:s.board,side:'black',captures:{black:0,white:0},passes:0,type:'move',index:0}));
- assert.throws(()=>act(s,{type:'move',index:1}),/600/);s=act(act(s,{type:'pass'}),{type:'pass'});assert.equal(s.phase,'scoring');assert.ok(Buffer.byteLength(JSON.stringify(s))<390000);
+test('games stop at the 400-move hard limit, can still record a result, and stay below the DynamoDB limit',()=>{
+ assert.equal(MAX_GAME_MOVES,400);
+ let s=createState();s.history=Array.from({length:MAX_GAME_MOVES},()=>({board:s.board,side:'black',captures:{black:0,white:0},passes:0,type:'move',index:0}));
+ assert.throws(()=>act(s,{type:'move',index:1}),/400/);assert.throws(()=>act(s,{type:'pass'}),/400/);
+ const ended=act(s,{type:'result',winner:'black',reason:'resign'});assert.equal(ended.phase,'ended');assert.equal(ended.history.length,MAX_GAME_MOVES);assert.ok(Buffer.byteLength(JSON.stringify(s))<390000);
+ s.history.pop();s=act(s,{type:'pass'});assert.equal(s.history.length,MAX_GAME_MOVES);assert.throws(()=>act(s,{type:'pass'}),/400/);
 });
 test('undo restores captured stones and prisoner counts',()=>{
  let s=createState();const b=s.board.split('');

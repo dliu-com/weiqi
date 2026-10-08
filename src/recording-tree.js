@@ -1,6 +1,9 @@
 import {readSgf,parseSgf} from './sgf.js';
-import {play} from './engine.js';
+import {play,MAX_GAME_MOVES} from './engine.js';
 export function recordingTree(source){const record=readSgf(source);record.rootProperties=structuredClone(parseSgf(source).nodes[0]);delete record.rootProperties.B;delete record.rootProperties.W;return record;}
+// Deepest move number reachable from a node, across every variation.
+export function recordingDepth(record,id=0){let deepest=0;const pending=[id];while(pending.length){const node=record.nodes[pending.pop()];deepest=Math.max(deepest,node.depth||0);pending.push(...node.children);}return deepest;}
+export function recordingLimitError(){return Object.assign(Error(`A game can have at most ${MAX_GAME_MOVES} moves.`),{code:'move-limit',statusCode:400});}
 export function defaultRecordingKomi(rules,handicap=0){
  if(Number(handicap)>0)return 0.5;
  return /chinese|中国|中國|aga/i.test(rules||'')?7.5:6.5;
@@ -66,6 +69,7 @@ export function recordingSgf(record,mainOnly=false){
 export function addRecordingMove(record,parent,index){
  const node=record.nodes[parent];if(!node)throw Error('Invalid move.');
  const existing=node.children.find(id=>record.nodes[id].move.index===index&&record.nodes[id].move.side===node.turn);if(existing!==undefined)return existing;
+ if(node.depth>=MAX_GAME_MOVES)throw recordingLimitError();
  if(record.nodes.length>=2000)throw Error('The draft may contain at most 2,000 positions.');
  const history=[];for(let n=parent;n!==null;n=record.nodes[n].parent)history.push(record.nodes[n].board);
  const board=index===null?node.board:play(node.board,index,node.turn==='B'?'black':'white',19,history).board;
@@ -91,6 +95,7 @@ export function deleteRecordingMove(record,id){
 export function insertRecordingMove(record,parent,index){
  if(!record.nodes[parent])throw Error('Invalid move.');
  if(record.nodes.length>=2000)throw Error('The draft may contain at most 2,000 positions.');
+ if(recordingDepth(record,parent)>=MAX_GAME_MOVES)throw recordingLimitError();
  const next=structuredClone(record),node=next.nodes[parent],id=next.nodes.length;
  next.nodes.push({parent,move:{side:node.turn,index},children:node.children.slice(),comment:''});
  for(const child of node.children)next.nodes[child].parent=id;
