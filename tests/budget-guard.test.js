@@ -12,6 +12,9 @@ function harness(spend=51,dailySpend=null){
 test('actual spend over USD50 latches pause, disables owned queues and terminates jobs while keeping completed quick analysis',async()=>{
  const h=harness();assert.equal((await h.alert()).paused,true);const flag=JSON.parse(h.files.get('control/ai-spending.json'));assert.equal(flag.thresholdUSD,50);const s=JSON.parse(h.files.get('games/20261006/01/metadata.json')).analysis;assert.equal(s.status,'paused');assert.equal(s.quick.status,'ready');assert.equal(s.deep.status,'paused');assert.equal(s.retryAt,undefined);assert.equal(h.operations.filter(c=>c.name==='terminate').length,1);assert.equal(h.operations.find(c=>c.name==='disable').input.jobQueue,'owned-queue');await h.alert();assert.equal(h.files.get('control/ai-spending.json'),JSON.stringify(flag));
 });
+test('a budget pause leaves a deep phase skipped by the daily deep limit unchanged',async()=>{
+ const h=harness();h.files.set('games/20261006/01/metadata.json',JSON.stringify({analysis:{status:'running',quick:{status:'running'},deep:{status:'limited',dailyLimit:10}}}));await h.alert();const s=JSON.parse(h.files.get('games/20261006/01/metadata.json')).analysis;assert.equal(s.status,'paused');assert.equal(s.quick.status,'paused');assert.deepEqual(s.deep,{status:'limited',dailyLimit:10});
+});
 test('setup/test messages below the threshold and messages from another SNS topic cannot pause AI',async()=>{
  const h=harness(50);await h.alert();assert.equal(h.operations.length,0);const untrusted=harness();await untrusted.call({Records:[{EventSource:'aws:sns',Sns:{TopicArn:'another-topic'}}]});assert.equal(untrusted.operations.length,0);
 });

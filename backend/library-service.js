@@ -9,10 +9,14 @@ export function recordMetadata(source, filename, id) {
   const record = readSgf(source);
   return {schemaVersion:1,id,originalFilename:filename,name:record.name || filename.replace(/\.sgf$/i,'').slice(0,200) || 'Uploaded game',players:record.players,playerRanks:record.playerRanks,timeControl:record.timeControl,size:record.size,komi:record.komi,rules:record.rules,date:record.date,venue:record.venue||'',result:record.result,moves:record.mainLine.length-1,uploadedAt:new Date().toISOString(),analysis:{status:'queued'}};
 }
-export const DAILY_ANALYSIS_CAP=Number(typeof process!=='undefined'?process.env.DAILY_ANALYSIS_CAP||10:10);
-export async function saveRecord(store, source, filename, id, analysisAllowed=true, analysisPaused=false) {
+const setting=(name,fallback)=>Number(typeof process!=='undefined'?process.env[name]||fallback:fallback);
+// Per London day: every new game gets quick analysis; only the first DAILY_ANALYSIS_CAP also get deep analysis.
+export const DAILY_ANALYSIS_CAP=setting('DAILY_ANALYSIS_CAP',10);
+export const DAILY_UPLOAD_CAP=Math.min(100,setting('DAILY_UPLOAD_CAP',100));
+export async function saveRecord(store, source, filename, id, analysisAllowed=true, analysisPaused=false, deepAllowed=analysisAllowed) {
   const metadata = recordMetadata(source,filename,id);
   if(!analysisAllowed)metadata.analysis={status:'limited',dailyLimit:DAILY_ANALYSIS_CAP};
+  else if(!deepAllowed)metadata.analysis={status:'queued',deep:{status:'limited',dailyLimit:DAILY_ANALYSIS_CAP}};
   if(analysisPaused)metadata.analysis={status:'paused',reason:'monthly_budget'};
   const prefix = gamePrefix(id) + '/';
   // A retried upload reuses its ID; never overwrite an existing game.
@@ -31,15 +35,16 @@ export async function uploadRecord(store,source,filename,uploadId,now=new Date()
   const date=['year','month','day'].map(type=>parts.find(p=>p.type===type).value).join('');
   const mapping='uploads/'+uploadId+'.json';
   let existing;try{existing=JSON.parse(await store.get(mapping));}catch(e){if(e.code!=='ENOENT'&&e.name!=='NoSuchKey')throw e;}
-  if(existing)return saveRecord(store,source,filename,existing.id,existing.analysisAllowed!==false,existing.analysisPaused===true);
+  // Mappings saved before quick-only games have no deepAllowed; analysisAllowed then meant both passes.
+  const replay=m=>saveRecord(store,source,filename,m.id,m.analysisAllowed!==false,m.analysisPaused===true,m.deepAllowed??m.analysisAllowed!==false);
+  if(existing)return replay(existing);
   const analysisPaused=store.analysisPaused?await store.analysisPaused():false;
-  for(let n=1;n<=100;n++) {
+  for(let n=0;n<DAILY_UPLOAD_CAP;n++) {
     const id=date+String(n).padStart(2,'0'),key='reservations/'+id+'.json';
     if(await store.create(key,JSON.stringify({uploadId}),'application/json') || JSON.parse(await store.get(key)).uploadId===uploadId) {
-      const analysisAllowed=analysisPaused||options.analysis===false?false:await reserveAnalysis(store,date,uploadId);
-      await store.create(mapping,JSON.stringify({id,analysisAllowed,analysisPaused}),'application/json');
-      const saved=JSON.parse(await store.get(mapping));
-      return saveRecord(store,source,filename,saved.id,saved.analysisAllowed!==false,saved.analysisPaused===true);
+      const analysisAllowed=!analysisPaused&&options.analysis!==false,deepAllowed=analysisAllowed&&await reserveAnalysis(store,date,uploadId);
+      await store.create(mapping,JSON.stringify({id,analysisAllowed,deepAllowed,analysisPaused}),'application/json');
+      return replay(JSON.parse(await store.get(mapping)));
     }
   }
   throw Object.assign(new Error('Daily upload limit reached.'),{statusCode:429});

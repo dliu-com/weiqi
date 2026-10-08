@@ -41,3 +41,8 @@ test('pending stage receives the queue range and completion counts down without 
  const first=analysisCompletion(stage,321,now),later=analysisCompletion(stage,321,now+30000);assert.deepEqual(first,later);assert.equal(first.windowStart,now+120000);assert.equal(first.timestamp,now+240000);
  assert.equal(analysisCompletion({status:'queued',estimatedSeconds:60},321,now),null);
 });
+test('a quick-only job ahead (deep limit reached) counts only its quick pass',()=>{
+ const a={jobId:'a',status:'RUNNABLE',createdAt:now-5000},quickOnly={quick:{status:'queued',estimatedSeconds:60},deep:{status:'limited',dailyLimit:10}};
+ const result=estimateQueue({target,jobs:[target,a],analyses:new Map([['a',quickOnly]]),slots:1,now});
+ assert.equal(result.startsAt.earliest,now+(60+60*.8+60)*1000);assert.equal(result.startsAt.latest,now+(180+60*1.25+180)*1000);
+});
