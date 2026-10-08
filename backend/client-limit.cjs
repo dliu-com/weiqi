@@ -7,8 +7,10 @@ function clientBucket(event){
  if(ip.includes(':')){const [head,tail]=ip.split('::'),a=head?head.split(':'):[],b=tail?tail.split(':'):[],full=tail===undefined?a:[...a,...Array(Math.max(0,8-a.length-b.length)).fill('0'),...b];network=full.slice(0,4).map(h=>parseInt(h||'0',16).toString(16)).join(':');}
  return clientHash('sha256').update(network).digest().readUInt32BE(0)%4096;
 }
-async function clientAllowance(event,scope,period,limit,seconds){
- const bucket=clientBucket(event);if(bucket===null||!process.env.POSITION_USAGE_TABLE||!(limit>0))return true;
- try{await db.send(new ClientUpdateItemCommand({TableName:process.env.POSITION_USAGE_TABLE,Key:{id:{S:'client#'+scope+'#'+period+'#'+bucket}},UpdateExpression:'ADD used :one SET expires = :expires',ConditionExpression:'attribute_not_exists(used) OR used < :limit',ExpressionAttributeValues:{':one':{N:'1'},':limit':{N:String(limit)},':expires':{N:String(Math.floor(Date.now()/1000)+seconds)}}}));return true;}
+// One atomic counter row per window; DynamoDB TTL removes old rows.
+async function usageAllowance(id,limit,seconds){
+ if(!process.env.POSITION_USAGE_TABLE||!(limit>0))return true;
+ try{await db.send(new ClientUpdateItemCommand({TableName:process.env.POSITION_USAGE_TABLE,Key:{id:{S:id}},UpdateExpression:'ADD used :one SET expires = :expires',ConditionExpression:'attribute_not_exists(used) OR used < :limit',ExpressionAttributeValues:{':one':{N:'1'},':limit':{N:String(limit)},':expires':{N:String(Math.floor(Date.now()/1000)+seconds)}}}));return true;}
  catch(e){if(e.name==='ConditionalCheckFailedException')return false;throw e;}
 }
+async function clientAllowance(event,scope,period,limit,seconds){const bucket=clientBucket(event);return bucket===null||usageAllowance('client#'+scope+'#'+period+'#'+bucket,limit,seconds);}
