@@ -50,7 +50,8 @@ test('a new visitor starts on step 1 with an editable empty board, the upload bo
  const p=page();assert.equal(p.run('stage'),'check');assert.equal(p.get('upload-box').hidden,false);assert.equal(p.get('check-card').hidden,false);assert.equal(p.get('analysis-settings').hidden,false);assert.equal(p.get('file-actions').hidden,true);
  assert.equal(p.get('photo-stage').dataset.mode,'none');assert.equal(p.run('view.options.interactive'),true);assert.equal(p.storage.size,0);
  p.run('pointClicked(60)');assert.equal(p.run('board[60]'),'B');assert.equal(JSON.parse(p.storage.get('weiqi.local-analysis.v1')).editing,true);
- p.run('pointClicked(60)');assert.equal(p.storage.size,0);
+ p.run('pointClicked(60)');assert.equal(p.run('board[60]'),'B');
+ p.get('tool-E').onclick();p.run('pointClicked(60)');assert.equal(p.storage.size,0);
 });
 test('one local sequence replaces only the continuation and survives refresh without analysis or photos',()=>{
  const p=page();p.run("stage='play';board=emptyBoard();resetFrames();playMove(60);playMove(72);navigate(cursor-1);playMove(288)");
@@ -60,13 +61,12 @@ test('one local sequence replaces only the continuation and survives refresh wit
  const restored=page(saved);assert.equal(restored.run('stage'),'play');assert.equal(restored.run('cursor'),2);assert.equal(restored.run('board[60]'),'B');assert.equal(restored.run('board[288]'),'W');assert.equal(restored.run('side'),'B');
  assert.equal(page({...saved,side:'white'}).run('side'),'W');
 });
-test('checking stones alternates black and white, a tap on a stone removes it, and undo and rotation keep review rings',()=>{
+test('checking stones alternates black and white, a tap on a stone does nothing outside erase, and undo and rotation keep review rings',()=>{
  const p=page();assert.equal(p.run('stage'),'check');assert.equal(p.get('tool-B').attributes['aria-pressed'],'true');
  p.run('pointClicked(0);pointClicked(1);pointClicked(2)');assert.equal(p.run('board.slice(0,3)'),'BWB');assert.equal(p.run('tool'),'W');
  assert.equal(p.get('tool-W').attributes['aria-pressed'],'true');assert.equal(p.get('tool-B').attributes['aria-pressed'],'false');assert.equal(p.get('board').dataset.preview,'white');
- p.run('pointClicked(2)');assert.equal(p.run('board[2]+tool'),'.B');
- p.run('pointClicked(1)');assert.equal(p.run('board[1]+tool'),'.W');
- p.get('undo').onclick();assert.equal(p.run('board[1]+tool'),'WB');
+ const edits=p.run('undo.length');p.run('pointClicked(2);pointClicked(1)');assert.equal(p.run('board.slice(0,3)+tool'),'BWBW');assert.equal(p.run('undo.length'),edits);
+ p.get('undo').onclick();assert.equal(p.run('board.slice(0,3)+tool'),'BW.B');
  p.get('tool-W').onclick();p.run('pointClicked(60)');assert.equal(p.run('board[60]+tool'),'WB');
  p.run('review=new Set([60])');p.get('rotate').onclick();assert.equal(p.run('board[rotatePoint(60)]'),'W');assert.equal(p.run('review.has(rotatePoint(60))'),true);
  p.get('tool-E').onclick();assert.equal(p.get('board').dataset.preview,'erase');assert.equal(p.get('tool-B').attributes['aria-pressed'],'false');
@@ -85,6 +85,12 @@ test('analysis is one request per action, blocks stones without liberties and re
  p.run('pointClicked(0)');assert.equal(p.run('pinned'),null);assert.equal(p.run('frames.length'),1);
  p.replies.push(result);p.get('play-preview').onclick();p.run('pointClicked(288)');await settle();
  assert.equal(p.run('frames.length'),2);assert.equal(p.run('board[288]'),'B');assert.equal(p.requests.length,2);assert.equal(JSON.stringify(p.requests[1].body.moves),JSON.stringify([{side:'B',index:288}]));
+});
+test('an empty board can be analysed, and Next to play defaults to Black after a cleared board',async()=>{
+ const p=page();p.replies.push(result);await p.run('analyse()');
+ assert.equal(p.requests.length,1);assert.equal(p.requests[0].body.initialBoard,'.'.repeat(361));assert.equal(p.requests[0].body.side,'B');assert.equal(p.run('stage'),'play');
+ p.get('edit-stones').onclick();p.run("board=setPoint(emptyBoard(),60,'B');resetFrames()");p.get('side-W').onclick();assert.equal(p.run('side'),'W');
+ p.get('clear').onclick();assert.equal(p.run('side+tool'),'BB');assert.equal(p.get('side-B').attributes['aria-pressed'],'true');
 });
 test('komi can be 7.5 or 0.5; changing it clears the result and it is saved with the position',async()=>{
  const p=page();assert.equal(p.get('komi-7.5').attributes['aria-pressed'],'true');assert.equal(p.get('komi-0.5').attributes['aria-pressed'],'false');
