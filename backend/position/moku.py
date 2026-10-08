@@ -58,11 +58,32 @@ def legacy_corners(result,w,h):
  return pts
 
 def corners(result,w,h):
+ return checked_corners(result,w,h)[0]
+# Pixel quad plus its lattice score; the score is None when too few stones verified it.
+def checked_corners(result,w,h):
  from grid import select_grid
  try:original=legacy_corners(result,1,1)
  except ValueError:original=None
  quad,score=select_grid(result,original)
- return quad*np.array([w,h])
+ return quad*np.array([w,h]),score
+# Fallback when the whole-photo pass cannot verify a grid (see grid.py): Moku reruns on views
+# around the densest stone detections, then on views re-framed around the best grid so far.
+# Returns (pixel quad, quality, best view result in source coordinates) or None.
+def rescue_corners(model,source,first):
+ import grid
+ w,h=source.size;region=grid.board_region(first,w,h)
+ if region is None:return None
+ views=[];best=None;cache={}
+ for scale,angle in grid.RESCUE_PLAN:
+  if scale:cx,cy,size=region[0],region[1],region[2]*scale
+  elif best:cx,cy,size=grid.frame(best[1]*[w,h])
+  else:continue
+  M=grid.view_transform(cx,cy,size,angle);big=max(640,int(round(size)))
+  view=source.transform((big,big),Image.Transform.AFFINE,(M@np.diag([640/big,640/big,1]))[:2].ravel(),Image.Resampling.BILINEAR,fillcolor=(128,128,128))
+  views.append(grid.view_to_source(predict(model,view),M,w,h));best=grid.rescue_grid(views,cache) or best
+  if best and best[0]>=grid.RESCUE_ENOUGH:break
+ if best is None or best[0]<grid.RESCUE_ACCEPT:return None
+ return best[1]*np.array([w,h]),best[0],best[2]
 
 def classify(result,grid,w,h):
  H=homography(grid,[(0,0),(18,0),(18,18),(0,18)]);board=['.']*361;confidence=np.zeros(361)

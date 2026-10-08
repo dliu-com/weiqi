@@ -16,7 +16,10 @@ FULL_SCORE,TILE_SCORE,MIN_SCORE=.035,.05,.02
 REFERENCE_SCORE,NEIGHBOURS=.06,8
 COLOUR_SHARE=(.5,.6) # Black, white: share of pixels nearer that stone colour than the alternatives.
 DUPLICATE=.7         # Squares; a tall stone seen at an angle can also fire on the next point.
+ECHO=.9              # Squares; a weaker stone this near a stronger one must show its colour on its own intersection.
 LOW_SCORE,NEAR_SHARE=.05,.2
+LOOSE,LOOSE_SCORE=.5,.05 # Squares and full-pass score for a stone placed well off its intersection.
+LOOSE_GAP,LOOSE_SIZE=.85,1.15 # Squares to any other detection or read stone; box size ratio to the median stone.
 
 def crops():
  starts=np.linspace(0,SIZE-TILE,2).astype(int)
@@ -75,13 +78,13 @@ def read(image,full,tiles):
   refs.append((idx,np.array([np.median(disk(pixels,*centre(i,j)),0) for i in idx])))
  idx=np.array([i for i in range(361) if seen[i]<.01],int)
  refs.append((idx,np.array([np.median(disk(pixels,MARGIN+(i%19)*STEP,MARGIN+(i//19)*STEP),0) for i in idx])))
- def share(i,j):
+ def share(i,j,at=None):
   local=[]
   for idx,colours in refs:
    if len(idx)<3:local.append(None);continue
    near=np.argsort(np.abs(xy[idx]-xy[i]).sum(1))[:NEIGHBOURS];local.append(np.median(colours[near],0))
   if local[j] is None:return 1.0
-  px=disk(pixels,*centre(i,j))
+  px=disk(pixels,*(centre(i,j) if at is None else at))
   distance=np.stack([np.linalg.norm(px-c,axis=1) if c is not None else np.full(len(px),np.inf) for c in local],1)
   return float((distance.argmin(1)==j).mean())
  board=['.']*361;confidence=np.zeros(361);review=set()
@@ -99,4 +102,26 @@ def read(image,full,tiles):
   a=centre(i,'BW'.index(board[i]));x,y=i%19,i//19
   for n in [(y+dy)*19+x+dx for dy in (-1,0,1) for dx in (-1,0,1) if (dx or dy) and 0<=x+dx<19 and 0<=y+dy<19]:
    if board[n]!='.' and confidence[n]<=confidence[i] and np.linalg.norm(centre(n,'BW'.index(board[n]))-a)<DUPLICATE*STEP:board[n]='.';confidence[n]=0;review.add(n)
+ # An echo of a tall stone, or glare beside it, can sit a little farther off; keep it only if its intersection shows the colour.
+ inv=np.linalg.inv(H)
+ for i in sorted((n for n in range(361) if board[n]!='.'),key=lambda n:confidence[n]):
+  j='BW'.index(board[i]);a=centre(i,j)
+  if not any(n!=i and board[n]!='.' and confidence[n]>=confidence[i] and np.linalg.norm(centre(n,'BW'.index(board[n]))-a)<ECHO*STEP for n in range(361)):continue
+  v=inv@[i%19,i//19,1]
+  if share(i,j,MARGIN+v[:2]/v[2]*STEP)<COLOUR_SHARE[j]:board[i]='.';confidence[i]=0;review.add(i)
+ placed=[centre(n,'BW'.index(board[n])) for n in range(361) if board[n]!='.']
+ for i,j,at in loose(full_d,H,placed):
+  if board[i]=='.' and share(i,j,at)>=COLOUR_SHARE[j]:board[i]='BW'[j];review.add(i)
  return ''.join(board),sorted(int(i) for i in review)
+
+def loose(d,H,placed):
+ """Return (point, colour, centre) for stones placed well off their intersection: a clear, stone-sized full-pass detection that overlaps no other detection or read stone."""
+ strong=np.where(d[:,5]>=LOOSE_SCORE)[0]
+ if len(strong)<8:return []
+ size=np.median(d[strong,2:4],0);z=project((d[:,:2]-MARGIN)/STEP,H);r=np.rint(z).astype(int);err=np.abs(z-r).max(1)
+ ok=(d[:,5]>=LOOSE_SCORE)&(err>TOLERANCE)&(err<=LOOSE)&(r.min(1)>=0)&(r.max(1)<=18)&(np.abs(np.log(d[:,2:4]/size)).max(1)<=np.log(LOOSE_SIZE))
+ others=np.r_[d[strong,:2],np.reshape(placed,(-1,2))];found=[]
+ for k in sorted(np.where(ok)[0],key=lambda k:-d[k,5]):
+  gap=np.delete(np.linalg.norm(others-d[k,:2],axis=1),np.searchsorted(strong,k))
+  if (gap>=LOOSE_GAP*STEP).all():found.append((int(r[k,1]*19+r[k,0]),int(d[k,4]),d[k,:2]))
+ return found
