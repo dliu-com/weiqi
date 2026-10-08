@@ -49,6 +49,9 @@
 .stone-count[data-side=white]::before{background:radial-gradient(circle at 35% 30%,#fff,#dedede 70%);box-shadow:inset 0 0 0 1px #8f989d}
 .tool-switch{display:grid!important;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;margin:10px 0}
 .tool-switch button,.side-switch button{min-height:40px}
+#tool-E{display:flex;align-items:center;justify-content:center;gap:6px}
+#tool-E::before{content:"";width:11px;height:11px;flex-shrink:0;background:linear-gradient(45deg,transparent 38%,#d93a2f 38%,#d93a2f 62%,transparent 62%),linear-gradient(-45deg,transparent 38%,#d93a2f 38%,#d93a2f 62%,transparent 62%)}
+#tool-E[aria-pressed=true]::before{filter:drop-shadow(0 0 1px #fff)}
 :is(.tool-switch,.side-switch) button[aria-pressed=true]{background:#176b92!important;border-color:#176b92;color:#fff;font-weight:650}
 .review-note{margin:8px 0;padding:8px 10px;border-radius:7px;background:#fff4e5;color:#7a4a00;font-size:13px;line-height:1.45}
 .invalid-note{margin:8px 0;padding:8px 10px;border-radius:7px;background:#fdecea;color:#8c2119;font-size:13px;line-height:1.45}

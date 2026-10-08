@@ -61,7 +61,7 @@ test('one local sequence replaces only the continuation and survives refresh wit
  const restored=page(saved);assert.equal(restored.run('stage'),'play');assert.equal(restored.run('cursor'),2);assert.equal(restored.run('board[60]'),'B');assert.equal(restored.run('board[288]'),'W');assert.equal(restored.run('side'),'B');
  assert.equal(page({...saved,side:'white'}).run('side'),'W');
 });
-test('checking stones alternates black and white, a tap on a stone does nothing outside erase, and undo and rotation keep review rings',()=>{
+test('checking stones alternates black and white, a tap on a stone does nothing outside Delete, and undo and rotation keep review rings',()=>{
  const p=page();assert.equal(p.run('stage'),'check');assert.equal(p.get('tool-B').attributes['aria-pressed'],'true');
  p.run('pointClicked(0);pointClicked(1);pointClicked(2)');assert.equal(p.run('board.slice(0,3)'),'BWB');assert.equal(p.run('tool'),'W');
  assert.equal(p.get('tool-W').attributes['aria-pressed'],'true');assert.equal(p.get('tool-B').attributes['aria-pressed'],'false');assert.equal(p.get('board').dataset.preview,'white');
