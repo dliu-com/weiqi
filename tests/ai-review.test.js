@@ -61,7 +61,7 @@ test('comparison retains and highlights a poor recorded next move with a side-co
  const r=readSgf('(;SZ[19];B[dd];W[pp])');
  const a=new Map([[1,{candidates:[candidate('D4',0,-3),candidate('Q4',4,4,1)]}],[2,{blackLead:4,blackWinrate:.8}]]);
  const original=JSON.stringify(r),next=nextMoveComparison(r,1,a,'deep');
- assert.deepEqual(next.rows.map(row=>row.move),['D4','Q4']);
+ assert.deepEqual(next.rows.map(row=>row.move),['D4','Q4']);assert.deepEqual(next.rows.map(row=>row.label),['A','B']);
  const played=next.rows.find(row=>row.actual);assert.equal(played.actualNode,2);assert.equal(played.quality,'blunder');assert.equal(played.loss,7);assert.equal(played.estimated,true);assert.equal(played.blackWinrate,.8);assert.equal(JSON.stringify(r),original);
 });
 test('a recorded best move is highlighted once, with zero loss, including a pass',()=>{
