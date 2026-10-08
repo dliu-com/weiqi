@@ -103,7 +103,7 @@ async function openPhoto(file){
   if(typeof result.board!=='string'||!/^[BW.]{361}$/.test(result.board))throw new PositionError('The position service could not finish. Try again shortly.');
   const elapsed=performance.now()-work.started;
   if(photo)URL.revokeObjectURL(photo);photo=work.pendingPhoto;work.pendingPhoto=null;
-  board=result.board;review=new Set((result.review||[]).filter(i=>Number.isInteger(i)&&i>=0&&i<361));undo=[];tool=nextByCount();fromPhoto=true;
+  board=result.board;review=new Set((result.review||[]).filter(i=>Number.isInteger(i)&&i>=0&&i<361));undo=[];tool=nextByCount();fromPhoto=true;side='B';
   resetFrames();stage='check';
   const {black,white}=stoneCounts(board);
   say('已识别棋盘（'+seconds(elapsed)+' 秒）：'+(black+white)+' 颗棋子。请对照照片检查，然后点击“分析”。','Board read in '+seconds(elapsed)+' s: '+(black+white)+' stones. Compare them with your photo, then press Analyse.','ok');
@@ -145,10 +145,10 @@ async function openSgf(file){
 
 function editPoint(i){
  const current=board[i];
- if(tool==='E'&&current==='.')return;
- remember();board=setPoint(board,i,tool==='E'||current!=='.'?'.':tool);
-// Placing a stone makes the other colour next; removing one makes its colour next again, so a mis-tap is fixed by tapping it once more.
- if(tool!=='E')tool=current==='.'?otherSide(tool):current;
+ // Black and White only place on empty points; only Erase removes stones.
+ if(tool==='E'?current==='.':current!=='.')return;
+ remember();board=setPoint(board,i,tool==='E'?'.':tool);
+ if(tool!=='E')tool=otherSide(tool);
  review.delete(i);resetFrames();status=null;render();
 }
 function chooseTool(key){
@@ -184,7 +184,6 @@ async function analyse(){
  if(busy)return;
  const bad=invalidStones(board);
  if(bad.length){say('这些棋子没有气，请先修正：'+bad.map(coordinate).join(', '),'These stones have no liberties. Fix them first: '+bad.map(coordinate).join(', '),'error');return render();}
- if(!board.includes('B')&&!board.includes('W')&&cursor===0){say('棋盘是空的。请先上传照片或摆放棋子。','The board is empty. Upload a photo or place some stones first.','error');return render();}
  const token=++generation;abortReason=null;
  work={kind:'analysing',started:performance.now(),previous:stage};busy='analysing';showPhoto=false;clearAnalysis();status=null;startTicker();
  abort=new AbortController();work.timeout=setTimeout(()=>{if(token===generation){abortReason='timeout';abort?.abort();}},ANALYSE_TIMEOUT);render();
@@ -209,8 +208,8 @@ function saveLocal(){
  try{
   if(stage==='check'&&frames.length===1&&!/[BW]/.test(board)){localStorage.removeItem(localKey);$('local-save').textContent='';return;}
   localStorage.setItem(localKey,JSON.stringify({sgf:sequenceSgf(frames,{rules:RULES,komi}),cursor,side,editing:stage==='check'}));
-  $('local-save').textContent=t('棋谱只保存在此浏览器中，刷新后可恢复。','This position is saved only in this browser and comes back after a refresh.');
- }catch{$('local-save').textContent=t('无法在浏览器中保存，离开页面后此局面不会保留。','Browser storage is unavailable, so this position will not be kept after you leave.');}
+  $('local-save').textContent='';
+ }catch{$('local-save').textContent=t('此浏览器无法保存局面。','This browser can’t save the position.');}
 }
 function restoreLocal(){
  try{
@@ -232,6 +231,7 @@ function translate(){
  document.querySelector('.tool-switch').setAttribute('aria-label',t('下一颗棋子','Next stone'));
  document.querySelector('.side-switch').setAttribute('aria-label',t('下一手','Next to play'));
  $('stage-photo').alt=t('你的棋盘照片','Your board photo');
+ for(const [id,key] of [['tool-B','B'],['tool-W','W'],['tool-E','E'],['undo','Ctrl+Z']])$(id).title=t('快捷键 ','Shortcut: ')+key;
 }
 
 function renderSteps(){
@@ -255,7 +255,7 @@ function renderProgress(){
  const percent=work.phase==='prepare'?Math.min(10,elapsed/150):work.phase==='upload'?10+30*work.upload:40+55*(1-Math.exp(-(performance.now()-(work.detectStarted||performance.now()))/9000));
  $('progress-fill').style.width=percent.toFixed(1)+'%';
  const s=Math.floor(elapsed/1000);
- $('progress-time').textContent=s>=25?t('已用 '+s+' 秒 · 这张照片比平时慢，请稍候…','Elapsed: '+s+' s · this photo is taking longer than usual…'):t('已用 '+s+' 秒 · 通常需要 10–20 秒','Elapsed: '+s+' s · usually 10–20 s');
+ $('progress-time').textContent=s>=25?t(s+' 秒 · 比平时慢，请稍候…',s+' s · slower than usual…'):t(s+' 秒 · 通常 10–20 秒',s+' s · usually 10–20 s');
  $('stage-label').textContent=t('正在识别棋盘… '+s+' 秒','Reading the board… '+s+' s');
 }
 function renderAnalyseButton(){
@@ -324,7 +324,7 @@ function renderResult(){
  });
  $('suggestions').replaceChildren(...rows);
  renderSelection();
- $('analysis-time').textContent=t('快速分析 · ','Quick analysis · ')+seconds(analysis.elapsedMs)+t(' 秒',' s')+(analysis.rootVisits?' · '+analysis.rootVisits+t(' 次搜索',' visits'):'')+' · '+t('贴 '+komi+' 目','komi '+komi)+' · '+t('推荐 ','suggestions for ')+sideName(side);
+ $('analysis-time').textContent=seconds(analysis.elapsedMs)+t(' 秒',' s')+(analysis.rootVisits?' · '+analysis.rootVisits+t(' 次搜索',' visits'):'')+' · '+t('贴 '+komi+' 目','komi '+komi)+' · '+t(sideName(side)+'下',sideName(side)+' to play');
 }
 function renderSelection(){
  if(!analysis)return;
@@ -342,28 +342,25 @@ function render(){
  renderSteps();
  $('upload-box').hidden=stage!=='check'||reading;
  $('photo-button').textContent=failed?t('换一张照片','Try another photo'):t('上传照片','Upload photo');
- $('upload-tip').textContent=t('拍照提示：从正上方拍摄，整张棋盘入镜，避免反光。','Photo tip: shoot from above with the whole board in frame and no glare.');
  $('progress-card').hidden=!reading;
  if(reading)renderProgress();
  $('status').hidden=!status||reading;
  if(status){$('status').textContent=t(status.zh,status.en);$('status').dataset.tone=status.tone;}
  $('check-card').hidden=stage!=='check'||reading;
  if(stage==='check'){
-  const {black,white}=stoneCounts(board),total=black+white;
-  $('check-summary').textContent=fromPhoto&&!undo.length?t('识别到 '+total+' 颗棋子（黑 '+black+'，白 '+white+'）','Found '+total+' stones ('+black+' black, '+white+' white)'):t('棋盘上有 '+total+' 颗棋子（黑 '+black+'，白 '+white+'）',total+' stones on the board ('+black+' black, '+white+' white)');
-  const fine=finePointer.matches,click=fine?t('点击','Click'):t('点击','Tap');
-  $('check-help').textContent=(tool==='E'?t('点击棋子将其移除。选择黑子或白子可继续放置。',click+' a stone to remove it. Choose Black or White to place stones again.'):t('点击空点放置高亮颜色的棋子，之后黑白自动交替。点击棋子可将其移除。',click+' an empty point to place the highlighted colour; black and white then alternate. '+click+' a stone to remove it.'))+(fine?t('快捷键：B 黑、W 白、E 擦除、Ctrl+Z 撤销。',' Keys: B black, W white, E erase, Ctrl+Z undo.'):'');
+  const {black,white}=stoneCounts(board);
+  $('count-B').textContent=black;$('count-W').textContent=white;$('check-summary').setAttribute('aria-label',t('黑子 '+black+'，白子 '+white,black+' black, '+white+' white'));
   for(const key of ['B','W','E'])$('tool-'+key).setAttribute('aria-pressed',String(tool===key));
   $('review-note').hidden=!review.size;
-  $('review-note').textContent=t('橙色圆圈标出 '+review.size+' 个不确定的点，请重点对照照片检查。','Orange rings mark '+review.size+' uncertain '+(review.size===1?'point':'points')+'. Check '+(review.size===1?'it':'them')+' against the photo.');
+  $('review-note').textContent=t('请对照照片检查橙色圆圈。','Check the orange rings against the photo.');
   $('photo-thumb').hidden=!photo;if(photo&&$('thumb-photo').getAttribute('src')!==photo)$('thumb-photo').src=photo;
   $('photo-thumb').setAttribute('aria-pressed',String(showPhoto));
-  $('photo-thumb').lastElementChild.textContent=showPhoto?t('点击返回棋盘','Tap to go back to the board'):t('点击在棋盘上对照照片','Tap to compare with the photo');
+  $('photo-thumb').lastElementChild.textContent=showPhoto?t('返回棋盘','Back to board'):t('对照照片','Compare with photo');
   $('undo').disabled=!undo.length;
  }
  const bad=invalidStones(board);
  $('invalid-note').hidden=!bad.length||stage!=='check';
- $('invalid-note').textContent=t('红圈中的棋子没有气，分析前请修正：','Stones in red rings have no liberties. Fix them before analysing: ')+bad.map(coordinate).join(', ');
+ $('invalid-note').textContent=t('没有气：','No liberties: ')+bad.map(coordinate).join(', ');
  // Next to play and komi belong to step 1; during the analysis the card only appears to run, retry or cancel a request.
  $('analysis-settings').hidden=reading||(stage==='play'&&!!analysis&&!busy);
  $('settings-title').hidden=$('settings-fields').hidden=stage!=='check';
@@ -372,7 +369,7 @@ function render(){
  for(const value of KOMI_OPTIONS){$('komi-'+value).setAttribute('aria-pressed',String(komi===value));$('komi-'+value).disabled=!!busy;}
  renderAnalyseButton();
  $('cancel-analysis').hidden=busy!=='analysing';
- $('analyse-note').textContent=busy==='analysing'?t('正在云端运行 KataGo，通常需要 5–15 秒。','KataGo is running in the cloud; this usually takes 5–15 s.'):'';$('analyse-note').hidden=!$('analyse-note').textContent;
+ $('analyse-note').textContent=busy==='analysing'?t('KataGo 正在云端运行，通常需要 5 秒。','KataGo is running in the cloud; this usually takes 5 s.'):'';$('analyse-note').hidden=!$('analyse-note').textContent;
  const setup=frames[0].board;
  $('sequence-controls').hidden=stage!=='play';
  $('sequence-position').textContent=t('第 '+cursor+' / '+(frames.length-1)+' 手','Move '+cursor+' / '+(frames.length-1));
@@ -397,7 +394,7 @@ $('photo-thumb').onclick=()=>{showPhoto=!showPhoto;render();};
 for(const key of ['B','W','E'])$('tool-'+key).onclick=()=>chooseTool(key);
 $('undo').onclick=()=>{const last=undo.pop();if(!last)return;board=last.board;review=new Set(last.review);tool=last.tool||tool;resetFrames();render();};
 $('rotate').onclick=()=>{remember();board=rotateBoard(board);review=new Set([...review].map(rotatePoint));resetFrames();render();};
-$('clear').onclick=()=>{if(!/[BW]/.test(board))return;remember();board=emptyBoard();review=new Set();resetFrames();say('棋盘已清空，可用“撤销”恢复。','Board cleared. Use Undo to bring the stones back.');render();};
+$('clear').onclick=()=>{if(!/[BW]/.test(board))return;remember();board=emptyBoard();review=new Set();side=tool='B';resetFrames();say('棋盘已清空，可用“撤销”恢复。','Board cleared. Use Undo to bring the stones back.');render();};
 for(const value of KOMI_OPTIONS)$('komi-'+value).onclick=()=>{if(busy||komi===value)return;komi=value;clearAnalysis();autoAnalyse=false;render();};
 for(const value of ['B','W'])$('side-'+value).onclick=()=>{if(busy||side===value)return;side=value;frames=frames.slice(0,cursor+1);frames[cursor]={...frames[cursor],turn:side};clearAnalysis();autoAnalyse=false;render();};
 $('analysis-settings').onsubmit=event=>{event.preventDefault();analyse();};

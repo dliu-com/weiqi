@@ -17,11 +17,10 @@
 <div class="analysis-intro" id="analysis-intro"><div class="editor-heading"><h1 data-zh="快速 AI 分析">Quick AI analysis</h1></div>
 <ol class="analysis-steps"><li id="step-1"><button type="button" disabled><span>1</span><b data-zh="摆好棋盘">Set up the board</b></button></li><li id="step-2"><button type="button" disabled><span>2</span><b data-zh="AI 分析">AI analysis</b></button></li></ol></div>
 <div class="editor-upload-box" id="upload-box">
-<p class="upload-intro" data-zh="上传 19 路棋盘照片或 SGF 棋谱，也可以直接在棋盘上摆放棋子。">Upload a photo of a 19 × 19 board or an SGF file, or place the stones on the board yourself.</p>
 <div class="upload-buttons"><button type="button" id="photo-button" data-zh="上传照片">Upload photo</button><button type="button" id="sgf-button" data-zh="上传 SGF">Upload SGF</button></div>
 <input id="photo-file" type="file" accept="image/*" hidden>
 <input id="sgf-file" type="file" accept=".sgf,application/x-go-sgf" hidden>
-<p class="upload-tip" id="upload-tip"></p>
+<p class="upload-tip" id="upload-tip" data-zh="从正上方拍摄 19 路棋盘，全盘入镜，避免反光。">Shoot a 19 × 19 board from straight above, whole board in frame, no glare.</p>
 </div>
 <section id="progress-card" class="card analysis-card" hidden>
 <h2 id="progress-title" data-zh="正在识别棋盘…">Reading the board…</h2>
@@ -33,12 +32,11 @@
 <p id="status" role="status" aria-live="polite" hidden></p>
 <section id="check-card" class="card analysis-card" hidden>
 <h2 data-zh="编辑棋盘">Edit the board</h2>
-<p id="check-summary" class="check-summary"></p>
-<p class="note" id="check-help" data-zh="点击空点放置所选棋子，再点一次即可移除。">Tap an empty point to place the selected stone; tap it again to remove it.</p>
+<p id="check-summary" class="check-summary" role="img"><span class="stone-count" data-side="black" id="count-B"></span><span class="stone-count" data-side="white" id="count-W"></span></p>
 <div class="actions tool-switch" role="group" aria-label="Next stone"><button type="button" id="tool-B" data-side="black" data-zh="黑子">Black</button><button type="button" id="tool-W" data-side="white" data-zh="白子">White</button><button type="button" id="tool-E" data-zh="擦除">Erase</button></div>
 <p id="review-note" class="review-note" hidden></p>
 <p id="invalid-note" class="invalid-note" hidden></p>
-<button type="button" id="photo-thumb" class="photo-thumb" hidden><img id="thumb-photo" alt=""><span data-zh="点击在棋盘上对照照片">Tap to compare with the photo</span></button>
+<button type="button" id="photo-thumb" class="photo-thumb" hidden><img id="thumb-photo" alt=""><span>Compare with photo</span></button>
 <div class="editor-toolbar"><button type="button" id="undo" data-zh="撤销">Undo</button><button type="button" id="rotate" data-zh="旋转 90°">Rotate 90°</button><button type="button" id="clear" data-zh="清空棋盘">Clear board</button></div>
 </section>
 <section id="result-card" class="card analysis-card" hidden>
@@ -46,7 +44,7 @@
 <p id="lead" class="evaluation"></p>
 <div class="probability"><div class="probability-labels"><span id="black-probability-label"></span><span id="white-probability-label"></span></div><div id="probability-bar" class="probability-bar" role="img"><span id="black-probability" class="probability-black"></span><span class="probability-white"></span></div></div>
 <table class="ai-move-table"><thead><tr><th scope="col" data-zh="选点">Move</th><th scope="col" data-zh="评价">Assessment</th><th scope="col" data-zh="领先（目）">Lead (points)</th><th scope="col" data-zh="胜率（%）">Win %</th></tr></thead><tbody id="suggestions"></tbody></table>
-<p class="note" id="preview-help" data-zh="在棋盘上落子继续分析，或在表格中选择推荐着法，在棋盘上查看后续变化。">Play a move on the board to keep analysing, or select a suggestion in the table to see its sequence on the board.</p>
+<p class="note" id="preview-help" data-zh="选择推荐着法预览，或在棋盘上落子。">Select a suggestion to preview it, or play on the board.</p>
 <div class="editor-toolbar"><button type="button" id="play-preview" class="primary" hidden></button><button type="button" id="clear-preview" hidden data-zh="返回当前局面">Back to the position</button></div>
 <p id="analysis-time" class="note"></p>
 </section>
@@ -62,8 +60,7 @@
 <div class="editor-file-actions" id="file-actions" hidden><button type="button" id="edit-stones" data-zh="修改棋子">Edit stones</button><button type="button" id="new-photo" data-zh="上传照片">Upload photo</button><button type="button" id="open-sgf" data-zh="上传 SGF">Upload SGF</button></div>
 <p id="local-save" class="note"></p>
 <div class="analysis-about">
-<p data-zh="照片只在识别时发送到云端一次，局面只在你点击分析时发送一次；两者都不会被保存。你的棋步只保存在此浏览器中。">Your photo is sent to the cloud once to read the stones, and the position is sent once each time you analyse. Neither is stored. Your moves are saved only in this browser.</p>
-<p><a href="/about#quick-analysis" data-zh="费用、许可与源码">Cost, licence and source code</a></p>
+<p data-zh="照片和局面只发送到云端分析，不会保存。">Photos and positions are sent to the cloud only for analysis and are not stored.</p>
 </div>
 </aside>
 </main>

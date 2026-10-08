@@ -22,7 +22,6 @@
 .analysis-steps li button:not(:disabled){cursor:pointer;color:#1f5137;box-shadow:inset 0 0 0 1px #b8d4c3}
 .analysis-steps li button:not(:disabled) b{text-decoration:underline;text-decoration-color:#2e865680;text-underline-offset:3px}
 .analysis-steps li button:not(:disabled):hover,.analysis-steps li button:not(:disabled):active{background:#e3efe7}
-.upload-intro{margin:0 0 12px;font-size:15px;line-height:1.5}
 .upload-tip{margin:10px 0 0;font-size:13px;color:#41606f}
 .upload-buttons{display:grid;grid-template-columns:1fr 1fr;gap:8px}
 #upload-box .upload-buttons button{min-height:50px;padding:10px 8px;font-size:16px}
@@ -44,7 +43,10 @@
 #status{margin:0 0 14px;padding:10px 12px;border-radius:7px;background:#f1f4f6;font-size:14px;line-height:1.45}
 #status[data-tone=error]{background:#fdecea;color:#8c2119;border:1px solid #f1b8b2}
 #status[data-tone=ok]{background:#e8f5ee;color:#1f5a3b;border:1px solid #b5dcc4}
-.check-summary{font-size:16px;font-weight:650;margin:0 0 6px}
+.check-summary{display:flex;gap:18px;font-size:16px;font-weight:650;margin:0 0 6px;font-variant-numeric:tabular-nums}
+.stone-count{display:inline-flex;align-items:center;gap:7px}
+.stone-count::before{content:"";width:18px;height:18px;border-radius:50%;background:radial-gradient(circle at 35% 30%,#6b6b6b,#111 70%)}
+.stone-count[data-side=white]::before{background:radial-gradient(circle at 35% 30%,#fff,#dedede 70%);box-shadow:inset 0 0 0 1px #8f989d}
 .tool-switch{display:grid!important;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;margin:10px 0}
 .tool-switch button,.side-switch button{min-height:40px}
 :is(.tool-switch,.side-switch) button[aria-pressed=true]{background:#176b92!important;border-color:#176b92;color:#fff;font-weight:650}
@@ -73,7 +75,6 @@
 #analysis-main .ai-move-table button{padding:6px 8px;min-height:34px;font-size:13px}
 .analysis-about{margin:16px 0 8px;font-size:13px;line-height:1.5;color:#505b61}
 .analysis-about p{margin:0 0 6px}
-.analysis-about a{color:#176b92;font-weight:600;text-underline-offset:3px}
 #local-save{font-size:12px;color:#5d6b72}
 #local-save:empty{display:none}
 #analysis-main .board-wrap{scroll-margin-top:calc(var(--record-header-height,58px) + 8px)}
