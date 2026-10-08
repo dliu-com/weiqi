@@ -216,7 +216,6 @@ function restoreLocal(){
   cursor=Math.max(0,Math.min(frames.length-1,Number.isInteger(saved.cursor)?saved.cursor:frames.length-1));board=frames[cursor].board;
   side={B:'B',W:'W',black:'B',white:'W'}[saved.side]||frames[cursor].turn;frames[cursor].turn=side;
   stage=saved.editing?'check':'play';tool=nextByCount();
-  say('已恢复上次的局面。上传新照片会替换它。','Restored your last position. A new photo will replace it.');
  }catch{say('无法恢复上次的局面，请重新上传照片或打开 SGF。','Could not restore your last position. Upload a photo or open an SGF again.','error');}
 }
 
