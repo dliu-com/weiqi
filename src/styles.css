@@ -192,6 +192,8 @@ body{background:#fff}.card,.status-card{background:#fff}button:not(.point):hover
 #record-main .recorded-triangle polygon{fill:var(--next-move-colour);stroke:#fff;stroke-width:5;stroke-linejoin:round;filter:drop-shadow(0 1px 1px #0007)}
 #record-main .recorded-candidate-letter{z-index:1;margin-top:16%;font-size:75%;font-weight:750;pointer-events:none}
 #record-main .point.next-recorded-move:before,#record-main .point.next-recorded-move:after{display:none}
+@media (hover:hover){#record-main .point.next-recorded-move:hover{border-radius:50%;z-index:4}#record-main .point.next-recorded-move[data-next-side=B]:hover{background:radial-gradient(circle at 32% 25%,#555,#171918 60%,#080a09);box-shadow:1px 2px 3px #0006}#record-main .point.next-recorded-move[data-next-side=W]:hover{background:radial-gradient(circle at 30% 25%,#fff,#efede6 65%,#b3b1a8);box-shadow:1px 2px 3px #0005}#record-main .point.next-recorded-move:hover .recorded-triangle{transform:scale(.72)}}
+#record-main .point.next-recorded-move .recorded-triangle{transition:transform .12s}
 #next-recorded-legend{font-size:10px;line-height:1.45;margin:5px 0;color:var(--muted)}
 /* Size the desktop board from the measured header and available viewport. */
 @media(min-width:851px){.record-page #record-main{margin-top:6px;padding:0 16px;gap:20px;grid-template-columns:minmax(0,1fr) minmax(380px,36%);height:calc(100dvh - var(--record-header-height,67px) - 12px)}.record-page #record-main .board-wrap{width:min(100%,calc(100dvh - var(--record-header-height,67px) - 12px));margin:auto}}

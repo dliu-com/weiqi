@@ -64,7 +64,7 @@ Prepared 7 October 2026. Project: **DL Weiqi**, <https://weiqi.dliu.com>. Reposi
 - **Edit sequence** keeps downstream moves, so correcting moves 50/51 does not require entering moves 52–100 again. Delete move, Insert moves and Reposition move belong inside its panel. Single-move deletion has no confirmation prompt; reposition hover uses the selected move's colour.
 - Sequence edits exist only in page memory: refresh or Cancel discards them. There is no localStorage edit backup and no cloud autosave while this mode is active. Temporary invalid sequences may exist locally; **Apply edits sends the complete tree to the cloud**, which validates alternation, legality and variations before a revision-conditioned atomic draft write. Rejecting an edit leaves the saved cloud sequence intact. Do not silently recolour later moves to hide an alternation error.
 - Ordinary draft edits autosave; status remains inline without shifting the layout. The public draft timestamp line and the cloud-check success message were removed.
-- Stone-placement audio is shared across recording, live play and replay. Default volume is **10%**, adjustable and remembered in browser storage. A failed audio load must not prevent a move. The user wanted one natural stone click, rather than a repeated synthetic “da da da.”
+- Stone-placement audio is shared across recording, live play and replay. Default volume is **5%**, adjustable and remembered in browser storage. A failed audio load must not prevent a move. The user wanted one natural stone click, rather than a repeated synthetic “da da da.”
 
 ### Saved AI review and reports
 
