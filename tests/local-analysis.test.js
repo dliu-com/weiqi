@@ -47,7 +47,7 @@ const settle=()=>new Promise(resolve=>setImmediate(resolve));
 const result={rootScoreLead:2.5,rootWinRate:.62,rootVisits:40,moves:[{x:3,y:15,pv:['D4','Q16'],scoreLead:2.5,winRate:.62,visits:30,relativePointsLost:0},{x:15,y:3,pv:['Q16'],scoreLead:1.8,winRate:.58,visits:10,relativePointsLost:.7}]};
 
 test('a new visitor starts on step 1 with an editable empty board, the upload box above it and nothing saved',()=>{
- const p=page();assert.equal(p.run('stage'),'check');assert.equal(p.get('upload-box').hidden,false);assert.equal(p.get('check-card').hidden,false);assert.equal(p.get('analysis-settings').hidden,false);assert.equal(p.get('file-actions').hidden,true);
+ const p=page();assert.equal(p.run('stage'),'check');assert.equal(p.get('upload-box').hidden,false);assert.equal(p.get('check-card').hidden,false);assert.equal(p.get('analysis-settings').hidden,false);
  assert.equal(p.get('photo-stage').dataset.mode,'none');assert.equal(p.run('view.options.interactive'),true);assert.equal(p.storage.size,0);
  p.run('pointClicked(60)');assert.equal(p.run('board[60]'),'B');assert.equal(JSON.parse(p.storage.get('weiqi.local-analysis.v1')).editing,true);
  p.run('pointClicked(60)');assert.equal(p.run('board[60]'),'B');
@@ -89,14 +89,14 @@ test('analysis is one request per action, blocks stones without liberties and re
 test('an empty board can be analysed, and Next to play defaults to Black after a cleared board',async()=>{
  const p=page();p.replies.push(result);await p.run('analyse()');
  assert.equal(p.requests.length,1);assert.equal(p.requests[0].body.initialBoard,'.'.repeat(361));assert.equal(p.requests[0].body.side,'B');assert.equal(p.run('stage'),'play');
- p.get('edit-stones').onclick();p.run("board=setPoint(emptyBoard(),60,'B');resetFrames()");p.get('side-W').onclick();assert.equal(p.run('side'),'W');
+ p.get('step-1').querySelector('button').onclick();p.run("board=setPoint(emptyBoard(),60,'B');resetFrames()");p.get('side-W').onclick();assert.equal(p.run('side'),'W');
  p.get('clear').onclick();assert.equal(p.run('side+tool'),'BB');assert.equal(p.get('side-B').attributes['aria-pressed'],'true');
 });
 test('komi can be 7.5 or 0.5; changing it clears the result and it is saved with the position',async()=>{
  const p=page();assert.equal(p.get('komi-7.5').attributes['aria-pressed'],'true');assert.equal(p.get('komi-0.5').attributes['aria-pressed'],'false');
  p.run("board=setPoint(emptyBoard(),60,'B');resetFrames();render()");p.replies.push(result);await p.run('analyse()');assert.equal(p.requests[0].body.komi,7.5);
  assert.equal(p.get('analysis-settings').hidden,true);
- p.get('edit-stones').onclick();assert.equal(p.run('stage'),'check');assert.equal(p.get('analysis-settings').hidden,false);assert.equal(p.get('settings-fields').hidden,false);
+ p.get('step-1').querySelector('button').onclick();assert.equal(p.run('stage'),'check');assert.equal(p.get('analysis-settings').hidden,false);assert.equal(p.get('settings-fields').hidden,false);
  p.get('komi-0.5').onclick();assert.equal(p.run('komi'),0.5);assert.equal(p.run('analysis'),null);assert.equal(p.get('komi-0.5').attributes['aria-pressed'],'true');
  p.replies.push(result);await p.run('analyse()');assert.equal(p.requests[1].body.komi,0.5);assert.match(p.get('analysis-time').textContent,/komi 0\.5/);
  const saved=JSON.parse(p.storage.get('weiqi.local-analysis.v1'));assert.match(saved.sgf,/KM\[0\.5\]/);assert.equal(page(saved).run('komi'),0.5);
@@ -107,7 +107,7 @@ test('two steps: step 1 sets up the board with the upload box, and step 1 can be
  assert.equal(p.get('step-1').dataset.state,'current');assert.equal(step(1).disabled,true);assert.equal(step(2).disabled,true);
  p.run("board=setPoint(emptyBoard(),60,'B');resetFrames();render()");
  p.replies.push(result);await p.run('analyse()');assert.equal(p.run('stage'),'play');
- assert.equal(p.get('upload-box').hidden,true);assert.equal(p.get('check-card').hidden,true);assert.equal(p.get('file-actions').hidden,false);
+ assert.equal(p.get('upload-box').hidden,true);assert.equal(p.get('check-card').hidden,true);
  assert.equal(p.get('step-1').dataset.state,'done');assert.equal(p.get('step-2').dataset.state,'done');assert.equal(step(1).disabled,false);assert.equal(step(2).disabled,true);
  step(1).onclick();assert.equal(p.run('stage'),'check');assert.equal(p.run('analysis'),null);assert.equal(p.run('board[60]'),'B');assert.equal(p.get('upload-box').hidden,false);assert.equal(p.requests.length,1);
  p.run("stage='play';busy='analysing';render()");assert.equal(step(1).disabled,true);p.run("busy=null");
