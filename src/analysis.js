@@ -320,6 +320,7 @@ function togglePreview(rank){pinned=pinned===rank?null:rank;hovered=null;renderP
 
 function render(){
  main.dataset.stage=stage;
+ if(stage==='play'&&history.state?.stage!=='play')history.pushState({stage:'play'},'');
  const reading=busy==='reading';
  $('edit-board').hidden=stage!=='play'||!!busy;
  $('upload-box').hidden=stage!=='check'||reading;
@@ -383,7 +384,14 @@ $('sequence-next').onclick=()=>navigate(cursor+1);$('sequence-last').onclick=()=
 $('sequence-pass').onclick=()=>playMove(null);
 $('play-preview').onclick=()=>{const m=pinned!==null?analysis?.moves[pinned]:null;if(m){pinned=null;playMove(m.x<0||m.y<0?null:m.y*19+m.x);}};
 $('clear-preview').onclick=()=>{pinned=null;hovered=null;renderPreview();};
-$('edit-board').onclick=editStones;
+// Step 2 has its own history entry: browser Back (or Edit board) returns to step 1, and Forward analyses again.
+$('edit-board').onclick=()=>history.state?.stage==='play'?history.back():editStones();
+window.addEventListener('popstate',event=>{
+ if(event.state?.stage==='play'){if(stage==='check'&&!busy)analyse();return;}
+ if(stage!=='play')return;
+ if(busy)cancelWork('cancel');
+ editStones();
+});
 
 for(const zone of [$('board-wrap'),$('upload-box')]){
  zone.addEventListener('dragover',event=>{if(!event.dataTransfer?.types?.includes('Files'))return;event.preventDefault();zone.classList.add('drag-over');});

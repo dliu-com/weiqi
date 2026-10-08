@@ -181,7 +181,7 @@ function renderSuggestions(){
  if(!suggestions)return;
  const review=reviewMove(record,selected,analyses,data.analysis?.phase),next=nextMoveComparison(record,selected,analyses,data.analysis?.phase),quality=$('move-quality');
  quality.hidden=!!aiLine||!!trialOffset||!record.nodes[selected].move;
- const names={best:t('最佳着法','Best move'),good:t('好棋','Good move'),inaccuracy:t('不精确','Inaccuracy'),mistake:t('失误','Mistake'),blunder:t('严重失误','Blunder')};
+ const names={best:t('最佳','Best'),good:t('好棋','Good'),inaccuracy:t('不精确','Inaccuracy'),mistake:t('失误','Mistake'),blunder:t('严重失误','Blunder')};
  const last=record.nodes[selected].move?.index;
  if(!aiLine&&!trialOffset&&last!==null&&last!==undefined&&review.quality){points[last].dataset.quality=review.quality;points[last].setAttribute('aria-label',points[last].getAttribute('aria-label')+' · '+names[review.quality]);}
  quality.dataset.quality=review.quality||'';
@@ -204,7 +204,7 @@ function renderSuggestions(){
  if(actualMove?.index===null)legend.textContent=t('下一手实战：停一手','Next recorded move: Pass');
  else{
   const title=document.createElement('span');title.className='next-move-legend-title';title.textContent=t('△ 下一手实战','△ Next recorded move');legend.append(title);
-  for(const [quality,zh,en]of [['best','最佳着法','Best move'],['good','好棋','Good move'],['inaccuracy','不精确','Inaccuracy'],['mistake','失误','Mistake'],['blunder','严重失误','Blunder'],['unrated','未评定','Unrated']]){const item=document.createElement('span');item.className='next-move-legend-item';const marker=document.createElement('span');marker.className='next-move-swatch';marker.dataset.quality=quality;marker.setAttribute('aria-hidden','true');item.append(marker,document.createTextNode(t(zh,en)));legend.append(item);}
+  for(const [quality,zh,en]of [['best','最佳','Best'],['good','好棋','Good'],['inaccuracy','不精确','Inaccuracy'],['mistake','失误','Mistake'],['blunder','严重失误','Blunder'],['unrated','未评定','Unrated']]){const item=document.createElement('span');item.className='next-move-legend-item';const marker=document.createElement('span');marker.className='next-move-swatch';marker.dataset.quality=quality;marker.setAttribute('aria-hidden','true');item.append(marker,document.createTextNode(t(zh,en)));legend.append(item);}
  }
  if(!aiLine&&!trialOffset&&actualMove?.index!==null&&actualMove?.index!==undefined&&record.nodes[selected].board[actualMove.index]==='.'){
    const point=points[actualMove.index],ns='http://www.w3.org/2000/svg',svg=document.createElementNS(ns,'svg'),triangle=document.createElementNS(ns,'polygon');
