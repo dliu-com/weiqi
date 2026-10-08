@@ -21,10 +21,13 @@ analysis:
   jobTimeoutSeconds: 7200
 
 positionAnalysis:
-  # Shared worldwide allowance for photo detection and cloud position analysis.
-  # Each request reserves more than its maximum worker/runtime cost.
-  dailyUsd: 3
-  requestReserveMicros: 3000
+  # Photo detection and cloud position analysis share these allowances per UTC
+  # day: site-wide, and per connection.
+  dailyRequests: 2000
+  connectionDailyRequests: 500
+  # Each request reserves US$0.0015, more than its maximum cost (about US$0.0013
+  # for a 20 s run), so the site-wide maximum is 2,000 x US$0.0015 = US$3 a day.
+  requestReserveMicros: 1500
   # 3538 MB gives 2 vCPUs: photos read in about 6 s instead of 9 s for about 17% more cost.
   recognitionMemoryMb: 3538
   recognitionTimeoutSeconds: 20
