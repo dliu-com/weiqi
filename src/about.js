@@ -1,6 +1,7 @@
 import './site-shell.js';
 import {localTimestamp} from './site-time.js';
 import {t,setLanguage} from './i18n.js';
+import {flow,tiers,stats,more as details} from './flow-diagram.js';
 const sections=[
  ['计时标准与速度目标','Timing and response targets','正式棋局从分析进入 SQS 开始计时，包含排队、等待计算资源、实例和容器启动、模型下载、分析及结果保存。复盘页显示总计已等待时间；完成后显示总耗时和引擎分析耗时。排队估计使用只读 Batch 状态、前面作业的剩余快速与深度分析及当前队列的工作容量，显示保守的单一预计开始与完成时间，精确到分钟；API 状态缓存 15 秒。GPU 容量等待无法可靠预测，超过预计时段后不再推迟时间，而是明确提示开始时间未知。快速分析目标为 5 分钟内；深度分析目标为 1 小时内，最多 2 小时。云端容量和同时上传数量会影响这些目标，基准页分别显示总时间与处理时间。','Production timing starts when analysis enters SQS and includes queueing, capacity waiting, instance/container startup, model download, analysis and saving results. Replay shows total elapsed waiting; completed results show total duration separately from engine time. Read-only Batch status, earlier jobs’ remaining quick and deep work, and the queue’s configured worker capacity provide conservative single start and finish timestamps rounded up to the minute, with API snapshots cached for 15 seconds. GPU capacity waits cannot be reliably predicted; an expired forecast becomes an explicit unknown start time instead of a continually postponed deadline. Quick analysis should arrive within 5 minutes; deep analysis target 1 hour, with a maximum wait expectation of 2 hours. Cloud capacity and simultaneous uploads affect these targets. The benchmark page shows both total and processing time.'],
  ['已生成的 AI 报告与 PDF','Prepared AI reports and PDFs','深度分析完成后，Batch 事件通知原有 Lambda，验证作业与棋谱并保存报告 JSON 到受保护的 WeiqiStorage。随后消息进入 FIFO 报告队列，另一个按使用计费的 Lambda 顺序准备中英文 HTML 与固定 A4 PDF，保存到现有私有网站 S3 桶，由 CloudFront 分发。只有两个语言的所有文件保存完成后才标记就绪；失败最多重试两次。无需新的 GPU 作业，也没有常驻报告服务器。报告先展示全局点数与胜率走势，六张图说明着法质量、典型损失、手数区间与关键时刻。双方各五手失误列成表，前三手链接到后面的棋盘详解；图下先用例子解释，再给出计算细节。报告包含棋局链接与元数据封面、目录、页眉页脚和书签。打开报告、切换语言和保存 PDF 只读取已生成文件，不触发新的报告或 PDF 计算；没有用户配置选项。','After deep analysis, the Batch completion event asks the existing Lambda to validate the job and SGF, then save report JSON in protected WeiqiStorage. A FIFO report queue sends preparation to a separate usage-billed Lambda, which creates both English and Chinese HTML views and fixed A4 PDFs. Finished files are saved in the existing private site S3 bucket and delivered through CloudFront. Readiness is published only after every file is saved; failures are retried twice. No new GPU job or always-running report server is needed. Reports start with the game-wide score and winning chances. Six graphs explain move quality, typical loss, move ranges and key moments, with expanded plain-language examples before calculation details. Each side’s five worst moves appear in tables; the first three link to detailed board reviews. They include a metadata-rich title page, game link, contents, headers/footers and bookmarks. Opening, switching languages and saving retrieve prepared files without triggering report or PDF generation. There are no configuration options.'],
@@ -18,7 +19,17 @@ const sections=[
  ['按用量计费与自动停止','Usage billing and automatic shutdown','所有应用计算资源位于爱尔兰，通过 CloudFormation 配置。容器保存结果后退出，GPU 最小容量为零；实例自动释放，没有常驻 AI 服务器、NAT 网关或容量预留。每天前 10 个上传棋谱可启动分析，查看和推荐变化不触发新作业。计算、启动、等待自动释放、存储、网络、API、队列和日志按用量计费。每盘快速加深度分析费用目标低于 1 美元；排队、云端容量、棋谱长度、重试和最新模型大小会影响时间及费用，性能目标不是容量保证。另有两小时的作业故障保护。','Application compute runs in Ireland and is provisioned through CloudFormation. Containers save results and exit; GPU minimum capacity is zero and instances retire automatically. There is no always-running AI server, NAT gateway or capacity reservation. The first 10 uploads each day can start analysis; viewing a record or recommended line starts no extra job. Compute, startup, time until automatic retirement, storage, network, API, queues and logs are billed by usage. The paired-analysis cost target is below US$1 per game. Capacity, queueing, game length, retries and the latest model affect time and cost; response targets are not capacity guarantees. A separate two-hour job safety timeout handles stuck workers.'],
  ["直接对弈与性能记录", "Live play and performance records", "当前现场棋局与公共记录草稿保存在按需计费的 DynamoDB 中，结束或保存后写入 S3 棋谱库。工作程序记录下载、引擎分析和保存的分段时间；AWS Batch 记录排队和容器启动时间。基准实验页面显示已完成实验和正在运行的实验，包括以前的 CPU 配置及 GPU 比较。失败或已停止的实验不显示。总时间包含排队、等待容量和准备；另列不含排队的处理时间。", "The live game and public recording draft use on-demand DynamoDB; finished or saved games enter the S3 library. Workers record download, engine and saving times; AWS Batch records queue and container startup times. The benchmark page lists completed and ongoing experiments, including earlier CPU configurations and GPU comparisons. Failed or stopped experiments are omitted. Total time includes queueing, capacity waits and setup; processing time excluding queueing is listed separately."]
 ];
-function render(){document.title=t('关于 · DL','About · DL');document.getElementById('about-title').textContent=t('技术架构','Technical architecture');const fragment=document.createDocumentFragment();const link=document.createElement('a');link.href='/benchmarks';link.className='benchmark-link';link.textContent=t('查看 CPU / GPU 基准实验与费用','View CPU / GPU benchmark experiments and costs');const links=document.createElement('nav');links.className='page-links';links.append(link);for(const [href,zh,en]of [['/cost','费用估算','Cost estimate'],['/security','安全审查','Security review'],['/photo-recognition','照片识别原理','How photo recognition works']]){const a=document.createElement('a');a.href=href;a.textContent=t(zh,en);links.append(a);}fragment.append(links,architectureDiagram());for(const [zh,en,bodyZh,bodyEn,more,options] of sections){const article=document.createElement('article'),h=document.createElement('h2'),p=document.createElement('p');if(options?.id)article.id=options.id;h.textContent=t(zh,en);p.textContent=t(bodyZh,bodyEn);article.append(h,p);if(options?.after)article.append(options.after());if(more){const p=document.createElement('p'),a=document.createElement('a');a.href=more[0];a.textContent=t(more[1],more[2])+' →';p.append(a);article.append(p);}fragment.append(article);}document.getElementById('about-content').replaceChildren(fragment);}
+function render(){
+ document.title=t('关于 · DL','About · DL');document.getElementById('about-title').textContent=t('技术架构','Technical architecture');
+ const fragment=document.createDocumentFragment(),links=document.createElement('nav');links.className='page-links';
+ for(const [href,zh,en]of [['/benchmarks','CPU / GPU 基准实验','CPU / GPU benchmarks'],['/cost','费用估算','Cost estimate'],['/security','安全审查','Security review'],['/photo-recognition','照片识别原理','How photo recognition works']]){const a=document.createElement('a');a.href=href;a.textContent=t(zh,en);links.append(a);}
+ fragment.append(links,stats([[t('0 台','0'),t('常驻服务器','servers always on'),'power'],[t('≈ 5 分钟','≈ 5 min'),t('快速 AI 复盘','quick AI review'),'clock'],[t('≈ 1 小时','≈ 1 h'),t('深度 AI 复盘','deep AI review'),'gpu'],[t('≈ 3 秒','≈ 3 s'),t('分析一个局面','AI for one position'),'katago']]),systemMap(),deepFlow(),positionFlow(),gpuFallback(),spendingGuard());
+ const cost=document.createElement('article'),h=document.createElement('h2');cost.id='quick-analysis';h.textContent=t('AI 分析：费用与许可','AI analysis: cost and licence');cost.append(h,quickAnalysisCost(),quickAnalysisLicence());fragment.append(cost);
+ const detail=document.createDocumentFragment();
+ for(const [zh,en,bodyZh,bodyEn,more,options] of sections){if(options?.id==='quick-analysis')continue;const article=document.createElement('article'),title=document.createElement('h2'),p=document.createElement('p');title.textContent=t(zh,en);p.textContent=t(bodyZh,bodyEn);article.append(title,p);if(more){const p=document.createElement('p'),a=document.createElement('a');a.href=more[0];a.textContent=t(more[1],more[2])+' →';p.append(a);article.append(p);}detail.append(article);}
+ fragment.append(details(t('更多技术细节（文字）','More technical details (text)'),detail));
+ document.getElementById('about-content').replaceChildren(fragment);
+}
 window.addEventListener('site-language-change',render);render();
 
 function quickAnalysisLicence(){
@@ -28,21 +39,49 @@ function quickAnalysisLicence(){
  return p;
 }
 
-function architectureDiagram(){
- const figure=document.createElement('figure');figure.className='architecture-diagram';
- const caption=document.createElement('figcaption');caption.textContent=t('上传、后台分析与结果显示','Upload, background analysis and results');figure.append(caption);
- const rows=[
-  [[t('浏览器','Browser'),t('现场对弈 / 公共草稿','Live game / public draft')],[t('上传 API · Lambda','Upload API · Lambda'),t('保存棋谱并发送 SQS 消息','Save the record and send an SQS message')],[t('WeiqiStorage · S3 棋谱库','WeiqiStorage · S3 record library'),t('原始 SGF + 棋局信息 · 立即获得链接','Original SGF + metadata · game link available immediately')]],
-  [['SQS',t('付费分析任务队列','Analysis request queue')],[t('调度 Lambda','Dispatcher Lambda'),t('查询最新官方模型，向 AWS Batch 提交一个 GPU 作业','Look up the latest official model; submit one GPU job to AWS Batch')],[t('GPU 快速 → GPU 深度','GPU quick → GPU deep'),t('T4 按需 → T4 / A10G Spot → A10G 按需 · 32 / 3,000 次访问 · 最多重试两次','T4 On-Demand → T4 / A10G Spot → A10G On-Demand · 32 / 3,000 visits · at most two delayed retries')]],
-  [[t('Batch 工作程序 · 下载与分析','Batch workers · download and analyse'),t('每个阶段从官方来源重新下载所选最新模型，不缓存；结果记录实际配置','Each pass freshly downloads its selected official model; no model cache. Results record the actual settings')],[t('S3 分析文件','S3 analysis files'),t('逐手评估、状态、模型配置、校验值及运行时间','Per-move evaluations, status, model configuration, checksum and runtime')],[t('浏览器复盘页','Browser replay'),t('快速分析每分钟检查并显示 · 深度分析需刷新页面查看','Quick: check once a minute and display results · deep: refresh the page to check')]],
-  [[t('Batch 完成 → 报告 JSON','Batch completion → report JSON'),t('验证完成作业，保存版本化报告数据','Validate the completed job; save versioned report data')],[t('FIFO 队列 → 报告 Lambda','FIFO queue → report Lambda'),t('顺序生成中英文 HTML / PDF；失败最多重试两次','Prepare both languages’ HTML / PDF in order; retry failures twice')],[t('S3 / CloudFront → 用户','S3 / CloudFront → viewer'),t('直接查看与下载已生成文件；交互不触发计算','View and download prepared files; interaction starts no generation')]]
- ];
- for(let i=0;i<rows.length;i++){
-  const row=document.createElement('div');row.className='architecture-flow';
-  for(const [title,body] of rows[i]){const box=document.createElement('div');box.className='architecture-node';const h=document.createElement('strong'),p=document.createElement('p');h.textContent=title;p.textContent=body;box.append(h,p);row.append(box);}
-  figure.append(row);if(i<rows.length-1){const connector=document.createElement('div');connector.className='architecture-down';connector.setAttribute('aria-hidden','true');connector.textContent='↓';figure.append(connector);}
- }
- const note=document.createElement('p');note.className='architecture-note';note.textContent=t('Lambda 不等待分析。每个作业保存结果后退出，容器停止，空闲 GPU 实例自动释放；没有常驻 AI 服务器。','Lambda returns without waiting. Workers save results and exit; containers stop and idle GPU instances are released automatically. No AI server stays running.');figure.append(note);return figure;
+function systemMap(){
+ return tiers({title:t('系统总览','System map'),rows:[
+  {badge:t('用户','Users'),label:t('浏览器','Browser'),nodes:[{icon:'browser',title:t('手机或电脑','Phone or computer'),text:t('无须登录','No sign-in')}]},
+  {link:'HTTPS',badge:t('边缘','Edge'),label:'CloudFront',tone:'edge',nodes:[{icon:'cloudfront',title:'Amazon CloudFront',text:t('CDN · HTTPS · 安全头','CDN · HTTPS · security headers')}]},
+  {link:t('页面 / API','Pages / API'),badge:t('应用','App'),label:t('按次运行','Runs per request'),tone:'app',nodes:[{icon:'s3',title:t('网站文件','Website files'),text:'S3 · HTML / JS / CSS'},{icon:'lambda',title:t('棋局 API','Game API'),text:t('对弈 · 记录 · 棋谱库','Play · record · library')},{icon:'camera',title:t('照片识别','Photo detection'),text:'Lambda · Moku v4'},{icon:'katago',title:t('快速 AI 分析','Quick AI analysis'),text:'Lambda · KataGo CPU'}]},
+  {link:t('读写','Read / write'),badge:t('数据','Data'),label:t('私有存储','Private storage'),tone:'private',nodes:[{icon:'dynamodb',title:'DynamoDB',text:t('现场棋局 · 草稿 · 限额','Live game · draft · limits')},{icon:'s3',title:t('棋谱库','Record library'),text:t('S3 · SGF · AI 结果 · 报告','S3 · SGF · AI results · reports')}]},
+  {link:t('记录后','After Record'),badge:t('后台','Background'),label:t('只在有任务时运行','Runs only when needed'),nodes:[{icon:'sqs',title:'Amazon SQS',text:t('分析队列','Analysis queue')},{icon:'gpu',title:'AWS Batch GPU',text:'KataGo · T4 / A10G'},{icon:'report',title:t('报告 Lambda','Report Lambda'),text:'Chromium → HTML / PDF'}]}
+ ],note:t('全部资源由 AWS CDK / CloudFormation 部署在爱尔兰（eu-west-1）；CloudFront 是全球服务。','Everything is deployed with AWS CDK / CloudFormation in Ireland (eu-west-1); CloudFront is global.')});
+}
+function deepFlow(){
+ return flow({title:t('记录棋局 → 深度 AI 报告','Record game → deep AI report'),numbered:true,steps:[
+  {icon:'record',title:t('记录棋局','Record game'),text:t('浏览器','Browser')},
+  {icon:'library',title:t('存入棋谱库','Save'),text:'Lambda → S3'},
+  {icon:'sqs',title:t('排队','Queue'),text:'SQS'},
+  {icon:'gpu',title:t('GPU 分析','GPU analysis'),text:t('快速 ≈ 5 分钟 · 深度 ≈ 1 小时','Quick ≈ 5 min · deep ≈ 1 h')},
+  {icon:'report',title:t('AI 报告','AI report'),text:'HTML + PDF'},
+  {icon:'power',title:t('GPU 关闭','GPU stops'),text:t('空闲时不运行','Nothing runs when idle')}
+ ],note:t('快速 32 次访问，深度 3,000 次访问。失败后 5 分钟、15 分钟自动重试。','Quick: 32 visits. Deep: 3,000 visits. Failures retry after 5 and 15 minutes.')});
+}
+function positionFlow(){
+ return flow({title:t('AI 分析一个局面','AI analysis of one position'),numbered:true,steps:[
+  {icon:'phone',title:t('照片 / SGF / 摆子','Photo / SGF / set up'),text:t('照片在浏览器中缩小','Photo resized in browser')},
+  {icon:'camera',title:t('照片识别','Photo detection'),text:'Moku v4 · ≈ 8 s'},
+  {icon:'flag',title:t('检查棋子','Check stones'),text:t('琥珀色框需检查','Amber boxes need a check')},
+  {icon:'katago',title:t('快速 AI 分析','Quick AI analysis'),text:'KataGo CPU · ≈ 3 s'},
+  {icon:'chart',title:t('推荐着法','Suggested moves'),text:t('胜率与目差','Win rate and score')}
+ ],note:t('不保存照片和局面。全站每天约 1,000 次。','Photos and positions are not stored. About 1,000 requests a day site-wide.')});
+}
+function gpuFallback(){
+ return flow({title:t('GPU 容量不足时','When GPU capacity is short'),steps:[
+  {icon:'gpu',title:'T4 On-Demand',text:t('首选','First choice')},
+  {icon:'gpu',title:'T4 / A10G Spot',text:t('等待 3 分钟后','After 3 min waiting')},
+  {icon:'gpu',title:'A10G On-Demand',text:t('再等 3 分钟后','After 3 more min')},
+  {icon:'retry',title:t('稍后重试','Retry later'),text:t('15 分钟仍无容量','Still no capacity after 15 min'),tone:'warn'}
+ ]});
+}
+function spendingGuard(){
+ return flow({title:t('费用保护','Spending guard'),steps:[
+  {icon:'budget',title:'AWS Budgets',text:t('每天 $15 · 每月 $50','$15 / day · $50 / month')},
+  {icon:'lambda',title:t('保护程序','Guard Lambda'),text:t('超额时运行','Runs when exceeded')},
+  {icon:'shield',title:t('暂停 AI','Pause AI'),text:t('停止 GPU 队列与任务','Stops GPU queue and jobs'),tone:'bad'},
+  {icon:'check',title:t('仍可复盘','Replay still works'),text:t('棋谱与报告保留','Games and reports stay'),tone:'good'}
+ ]});
 }
 // Measured 1–8 October 2026 from Lambda REPORT logs (billed time includes cold starts); x86 in eu-west-1 at US$0.0000166667 per GB-second plus US$0.20 per million requests.
 function quickAnalysisCost(){
