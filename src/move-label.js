@@ -13,5 +13,4 @@ export function renderMoveLabel(element,{depth,move,t,size=19,mode=''}){
  element.replaceChildren(...parts);
 }
 // Suggestion tables (game page and AI analysis): the stone of the side to play inside each move button, and the assessment word in a pill coloured like the board markers.
-export function moveStone(side){const stone=document.createElement('span');stone.className='move-stone ai-move-stone '+(side==='B'?'black':'white');stone.setAttribute('aria-hidden','true');return stone;}
 export function qualityPill(quality,text){const pill=document.createElement('span');pill.className='quality-pill';pill.dataset.quality=quality;pill.textContent=text;return pill;}
