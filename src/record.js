@@ -12,7 +12,7 @@ import {gameResult} from './game-result.js';
 import {drawEvaluationChart} from './evaluation-chart.js';
 import {readSgf,parseSgf} from './sgf.js';
 import {libraryRequest,requestErrorText} from './library-api.js';
-import {renderMoveLabel,moveStone,qualityPill} from './move-label.js';
+import {renderMoveLabel,qualityPill} from './move-label.js';
 const $=id=>document.getElementById(id),id=location.pathname.match(/^\/(?:record|game)\/([0-9]{10,14}|[a-f0-9-]{36})\/?$/)?.[1] || new URLSearchParams(location.search).get('game');
 mountStoneSound($('game-sound'));
 let data=null,record=null,handicap=0,selected=restorePosition(),loading=false,points=[],analyses=new Map(),trials=[],trialOffset=0,chartMode='score',pollTimer=null,statusTimer=null,aiLine=null,suggestions=true;
@@ -218,7 +218,7 @@ function renderSuggestions(){
    const body=document.createElement('tbody');
    for(const row of next.rows){
      const tr=document.createElement('tr');tr.dataset.move=row.move;tr.dataset.actual=String(row.actual);if(row.actual)tr.className='ai-recorded-move';if(aiLine?.overview&&row.candidate===aiLine.rootCandidate)tr.classList.add('ai-selected-move');
-     const move=document.createElement('th');move.scope='row';const button=document.createElement('button');button.type='button';button.className='ai-move-choice';button.dataset.side=next.side;button.append(moveStone(next.side),(row.label?row.label+' · ':'')+(row.move==='pass'?t('停一手','Pass'):row.move));
+     const move=document.createElement('th');move.scope='row';const button=document.createElement('button');button.type='button';button.className='ai-move-choice';button.dataset.side=next.side;button.append((row.label?row.label+' · ':'')+(row.move==='pass'?t('停一手','Pass'):row.move));
      const preview=()=>chooseAiRow(next,row);button.onclick=event=>{event.stopPropagation();preview();};tr.onclick=preview;tr.onmouseenter=()=>{if(hoverAiSuggestions.matches)hoverAiRow(next,row);};tr.onmouseleave=leaveAiRow;button.setAttribute('aria-pressed',String(!!aiLine?.overview&&row.candidate===aiLine.rootCandidate));
      button.setAttribute('aria-label',(next.side==='B'?t('黑方','Black'):t('白方','White'))+' · '+button.textContent+' · '+(row.candidate?t('预览完整推荐变化','Preview full recommended line'):t('查看实战着法','View recorded move')));move.append(button);
      if(row.actual){const badge=document.createElement('button');badge.type='button';badge.className='ai-played-badge';badge.textContent='△';badge.title=t('实战','Played');badge.setAttribute('aria-label',t('前往实战着法','Go to recorded move'));badge.onclick=event=>{event.stopPropagation();selectPosition(row.actualNode);};move.append(badge);}

@@ -224,9 +224,8 @@ body{background:#fff}.card,.status-card{background:#fff}button:not(.point):hover
 .ai-move-table th:nth-child(2){width:21%}
 .ai-move-table th:nth-child(3){width:18%}
 .ai-move-table th:last-child{width:28%}
-:is(#ai-alternatives,#analysis-main) .ai-move-choice[data-side]{display:inline-flex;align-items:center;gap:5px;max-width:100%;min-height:34px;padding:4px 8px;background:#fff;color:#202629;border:1px solid #8b989f;font-size:15px;font-weight:650;white-space:nowrap}
-:is(#ai-alternatives,#analysis-main) .ai-move-choice[data-side][aria-pressed=true]{background:#e4f0fb;border-color:#1b5faa;color:#1b5faa}
-.ai-move-choice .move-stone{width:13px;height:13px;margin:0}
+:is(#ai-alternatives,#analysis-main) .ai-move-choice[data-side]{display:inline-flex;align-items:center;max-width:100%;min-height:34px;padding:4px 8px;border-width:1px;border-style:solid;font-size:15px;font-weight:650;white-space:nowrap}
+:is(#ai-alternatives,#analysis-main) .ai-move-choice[data-side][aria-pressed=true]{box-shadow:0 0 0 2px #1b5faa}
 .quality-pill{display:inline-block;max-width:100%;padding:2px 7px;border-radius:999px;font-size:12px;font-weight:650;line-height:1.35;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;vertical-align:middle;color:#fff;background:#64748b}
 .quality-pill[data-quality=best]{background:#2978ce}
 .quality-pill[data-quality=good]{background:#27834c}
@@ -247,7 +246,7 @@ body{background:#fff}.card,.status-card{background:#fff}button:not(.point):hover
  .ai-move-table{font-size:13px}
  .ai-move-table th,.ai-move-table td{padding:5px 3px}
  .ai-move-table thead th{font-size:11px}
- :is(#ai-alternatives,#analysis-main) .ai-move-choice[data-side]{padding:4px 6px;gap:4px;font-size:14px}
+ :is(#ai-alternatives,#analysis-main) .ai-move-choice[data-side]{padding:4px 6px;font-size:14px}
  .quality-pill{font-size:11px;padding:2px 5px}
  .ai-move-table .ai-score-badge{font-size:14px;padding:3px 4px}
  .ai-move-table .ai-win-pair .ai-score-badge{font-size:13px;padding:3px 3px}
@@ -257,8 +256,7 @@ body{background:#fff}.card,.status-card{background:#fff}button:not(.point):hover
  .ai-move-table th:nth-child(2){width:23%}
  .ai-move-table thead th{font-size:10px}
  .ai-move-table th,.ai-move-table td{padding-left:2px;padding-right:2px}
- :is(#ai-alternatives,#analysis-main) .ai-move-choice[data-side]{gap:3px;padding:3px 4px;font-size:12px}
- .ai-move-choice .move-stone{width:11px;height:11px}
+ :is(#ai-alternatives,#analysis-main) .ai-move-choice[data-side]{padding:3px 4px;font-size:12px}
  #ai-alternatives .ai-played-badge{margin-left:1px;padding:0;font-size:12px}
  .quality-pill{font-size:10px;padding:2px 3px}
  .ai-move-table .ai-score-badge{font-size:13px}

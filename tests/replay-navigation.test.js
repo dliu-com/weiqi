@@ -93,7 +93,7 @@ test('actual comparison table shows leader-coloured absolute points and both win
  analyses=new Map([[0,{candidates:[{move:'D16',order:0,visits:100,blackLead:2,blackWinrate:.7,pv:['D16']},{move:'A19',order:1,visits:1,blackLead:-3,blackWinrate:.2,pv:['A19']}]}],[1,{blackLead:-4,blackWinrate:.25}]]);renderSuggestions();
  const tableRows=$('ai-alternatives').children.find(e=>e.tag==='table').children[1].children;
  `);
- assert.equal(c.run("tableRows[0].children[0].children[0].children[0].className"),'move-stone ai-move-stone black');assert.equal(c.run("tableRows[0].children[1].children[0].className"),'quality-pill');assert.equal(c.run("tableRows[0].children[1].children[0].dataset.quality"),'best');assert.equal(c.run("tableRows[0].children[1].children[0].textContent"),'Best');
+ assert.equal(c.run("tableRows[0].children[0].children[0].dataset.side"),'B');assert.equal(c.run("tableRows[0].children[0].children[0].children.some(x=>/stone/.test(x?.className||''))"),false);assert.equal(c.run("tableRows[0].children[1].children[0].className"),'quality-pill');assert.equal(c.run("tableRows[0].children[1].children[0].dataset.quality"),'best');assert.equal(c.run("tableRows[0].children[1].children[0].textContent"),'Best');
  assert.equal(c.run("tableRows[0].children[2].children[0].textContent"),'2.0');assert.equal(c.run("tableRows[0].children[2].children[0].className"),'ai-score-badge ai-score-black');
  assert.equal(c.run("tableRows[0].children[2].attrs['aria-label']"),'Black leads by 2.0 points');
  assert.deepEqual(Array.from(c.run("tableRows[0].children[3].children[0].children.map(e=>e.textContent)")),['70.0','30.0']);assert.equal(c.run("tableRows[0].children[3].attrs['aria-label']"),'Black 70.0%, White 30.0%');
