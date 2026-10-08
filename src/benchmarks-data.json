@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-10-06T10:53:46.746Z",
+  "updatedAt": "2026-10-08T04:37:10.305Z",
   "region": "eu-west-1",
   "quality": {
     "model": "kata1-tf3-b11c768-s12252M-d6398M.bin.gz",
@@ -1264,6 +1264,42 @@
       "costUSD": 0.45345204999999994,
       "coldStart": true,
       "peakMemoryMB": 1702.2
+    },
+    {
+      "id": "08f5cea6-45d6-4861-b557-54b6a45684e5-deep",
+      "backend": "gpu",
+      "scenario": "GPU-only production pipeline",
+      "cpu": 4,
+      "memoryGB": 16,
+      "gpu": "T4",
+      "instanceType": "g4dn.xlarge",
+      "moves": 321,
+      "positions": 322,
+      "model": "kata1-tf3-b11c768-s12252M-d6398M.bin.gz",
+      "engineVersion": "KataGo v1.18.2",
+      "visits": 5000,
+      "analysisThreads": 16,
+      "maxBatchSize": 32,
+      "status": "SUCCEEDED",
+      "statusReason": "Essential container in task exited",
+      "createdAt": "2026-10-08T03:26:03.450Z",
+      "completedAt": "2026-10-08T04:36:48.568117+00:00",
+      "recordUrl": "https://weiqi.dliu.com/game/2026100801",
+      "archived": false,
+      "totalIncludingQueueSeconds": 5756.636,
+      "queueWaitSeconds": 25.55,
+      "triggerSeconds": 1511.518,
+      "instanceStartupSeconds": 41.501,
+      "startupSeconds": 51.673,
+      "imagePullSeconds": 39.452,
+      "setupSeconds": 0.692,
+      "modelDownloadSeconds": 0.576,
+      "engineSeconds": 4124.08,
+      "saveSeconds": 1.202,
+      "totalSeconds": 4219.568,
+      "costUSD": 0.7173265600000001,
+      "coldStart": true,
+      "peakMemoryMB": 1765.9
     }
   ]
 }
