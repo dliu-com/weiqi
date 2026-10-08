@@ -56,7 +56,7 @@ const sideName=s=>s==='B'?t('黑方','Black'):t('白方','White');
 
 function clearAnalysis(){analysis=null;pinned=null;hovered=null;}
 function resetFrames(){frames=[{board,turn:side,move:null}];cursor=0;clearAnalysis();autoAnalyse=false;}
-// While editing, tool is the colour of the next stone (B or W; placing alternates them) or E for erase.
+// While editing, tool is the colour of the next stone (B or W; placing alternates them) or E for Delete.
 const nextByCount=()=>{const {black,white}=stoneCounts(board);return black>white?'W':'B';};
 function remember(){undo.push({board,review:[...review],tool});if(undo.length>100)undo.shift();}
 
@@ -101,12 +101,10 @@ async function openPhoto(file){
   const result=await positionRequest('recognize',{image},{signal:abort.signal,onUploadProgress:value=>{if(token!==generation||!work)return;work.upload=value;if(value>=1&&work.phase==='upload'){work.phase='detect';work.detectStarted=performance.now();}renderProgress();}});
   if(token!==generation)return;
   if(typeof result.board!=='string'||!/^[BW.]{361}$/.test(result.board))throw new PositionError('The position service could not finish. Try again shortly.');
-  const elapsed=performance.now()-work.started;
   if(photo)URL.revokeObjectURL(photo);photo=work.pendingPhoto;work.pendingPhoto=null;
   board=result.board;review=new Set((result.review||[]).filter(i=>Number.isInteger(i)&&i>=0&&i<361));undo=[];tool=nextByCount();fromPhoto=true;side='B';
   resetFrames();stage='check';
-  const {black,white}=stoneCounts(board);
-  say('已识别棋盘（'+seconds(elapsed)+' 秒）：'+(black+white)+' 颗棋子。请对照照片检查，然后点击“分析”。','Board read in '+seconds(elapsed)+' s: '+(black+white)+' stones. Compare them with your photo, then press Analyse.','ok');
+  status=null;
  }catch(error){
   if(token!==generation)return;
   if(photo)URL.revokeObjectURL(photo);photo=work?.pendingPhoto||null;if(work)work.pendingPhoto=null;
@@ -135,7 +133,7 @@ async function openSgf(file){
   if(/(?:^|[;\]\s])KM\s*\[/.test(text))komi=nearestKomi(record.komi);
   if(photo)URL.revokeObjectURL(photo);photo=null;showPhoto=false;failed=false;fromPhoto=false;
   review=new Set();undo=[];clearAnalysis();autoAnalyse=false;stage='play';
-  say('已打开 SGF（主线 '+(frames.length-1)+' 手）。点击“分析”获取 AI 建议。','SGF opened ('+(frames.length-1)+' moves on the main line). Press Analyse for AI suggestions.','ok');
+  status=null;
  }catch(error){
   if(token!==generation)return;
   say('无法打开 SGF：'+error.message,'Cannot open this SGF: '+error.message,'error');
@@ -145,7 +143,7 @@ async function openSgf(file){
 
 function editPoint(i){
  const current=board[i];
- // Black and White only place on empty points; only Erase removes stones.
+ // Black and White only place on empty points; only Delete removes stones.
  if(tool==='E'?current==='.':current!=='.')return;
  remember();board=setPoint(board,i,tool==='E'?'.':tool);
  if(tool!=='E')tool=otherSide(tool);
@@ -231,7 +229,7 @@ function translate(){
  document.querySelector('.tool-switch').setAttribute('aria-label',t('下一颗棋子','Next stone'));
  document.querySelector('.side-switch').setAttribute('aria-label',t('下一手','Next to play'));
  $('stage-photo').alt=t('你的棋盘照片','Your board photo');
- for(const [id,key] of [['tool-B','B'],['tool-W','W'],['tool-E','E'],['undo','Ctrl+Z']])$(id).title=t('快捷键 ','Shortcut: ')+key;
+ for(const [id,key] of [['tool-B','B'],['tool-W','W'],['tool-E','D'],['undo','Ctrl+Z']])$(id).title=t('快捷键 ','Shortcut: ')+key;
 }
 
 function renderSteps(){
@@ -261,7 +259,7 @@ function renderProgress(){
 function renderAnalyseButton(){
  const button=$('analyse');
  if(busy==='analysing'&&work)button.textContent=t('正在分析… '+Math.floor((performance.now()-work.started)/1000)+' 秒','Analysing… '+Math.floor((performance.now()-work.started)/1000)+' s');
- else button.textContent=t('分析这个局面','Analyse this position');
+ else button.textContent=t('AI 分析','AI Analyse');
  button.hidden=!!analysis&&!busy;button.disabled=!!busy;button.classList.toggle('is-loading',busy==='analysing');
 }
 function renderBoard(){
@@ -419,7 +417,7 @@ document.addEventListener('keydown',event=>{
  if(stage==='check'&&!busy){
   if((event.ctrlKey||event.metaKey)&&key==='z'){event.preventDefault();$('undo').click();return;}
   if(event.ctrlKey||event.metaKey)return;
-  const next={b:'B',w:'W',e:'E'}[key];if(next)chooseTool(next);
+  const next={b:'B',w:'W',d:'E',e:'E'}[key];if(next)chooseTool(next);
  }
  if(stage==='play'&&!busy&&!event.ctrlKey&&!event.metaKey&&!event.target?.classList?.contains('point')){
   if(event.key==='ArrowLeft'){event.preventDefault();navigate(cursor-1);}else if(event.key==='ArrowRight'){event.preventDefault();navigate(cursor+1);}
