@@ -244,7 +244,7 @@ function renderProgress(){
  const percent=work.phase==='prepare'?Math.min(10,elapsed/150):work.phase==='upload'?10+30*work.upload:40+55*(1-Math.exp(-(performance.now()-(work.detectStarted||performance.now()))/9000));
  $('progress-fill').style.width=percent.toFixed(1)+'%';
  const s=Math.floor(elapsed/1000);
- $('progress-time').textContent=s>=25?t(s+' 秒 · 比平时慢，请稍候…',s+' s · slower than usual…'):t(s+' 秒 · 通常 10–20 秒',s+' s · usually 10–20 s');
+ $('progress-time').textContent=s>=15?t(s+' 秒 · 比平时慢，请稍候…',s+' s · slower than usual…'):t(s+' 秒 · 通常 5–10 秒',s+' s · usually 5–10 s');
  $('stage-label').textContent=t('正在识别棋盘… '+s+' 秒','Reading the board… '+s+' s');
 }
 function renderAnalyseButton(){

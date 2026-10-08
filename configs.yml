@@ -22,8 +22,9 @@ positionAnalysis:
   # Each request reserves more than its maximum worker/runtime cost.
   dailyUsd: 3
   requestReserveMicros: 3000
-  recognitionMemoryMb: 1769
-  recognitionTimeoutSeconds: 25
+  # 3538 MB gives 2 vCPUs: photos read in about 6 s instead of 9 s for about 17% more cost.
+  recognitionMemoryMb: 3538
+  recognitionTimeoutSeconds: 20
   aiMemoryMb: 3008
   aiTimeoutSeconds: 20
   aiVisits: 300

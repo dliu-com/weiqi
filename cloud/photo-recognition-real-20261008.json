@@ -1,0 +1,204 @@
+{
+ "date": "2026-10-08",
+ "pipeline": "lines-loose-20261008",
+ "previousPipeline": "tiled-colour-20261007",
+ "changes": [
+  "Rescue: when the whole-photo grid cannot be verified, rerun Moku v4 on closer and rotated views around the densest stone detections, then on views re-framed around the best grid so far",
+  "Line check: the board's own grid lines confirm the stone grid, replace it when they clearly disagree, or the photo is refused",
+  "Echo filter (board.ECHO = 0.9): a weaker detection within 0.9 squares of a stronger stone is kept only if its own intersection shows that colour",
+  "A dense board that reads as nearly empty is refused instead of returned",
+  "Orientation and corner fallback from the previous pipeline are kept"
+ ],
+ "references": {
+  "userPhotos": 6,
+  "userStones": [
+   291,
+   91,
+   229,
+   133,
+   133,
+   89
+  ],
+  "userSource": "Photos 1-5: screenshots from a separate paid recognition tool supplied by the user. Photo 6: 12 points corrected by assistant visual inspection, not independently verified. Photo 6 was scored from a re-saved copy because the original file could not be read on this machine.",
+  "webPhotos": 10,
+  "webSource": "Public web photos transcribed by hand; kept outside the repository",
+  "useInInference": false
+ },
+ "method": {
+  "script": "scripts/photo-benchmark/real_photos.py, then scripts/photo-benchmark/score.py",
+  "upload": "Same as the page: longest edge up to 3072 pixels, JPEG quality 0.88, reduced by 0.8 until at most 1,050,000 bytes",
+  "conditions": [
+   "base",
+   "edge1200",
+   "dark70",
+   "dark55",
+   "bright125",
+   "lowcontrast",
+   "warm",
+   "cool",
+   "shade",
+   "blur",
+   "rot+4",
+   "q60"
+  ],
+  "samples": {
+   "user": 72,
+   "web": 120
+  },
+  "machine": "Local Apple Silicon CPU, ONNX Runtime"
+ },
+ "results": {
+  "user": {
+   "previous": {
+    "exact": 43,
+    "failures": 13,
+    "missed": 954,
+    "extra": 52,
+    "wrongColour": 15,
+    "reviewCaught": "34 of 1,021 errors",
+    "unchangedUploadExact": "4/6",
+    "unchangedUploadErrors": "89 plus 1 failure"
+   },
+   "current": {
+    "exact": 53,
+    "failures": 0,
+    "missed": 9,
+    "extra": 39,
+    "wrongColour": 1,
+    "reviewCaught": "12 of 49 errors",
+    "unchangedUploadExact": "5/6",
+    "unchangedUploadErrors": 2
+   },
+   "photo5ErrorsByCondition": {
+    "base": 2,
+    "edge1200": 4,
+    "dark70": 1,
+    "dark55": 2,
+    "bright125": 10,
+    "lowcontrast": 2,
+    "warm": 2,
+    "cool": 7,
+    "shade": 0,
+    "blur": 4,
+    "rot+4": 1,
+    "q60": 0
+   }
+  },
+  "web": {
+   "previous": {
+    "exact": 83,
+    "failures": 24,
+    "errors": 113,
+    "unchangedUploadExact": "7/10"
+   },
+   "current": {
+    "exact": 99,
+    "failures": 5,
+    "errors": 17,
+    "unchangedUploadExact": "9/10",
+    "refused": [
+     "web05 warm",
+     "web05 blur",
+     "web06 warm",
+     "web09 warm",
+     "web10 blur"
+    ]
+   }
+  },
+  "localTimeSeconds": {
+   "previous": {
+    "median": 2.2,
+    "max": 2.9
+   },
+   "current": {
+    "median": 2.3,
+    "max": 5.5
+   },
+   "note": "Single-thread worst case 5.5-6.6 s; normal photos run Moku 6 times, rescued photos 9 times, at most 13"
+  }
+ },
+ "angledPhotos": {
+  "method": "Opt-in TILT conditions in real_photos.py: synthetic perspective warps of the same photos (tilt20, tilt35, tilt50 from the bottom edge; side30 from one side)",
+  "errorsPerPhoto": {
+   "columns": [
+    "tilt20",
+    "tilt35",
+    "tilt50",
+    "side30"
+   ],
+   "cellFormat": "previous/current; F = refused or failed",
+   "photo1": [
+    "0/46",
+    "0/F",
+    "0/F",
+    "2/2"
+   ],
+   "photo2": [
+    "0/0",
+    "0/0",
+    "87/F",
+    "0/0"
+   ],
+   "photo3": [
+    "0/0",
+    "0/0",
+    "1/1",
+    "0/0"
+   ],
+   "photo4": [
+    "0/0",
+    "0/0",
+    "0/0",
+    "0/0"
+   ],
+   "photo5": [
+    "1/F",
+    "2/F",
+    "1/F",
+    "1/F"
+   ],
+   "photo6": [
+    "0/89",
+    "113/98",
+    "96/95",
+    "96/103"
+   ],
+   "webTotals": [
+    "1+1F / 77+2F",
+    "1 / 2+3F",
+    "0+2F / 1+5F",
+    "1 / 2+2F"
+   ]
+  },
+  "caveat": "Warping an already angled real photo (photo 6 is taken at a low angle with people at the table) exaggerates the angle further; synthetic warps do not reproduce real stone heights and occlusion",
+  "decision": "Not pursued. Strongly angled photos remain unreliable; the page asks for a photo taken from above"
+ },
+ "hardPhotos": {
+  "finding": "Remaining errors on photo 5 come from glare and colour casts on stones (bright125 10, cool 7)",
+  "decision": "Not pursued. Further threshold tuning on 6 photos risks overfitting; users must compare the board with the photo"
+ },
+ "live": {
+  "date": "2026-10-08",
+  "recognitionKey": "position-runtime/96f70536a5f67d7382f85c56cb13bd2f7f4bc2bd2aee541e4b08d095811db6f4/recognition.zip",
+  "result": "Photos 1-4 and 6 exact; photo 5 two extra white stones (same as local)",
+  "memory1769MB": {
+   "warmLambdaSeconds": "9.2-9.6 normal, 14.9-15.6 rescued",
+   "coldRoundTripSeconds": 16.4
+  },
+  "memory3538MB": {
+   "threads": 2,
+   "warmLambdaSeconds": "5.3-5.7 normal, 8.8-9.6 rescued",
+   "warmRoundTripSeconds": "5.9-6.5 normal, 9.3-10.1 rescued",
+   "coldRoundTripSeconds": 10.3,
+   "averageBilledSeconds": 7.3,
+   "averageUSD": 0.00042,
+   "normalPhotoUSD": 0.00032
+  },
+  "decision": "Use 3,538 MB with 2 threads and a 20-second timeout: about 1.65 times faster for about 17% more cost per photo, and the 13-run worst case (about 12 s) stays well inside the timeout"
+ },
+ "caveats": [
+  "Six user photos and ten web photos cannot establish general accuracy; recognition remains experimental",
+  "Thresholds were developed on these photos, so there is a risk of overfitting",
+  "The photo 6 reference was corrected visually by the assistant and is not independently verified"
+ ]
+}
