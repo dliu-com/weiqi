@@ -11,7 +11,7 @@ budget:
 analysis:
   dailyGameLimit: 10
   quickVisits: 32
-  deepVisits: 3000
+  deepVisits: 5000
   capacityFallbackSeconds: 180
   jobTimeoutSeconds: 7200
 
