@@ -28,20 +28,21 @@ class BoardView {
  render(board,options={}){this.board=board;this.options=options;this.element.dataset.preview=options.interactive===false?'':options.turn==='B'?'black':'white';}
 }
 function page(saved){
- const elements=new Map(),storage=new Map(),requests=[],replies=[];
+ const elements=new Map(),storage=new Map(),requests=[],replies=[],listeners={};
+ const history={entries:[null],index:0,get state(){return this.entries[this.index];},pushState(state){this.entries=[...this.entries.slice(0,this.index+1),state];this.index++;},go(step){this.index+=step;for(const listener of listeners.popstate||[])listener({state:this.state});},back(){if(this.index>0)this.go(-1);},forward(){if(this.index<this.entries.length-1)this.go(1);}};
  if(saved)storage.set('weiqi.local-analysis.v1',JSON.stringify(saved));
  const get=id=>{if(!elements.has(id))elements.set(id,new Element());return elements.get(id);};
  const positionRequest=async(kind,body)=>{requests.push({kind,body});const reply=replies.shift();if(reply instanceof Error)throw reply;return reply;};
  const context=vm.createContext({
   ...helpers,language:'en',t:(zh,en)=>en,BoardView,readSgf,parseSgf,PositionError,positionRequest,cloudPosition,
   document:{getElementById:get,querySelectorAll:()=>[],querySelector:()=>new Element(),createElement:tag=>new Element(tag),documentElement:{},addEventListener(){}},
-  window:{addEventListener(){}},matchMedia:()=>({matches:false}),performance:{now:()=>Date.now()},
+  history,window:{addEventListener:(type,listener)=>(listeners[type]??=[]).push(listener)},matchMedia:()=>({matches:false}),performance:{now:()=>Date.now()},
   localStorage:{getItem:key=>storage.get(key)??null,setItem:(key,value)=>storage.set(key,value),removeItem:key=>storage.delete(key)},
   setTimeout:()=>1,clearTimeout(){},setInterval:()=>1,clearInterval(){},URL:{createObjectURL:()=>'blob:photo',revokeObjectURL(){}},AbortController
  });
  const source=readFileSync(new URL('../src/analysis.js',import.meta.url),'utf8').replace(/^import .*;\n/gm,'');
  vm.runInContext(source,context);
- return {run:code=>vm.runInContext(code,context),get,storage,requests,replies};
+ return {run:code=>vm.runInContext(code,context),get,storage,requests,replies,history};
 }
 const settle=()=>new Promise(resolve=>setImmediate(resolve));
 const result={rootScoreLead:2.5,rootWinRate:.62,rootVisits:40,moves:[{x:3,y:15,pv:['D4','Q16'],scoreLead:2.5,winRate:.62,visits:30,relativePointsLost:0},{x:15,y:3,pv:['Q16'],scoreLead:1.8,winRate:.58,visits:10,relativePointsLost:.7}]};
@@ -101,6 +102,15 @@ test('komi can be 7.5 or 0.5; changing it clears the result and it is saved with
  p.replies.push(result);await p.run('analyse()');assert.equal(p.requests[1].body.komi,0.5);assert.match(p.get('analysis-time').textContent,/Chinese rules · komi 0\.5/);
  const saved=JSON.parse(p.storage.get('weiqi.local-analysis.v1'));assert.match(saved.sgf,/KM\[0\.5\]/);assert.equal(page(saved).run('komi'),0.5);
  assert.equal(p.run('nearestKomi(0)'),0.5);assert.equal(p.run('nearestKomi(6.5)'),7.5);
+});
+test('browser Back from step 2 returns to step 1, and Forward analyses again',async()=>{
+ const p=page();p.run("board=setPoint(emptyBoard(),60,'B');resetFrames();render()");assert.equal(p.history.entries.length,1);
+ p.replies.push(result);await p.run('analyse()');assert.equal(p.run('stage'),'play');assert.equal(p.history.state?.stage,'play');assert.equal(p.history.entries.length,2);
+ p.run('render()');assert.equal(p.history.entries.length,2);
+ p.history.back();assert.equal(p.run('stage'),'check');assert.equal(p.run('analysis'),null);assert.equal(p.run('board[60]'),'B');assert.equal(p.get('upload-box').hidden,false);
+ p.replies.push(result);p.history.forward();await settle();assert.equal(p.run('stage'),'play');assert.equal(p.requests.length,2);
+ p.get('edit-board').onclick();assert.equal(p.run('stage'),'check');assert.equal(p.history.index,0);
+ p.replies.push(result);await p.run('analyse()');assert.equal(p.history.index,1);assert.equal(p.history.entries.length,2);
 });
 test('two stages: set-up shows the upload box, and Edit board returns to it from the analysis',async()=>{
  const p=page(),edit=p.get('edit-board');
