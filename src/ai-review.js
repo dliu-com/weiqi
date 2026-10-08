@@ -54,7 +54,7 @@ export function nextMoveComparison(record,selected,analyses,phase) {
     const actual={move,actual:true,actualNode,loss:best?0:review.loss,quality:review.quality,
       estimated:!best&&review.estimated,blackLead:best||!review.estimated?candidate?.blackLead:analyses.get(actualNode)?.blackLead,
       blackWinrate:best||!review.estimated?candidate?.blackWinrate:analyses.get(actualNode)?.blackWinrate};
-    if(row)Object.assign(row,actual);else rows.push({...actual,label:null,candidate});
+    if(row)Object.assign(row,actual);else rows.push({...actual,label:String.fromCharCode(65+rows.length),candidate});
   }
   return {...next,rows};
 }
