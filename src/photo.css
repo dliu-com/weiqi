@@ -36,15 +36,13 @@
 .stone-count{display:inline-flex;align-items:center;gap:7px}
 .stone-count::before{content:"";width:18px;height:18px;border-radius:50%;background:radial-gradient(circle at 35% 30%,#6b6b6b,#111 70%)}
 .stone-count[data-side=white]::before{background:radial-gradient(circle at 35% 30%,#fff,#dedede 70%);box-shadow:inset 0 0 0 1px #8f989d}
-.tool-switch{display:grid!important;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;margin:10px 0}
+.tool-switch{display:grid!important;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;margin:10px 0 0}
 .tool-switch button,.side-switch button{min-height:40px}
-.tool-switch[hidden]{display:none!important}
+.tool-switch button{padding-inline:4px;white-space:nowrap}
 .edit-board{display:block;width:100%;min-height:44px;margin:12px 0;padding:10px 14px;border:1.5px solid #176b92!important;border-radius:8px;background:#fff;color:#176b92;font-size:15px;font-weight:650}
 .edit-board::before{content:'✎';margin-right:6px}
 .edit-board:not(:disabled):hover{background:#e2f0f8}
 .edit-board[hidden]{display:none!important}
-.tool-switch.on-board{grid-template-columns:repeat(4,minmax(0,1fr));width:100%;margin:8px 0 0}
-.tool-switch.on-board button{padding-inline:4px;white-space:nowrap}
 #tool-E{display:flex;align-items:center;justify-content:center;gap:6px}
 #tool-E::before{content:"";width:11px;height:11px;flex-shrink:0;background:linear-gradient(45deg,transparent 38%,#d93a2f 38%,#d93a2f 62%,transparent 62%),linear-gradient(-45deg,transparent 38%,#d93a2f 38%,#d93a2f 62%,transparent 62%)}
 #tool-E[aria-pressed=true]::before{filter:drop-shadow(0 0 1px #fff)}
@@ -79,7 +77,8 @@
 #analysis-main .board-wrap{scroll-margin-top:calc(var(--record-header-height,58px) + 8px)}
 @media(max-width:850px){
  #analysis-main .play-area{min-height:0}
- #analysis-main .board-wrap{width:min(100%,calc(100svh - var(--record-header-height,48px) - 120px))}
+ #analysis-main .board-wrap{width:min(100%,calc(100svh - var(--record-header-height,48px) - 170px))}
+ #analysis-main .play-area>#check-card{width:100%;margin:8px 0 0;padding:10px 12px}
   /* On phones the heading sits above the board (moved by analysis.js), so the AI results follow the board directly. */
  #analysis-main>.analysis-intro{padding:8px 6px 0}
  #analysis-main>.analysis-intro .editor-heading{margin-bottom:8px}

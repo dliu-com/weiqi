@@ -30,13 +30,11 @@
 </section>
 <p id="status" role="status" aria-live="polite" hidden></p>
 <section id="check-card" class="card analysis-card" hidden>
-<h2 data-zh="编辑棋盘">Edit the board</h2>
 <p id="check-summary" class="check-summary" role="img"><span class="stone-count" data-side="black" id="count-B"></span><span class="stone-count" data-side="white" id="count-W"></span></p>
-<div class="actions tool-switch" role="group" aria-label="Next stone"><button type="button" id="tool-B" data-side="black" data-zh="黑子">Black</button><button type="button" id="tool-W" data-side="white" data-zh="白子">White</button><button type="button" id="tool-E" data-zh="删除">Delete</button></div>
+<div class="actions tool-switch" role="group" aria-label="Edit the board"><button type="button" id="tool-B" data-side="black" data-zh="黑子">Black</button><button type="button" id="tool-W" data-side="white" data-zh="白子">White</button><button type="button" id="undo" data-zh="撤销">Undo</button><button type="button" id="tool-E" data-zh="删除">Delete</button><button type="button" id="rotate" data-zh="旋转 90°">Rotate 90°</button><button type="button" id="clear" data-zh="清空棋盘">Clear board</button></div>
 <p id="review-note" class="review-note" hidden></p>
 <p id="invalid-note" class="invalid-note" hidden></p>
 <button type="button" id="photo-thumb" class="photo-thumb" hidden><img id="thumb-photo" alt=""><span>Compare with photo</span></button>
-<div class="editor-toolbar"><button type="button" id="undo" data-zh="撤销">Undo</button><button type="button" id="rotate" data-zh="旋转 90°">Rotate 90°</button><button type="button" id="clear" data-zh="清空棋盘">Clear board</button></div>
 </section>
 <section id="result-card" class="card analysis-card" hidden>
 <h2 data-zh="AI 评估">AI evaluation</h2>

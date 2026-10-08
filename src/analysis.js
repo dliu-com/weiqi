@@ -225,7 +225,7 @@ function translate(){
  for(const {el,en,zh} of labels)el.textContent=t(zh,en);
  const aria={'board':['分析棋盘','Analysis board'],'sequence-first':['第一手','First move'],'sequence-previous':['上一手','Previous move'],'sequence-next':['下一手','Next move'],'sequence-last':['最后一手','Last move']};
  for(const [id,[zh,en]] of Object.entries(aria))$(id).setAttribute('aria-label',t(zh,en));
- document.querySelector('.tool-switch').setAttribute('aria-label',t('下一颗棋子','Next stone'));
+ document.querySelector('.tool-switch').setAttribute('aria-label',t('编辑棋盘','Edit the board'));
  document.querySelector('.side-switch').setAttribute('aria-label',t('下一手','Next to play'));
  $('stage-photo').alt=t('你的棋盘照片','Your board photo');
  for(const [id,key] of [['tool-B','B'],['tool-W','W'],['tool-E','D'],['undo','Ctrl+Z']])$(id).title=t('快捷键 ','Shortcut: ')+key;
@@ -328,7 +328,7 @@ function render(){
  if(reading)renderProgress();
  $('status').hidden=!status||reading;
  if(status){$('status').textContent=t(status.zh,status.en);$('status').dataset.tone=status.tone;}
- $('check-card').hidden=stage!=='check'||reading;document.querySelector('.tool-switch').hidden=$('check-card').hidden;
+ $('check-card').hidden=stage!=='check'||reading;
  if(stage==='check'){
   const {black,white}=stoneCounts(board);
   $('count-B').textContent=black;$('count-W').textContent=white;$('check-summary').setAttribute('aria-label',t('黑子 '+black+'，白子 '+white,black+' black, '+white+' white'));
@@ -409,12 +409,11 @@ function arrangeIntro(){
  const intro=$('analysis-intro'),panel=document.querySelector('#analysis-main>.workspace-panel'),playArea=document.querySelector('#analysis-main>.play-area');
  if(phone.matches){if(intro.nextElementSibling!==playArea)playArea.before(intro);}else if(intro.parentElement!==panel)panel.prepend(intro);
 }
-// On phones the Black/White/Delete tools and Undo sit right under the board, so editing never needs scrolling.
+// On phones the edit card sits right under the board, so editing never needs scrolling; its content is the same as on desktop.
 function arrangeTools(){
- const tools=document.querySelector('.tool-switch'),toolbar=document.querySelector('#check-card .editor-toolbar'),undo=$('undo');
- if(phone.matches){if(tools.previousElementSibling!==$('board-wrap'))$('board-wrap').after(tools);if(undo.parentElement!==tools)tools.append(undo);}
- else{if(tools.parentElement!==$('check-card'))$('review-note').before(tools);if(undo.parentElement!==toolbar)toolbar.prepend(undo);}
- tools.classList.toggle('on-board',phone.matches);
+ const card=$('check-card'),panel=document.querySelector('#analysis-main>.workspace-panel');
+ if(phone.matches){if(card.previousElementSibling!==$('board-wrap'))$('board-wrap').after(card);}
+ else if(card.parentElement!==panel)$('result-card').before(card);
 }
 phone.addEventListener?.('change',()=>{arrangeIntro();arrangeTools();});arrangeIntro();arrangeTools();
 window.addEventListener('site-language-change',()=>{translate();render();});
