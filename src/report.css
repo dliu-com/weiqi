@@ -41,3 +41,4 @@
 .report-graph-maths .report-formula{white-space:pre-line}
 
 .report-cover .report-cover-credit{font-size:18px;font-weight:550;line-height:1.4;margin:7px 0;color:#56626a}.report-cover-credit a{color:inherit}@media print{.report-cover .report-cover-credit{font-size:12pt;margin:2mm 0}}
+.report-board.report-full-record{max-width:none;margin:6px auto 4px}.report-record-hidden{display:flex;flex-wrap:wrap;gap:8px 16px;margin:6px 0 0;font-size:15px;line-height:1}.report-record-hidden span{display:inline-flex;align-items:center;gap:4px;white-space:nowrap}.report-record-stone{display:inline-grid;place-items:center;width:26px;height:26px;border-radius:50%;font-size:11px;font-weight:700;letter-spacing:-.03em;border:1px solid #545b5e}.report-record-stone-B{background:#202629;color:white}.report-record-stone-W{background:white;color:#202629}
