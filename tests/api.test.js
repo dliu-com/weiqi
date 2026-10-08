@@ -19,7 +19,7 @@ test('simultaneous requests commit once and return the latest game to the loser'
   }
  }
  const exports={};
- vm.runInNewContext(readFileSync(new URL('../backend/handler.cjs',import.meta.url),'utf8'),{
+ vm.runInNewContext(readFileSync(new URL('../backend/client-limit.cjs',import.meta.url),'utf8')+'\n'+readFileSync(new URL('../backend/handler.cjs',import.meta.url),'utf8'),{
   require:()=>({DynamoDBClient,GetItemCommand,PutItemCommand}),exports,process:{env:{TABLE_NAME:'test',SITE_ORIGIN:'https://test.invalid'}},
   Buffer,console,gameTree,gameClock,createState,transition,GameError
  });

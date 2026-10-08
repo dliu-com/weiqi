@@ -17,7 +17,7 @@ function api() {
   if(c instanceof TransactWriteItemsCommand){for(const p of c.input.TransactItems)validate(p.Put);for(const p of c.input.TransactItems)items.set(p.Put.Item.gameId.S,structuredClone(p.Put.Item));return {};}
   validate(c.input);items.set(c.input.Item.gameId.S,structuredClone(c.input.Item));return {};
  }}
- const exports={};vm.runInNewContext(readFileSync(new URL('../backend/handler.cjs',import.meta.url),'utf8'),{require:()=>({DynamoDBClient,GetItemCommand,PutItemCommand,ScanCommand,TransactWriteItemsCommand}),exports,Buffer,console,process:{env:{}},createState,transition,GameError,gameTree,gameClock});
+ const exports={};vm.runInNewContext(readFileSync(new URL('../backend/client-limit.cjs',import.meta.url),'utf8')+'\n'+readFileSync(new URL('../backend/handler.cjs',import.meta.url),'utf8'),{require:()=>({DynamoDBClient,GetItemCommand,PutItemCommand,ScanCommand,TransactWriteItemsCommand}),exports,Buffer,console,process:{env:{}},createState,transition,GameError,gameTree,gameClock});
  return async(path,body)=>{const r=await exports.handler({rawPath:path,requestContext:{http:{method:body?'POST':'GET'}},headers:{'content-type':'application/json'},body:body?JSON.stringify(body):undefined});return {status:r.statusCode,...JSON.parse(r.body)};};
 }
 test('manual resets cannot discard a live game without saving',async()=>{
