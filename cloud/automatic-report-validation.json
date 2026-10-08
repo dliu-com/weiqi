@@ -3,7 +3,7 @@
   "region": "eu-west-1",
   "provisioning": "CloudFormation only",
   "storageStackUnchanged": "WeiqiStorage",
-  "reportUrl": "https://weiqi.dliu.com/record/2026100620/report",
+  "reportUrl": "https://weiqi.dliu.com/game/2026100620/report",
   "schemaVersion": 5,
   "completionVerification": {
     "method": "Replay of previously completed Batch job event to deployed Lambda; no new GPU job",

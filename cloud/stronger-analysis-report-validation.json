@@ -1,7 +1,7 @@
 {
   "validatedAt": "2026-10-06T10:52:49.787Z",
-  "recordUrl": "https://weiqi.dliu.com/record/2026100620",
-  "reportUrl": "https://weiqi.dliu.com/record/2026100620/report",
+  "recordUrl": "https://weiqi.dliu.com/game/2026100620",
+  "reportUrl": "https://weiqi.dliu.com/game/2026100620/report",
   "model": "kata1-tf3-b11c768-s12252M-d6398M.bin.gz",
   "compute": {
     "backend": "gpu",
@@ -40,7 +40,7 @@
     "meanAbsoluteWinratePercentagePointDifference": 1.2342864607791921,
     "maxAbsolutePointDifference": 3.57547199,
     "maxAbsoluteWinratePercentagePointDifference": 18.634091399999996,
-    "recordUrl": "https://weiqi.dliu.com/record/2026100620",
+    "recordUrl": "https://weiqi.dliu.com/game/2026100620",
     "note": "Same-game/model consistency comparison; not independent accuracy validation."
   },
   "report": {
@@ -83,7 +83,7 @@
   },
   "bilingualBrowserValidation": {
     "verifiedAt": "2026-10-06T11:00:54.442931+00:00",
-    "recordUrl": "https://weiqi.dliu.com/record/2026100620",
+    "recordUrl": "https://weiqi.dliu.com/game/2026100620",
     "languages": [
       "en",
       "zh-CN"

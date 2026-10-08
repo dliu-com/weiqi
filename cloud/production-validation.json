@@ -1,5 +1,5 @@
 {
-  "recordUrl": "https://weiqi.dliu.com/record/2026100618",
+  "recordUrl": "https://weiqi.dliu.com/game/2026100618",
   "moves": 321,
   "positions": 322,
   "quickTotalSeconds": 196.64,
@@ -35,11 +35,11 @@
     "meanAbsoluteWinratePercentagePointDifference": 0.9278699878301243,
     "maxAbsolutePointDifference": 2.7394410000000002,
     "maxAbsoluteWinratePercentagePointDifference": 13.936228400000001,
-    "recordUrl": "https://weiqi.dliu.com/record/2026100618",
+    "recordUrl": "https://weiqi.dliu.com/game/2026100618",
     "note": "Same-game/model consistency comparison; not independent accuracy validation."
   },
   "retryValidation": {
-    "recordUrl": "https://weiqi.dliu.com/record/2026100619",
+    "recordUrl": "https://weiqi.dliu.com/game/2026100619",
     "controlledFirstAttemptFailed": true,
     "retryAt": "2026-10-06T04:34:15.544Z",
     "actualRetrySubmittedAt": "2026-10-06T04:34:16.431Z",

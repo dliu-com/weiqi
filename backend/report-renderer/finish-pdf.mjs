@@ -9,7 +9,7 @@ export async function finishPdf(bytes,{id,language,pageCount}){
    const uri=action?.lookup(PDFName.of('URI'))?.decodeText?.();if(!uri)continue;
    let url;try{url=new URL(uri);}catch{continue;}
    const match=/^#report-page-(\d+)$/.exec(url.hash);
-   if(url.origin!=='https://weiqi.dliu.com'||url.pathname!=='/record/'+id+'/report'||!match)continue;
+   if(url.origin!=='https://weiqi.dliu.com'||url.pathname!=='/game/'+id+'/report'||!match)continue;
    const target=Number(match[1]);if(target<1||target>pages.length)throw Error('Invalid PDF contents destination.');
    annotation.delete(PDFName.of('A'));
    annotation.set(PDFName.of('Dest'),pdf.context.obj([pages[target-1].ref,PDFName.of('Fit')]));

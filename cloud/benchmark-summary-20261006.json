@@ -22,7 +22,7 @@
       "costUSD": 0.05920004444444445,
       "peakMemoryMB": 2330.7,
       "averageBusyCpuCores": 29.705169949174078,
-      "recordUrl": "https://weiqi.dliu.com/record/2026100603",
+      "recordUrl": "https://weiqi.dliu.com/game/2026100603",
       "comparisonTo128": {
         "meanPointDifference": 0.3527851960118012,
         "medianPointDifference": 0.18726451000000033,
@@ -48,7 +48,7 @@
       "costUSD": 0.09837654444444445,
       "peakMemoryMB": 2358.4,
       "averageBusyCpuCores": 30.094265468453038,
-      "recordUrl": "https://weiqi.dliu.com/record/2026100520",
+      "recordUrl": "https://weiqi.dliu.com/game/2026100520",
       "comparisonTo128": {
         "meanPointDifference": 0.32501476082568354,
         "medianPointDifference": 0.13094709999999998,
@@ -74,7 +74,7 @@
       "costUSD": 0.10229419444444446,
       "peakMemoryMB": 2369.2,
       "averageBusyCpuCores": 30.287121578536954,
-      "recordUrl": "https://weiqi.dliu.com/record/2026100602",
+      "recordUrl": "https://weiqi.dliu.com/game/2026100602",
       "comparisonTo128": {
         "meanPointDifference": 0.30978534910621125,
         "medianPointDifference": 0.11594642000000022,
@@ -100,7 +100,7 @@
       "costUSD": 0.9654830777777779,
       "peakMemoryMB": 2543.6,
       "averageBusyCpuCores": 30.389766184736693,
-      "recordUrl": "https://weiqi.dliu.com/record/2026100521",
+      "recordUrl": "https://weiqi.dliu.com/game/2026100521",
       "comparisonTo128": {
         "meanPointDifference": 0,
         "medianPointDifference": 0,

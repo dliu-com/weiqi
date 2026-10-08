@@ -24,7 +24,7 @@ metadata.name='Workflow benchmark · quick 32 CPUs / 60 GB / 8 visits · deep T4
 metadata.benchmark={workflow:'hybrid',quick:{cpu:32,memoryGB:60,visits:8},deep:{gpu:'NVIDIA T4',cpu:4,memoryGB:16,visits:1000}};
 if(!existingId)metadata.analysis={status:'queued',enqueuedAt:new Date().toISOString()};await put(key,metadata,original.ETag);
 if(!existingId)await aws(['sqs','send-message','--queue-url',outputs.ProductionUploadQueueUrl,'--message-body',JSON.stringify({id})]);
-const report={id,recordUrl:'https://weiqi.dliu.com/record/'+id,enqueuedAt:metadata.analysis.enqueuedAt,phases:{},completed:false};
+const report={id,recordUrl:'https://weiqi.dliu.com/game/'+id,enqueuedAt:metadata.analysis.enqueuedAt,phases:{},completed:false};
 console.log('Started full-game hybrid workflow: '+report.recordUrl);
 let previous='';
 for(let n=0;n<720;n++){

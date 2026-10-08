@@ -78,8 +78,8 @@
   "productionGpuMaximumVcpu": 8,
   "concurrencyBenchmark": {
     "records": [
-      "https://weiqi.dliu.com/record/2026100615",
-      "https://weiqi.dliu.com/record/2026100616"
+      "https://weiqi.dliu.com/game/2026100615",
+      "https://weiqi.dliu.com/game/2026100616"
     ],
     "quickTotalsSeconds": [
       209.635,
@@ -101,7 +101,7 @@
       2,
       5
     ],
-    "validationRecord": "https://weiqi.dliu.com/record/2026100617",
+    "validationRecord": "https://weiqi.dliu.com/game/2026100617",
     "quickTotalSeconds": 178.881,
     "deepTotalSeconds": 1111.45,
     "quickSuggestedLines": 588,
@@ -112,7 +112,7 @@
       "player": "Player to move",
       "candidateMoveNumber": "N+1",
       "lastMoveRatingRemainsSeparate": true,
-      "validationRecord": "https://weiqi.dliu.com/record/2026100620?move=171",
+      "validationRecord": "https://weiqi.dliu.com/game/2026100620?move=171",
       "comparisonTable": {
         "columns": [
           "Move",
@@ -148,7 +148,7 @@
   },
   "storageStack": "WeiqiStorage",
   "strongerAnalysis": {
-    "recordUrl": "https://weiqi.dliu.com/record/2026100620",
+    "recordUrl": "https://weiqi.dliu.com/game/2026100620",
     "quickTotalSeconds": 208.402,
     "deepVisits": 3000,
     "maximumDeepVisits": 3000,
@@ -185,7 +185,7 @@
     "languageFormat": "English / Chinese switcher; selected language displayed and saved",
     "bilingualBrowserValidation": {
       "verifiedAt": "2026-10-06T14:35:17.072Z",
-      "recordUrl": "https://weiqi.dliu.com/record/2026100620",
+      "recordUrl": "https://weiqi.dliu.com/game/2026100620",
       "languages": [
         "en",
         "zh-CN"

@@ -5,7 +5,7 @@ import {gameResult} from './game-result.js';
 import {reportPagination} from './report-document.js';
 import {selectReportHighlights} from './report-highlights.js';
 import {comparisonChart,compositionChart,qualityLegend,reportChartColours} from './report-stat-charts.js';
-const $=id=>document.getElementById(id),id=location.pathname.match(/^\/(?:record|game)\/([^/]+)\/report\/?$/)?.[1]||new URLSearchParams(location.search).get('game');
+const $=id=>document.getElementById(id),id=location.pathname.match(/^\/game\/([^/]+)\/report\/?$/)?.[1]||new URLSearchParams(location.search).get('game');
 let report=null,reportLanguage=new URLSearchParams(location.search).get('lang')==='zh'?'zh':'en';
 const t=(zh,en)=>reportLanguage==='zh'?zh:en;
 const locale=()=>reportLanguage==='zh'?'zh-CN':'en-GB';

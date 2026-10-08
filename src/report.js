@@ -1,7 +1,7 @@
 import {appShell} from './site-shell.js';
 import {language as preferredLanguage,setLanguage} from './i18n.js';
 // Interaction retrieves files already prepared after deep analysis. No report/PDF generation.
-const $=id=>document.getElementById(id),id=location.pathname.match(/^\/(?:record|game)\/([^/]+)\/report\/?$/)?.[1];
+const $=id=>document.getElementById(id),id=location.pathname.match(/^\/game\/([^/]+)\/report\/?$/)?.[1];
 const requestedLanguage=new URLSearchParams(location.search).get('lang');
 let language=['zh','en'].includes(requestedLanguage)?requestedLanguage:preferredLanguage,manifest=null;
 const t=(zh,en)=>language==='zh'?zh:en;
