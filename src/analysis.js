@@ -375,8 +375,6 @@ function render(){
  $('sequence-next').disabled=$('sequence-last').disabled=!!busy||cursor===frames.length-1;
  $('sequence-pass').textContent=t(sideName(side)+'停一手',sideName(side)+' passes');$('sequence-pass').disabled=!!busy;
  renderResult();
- $('file-actions').hidden=stage!=='play'||reading;
- $('edit-stones').disabled=!!busy;
  renderBoard();
  saveLocal();
 }
@@ -384,8 +382,8 @@ function render(){
 $('photo-file').onchange=event=>{const file=event.target.files[0];event.target.value='';openPhoto(file);};
 $('sgf-file').onchange=event=>{const file=event.target.files[0];event.target.value='';openSgf(file);};
 const pickPhoto=()=>$('photo-file').click(),pickSgf=()=>$('sgf-file').click();
-$('photo-button').onclick=pickPhoto;$('new-photo').onclick=pickPhoto;
-$('sgf-button').onclick=pickSgf;$('open-sgf').onclick=pickSgf;
+$('photo-button').onclick=pickPhoto;
+$('sgf-button').onclick=pickSgf;
 $('cancel-reading').onclick=cancelReading;$('cancel-analysis').onclick=cancelAnalysis;
 $('hide-photo').onclick=()=>{showPhoto=false;render();};
 $('photo-thumb').onclick=()=>{showPhoto=!showPhoto;render();};
@@ -401,7 +399,6 @@ $('sequence-next').onclick=()=>navigate(cursor+1);$('sequence-last').onclick=()=
 $('sequence-pass').onclick=()=>playMove(null);
 $('play-preview').onclick=()=>{const m=pinned!==null?analysis?.moves[pinned]:null;if(m){pinned=null;playMove(m.x<0||m.y<0?null:m.y*19+m.x);}};
 $('clear-preview').onclick=()=>{pinned=null;hovered=null;renderPreview();};
-$('edit-stones').onclick=editStones;
 $('step-1').querySelector('button').onclick=editStones;
 
 for(const zone of [$('board-wrap'),$('upload-box')]){
