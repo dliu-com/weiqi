@@ -22,7 +22,7 @@ exports.handler = async event => {
   const requestPath = event.rawPath || '';
   if(method==='POST'){const headers=event.headers||{};if(headers.origin&&headers.origin!==process.env.SITE_ORIGIN)return response(403,{message:'Invalid request origin.'});if(!headers['content-type']?.toLowerCase().startsWith('application/json'))return response(415,{message:'Use JSON.'});}
   if(requestPath.startsWith('/api/position/'))return positionHandler(event);
-  if(method==='POST'&&!event._retry){try{if(!(await clientAllowance(event,'edit',Math.floor(Date.now()/60000),Number(process.env.CLIENT_EDITS_PER_MINUTE||60),120)))return response(429,{message:'Too many edits from this connection. Please wait one minute and retry.'});if(!(await mutationAllowance()))return response(429,{message:'Too many edits. Please wait one minute and retry.'});}catch{return response(503,{message:'The service is busy. Please retry.'});}}
+  if(method==='POST'&&!event._retry){try{const minute=Math.floor(Date.now()/60000);if(!(await clientAllowance(event,'edit',minute,Number(process.env.CLIENT_EDITS_PER_MINUTE||60),120)))return response(429,{message:'Too many edits from this connection. Please wait one minute and retry.'});if(!(await usageAllowance('site#edit#'+minute,Number(process.env.SITE_EDITS_PER_MINUTE||120),120)))return response(429,{message:'Too many edits. Please wait one minute and retry.'});}catch{return response(503,{message:'The service is busy. Please retry.'});}}
   if(requestPath==='/api/draft')return draftHandler(event);
   if (requestPath === '/api/library' || requestPath.startsWith('/api/library/')) return libraryHandler(event);
   const archiveId = requestPath.startsWith('/api/games/') ? requestPath.slice('/api/games/'.length) : null;
@@ -123,12 +123,3 @@ async function draftHandler(event){
  }catch(e){if(e.name==='ConditionalCheckFailedException'||e.statusCode===409)return response(409,{message:'The public draft changed on another device. Reload it before editing.',draft:await readDraft()});if(e.statusCode)return response(e.statusCode,{message:e.message});console.error('Draft request failed',{name:e.name});return response(500,{message:'Unable to save the public draft. Please retry.'});}
 }
 
-// One bounded site-wide row; clientAllowance first gives each connection only a share of it.
-async function mutationAllowance(){
- const minute=Math.floor(Date.now()/60000);
- for(let attempt=0;attempt<3;attempt++){
-  const data=await db.send(new GetItemCommand({TableName:process.env.TABLE_NAME,Key:{gameId:{S:'mutation-budget'}},ConsistentRead:true})),old=data.Item;
-  const oldMinute=Number(old?.minute?.N||0),oldCount=Number(old?.count?.N||0),count=oldMinute===minute?oldCount:0;if(count>=120)return false;
-  try{await db.send(new PutItemCommand({TableName:process.env.TABLE_NAME,Item:{gameId:{S:'mutation-budget'},minute:{N:String(minute)},count:{N:String(count+1)}},ConditionExpression:'attribute_not_exists(gameId) OR (#m = :m AND #n = :n)',ExpressionAttributeNames:{'#m':'minute','#n':'count'},ExpressionAttributeValues:{':m':{N:String(oldMinute)},':n':{N:String(oldCount)}}}));return true;}catch(e){if(e.name!=='ConditionalCheckFailedException')throw e;}
- }return false;
-}
