@@ -148,9 +148,14 @@ test('live byo-yomi counts down, keeps periods, and a timeout only stops the clo
   assert.deepEqual(s.clock.timedOut,{side:'white',move:6});assert.equal(s.clock.since,null);
   const stopped={...s.clock};
   assert.throws(()=>act(s,{type:'clock',paused:true}),/计时已停止/);
-  s=act(s,{type:'move',index:65});s=wait(s,60000);
+  const blackFrozen=timeLeft(s,gameClock(s,now),'black');assert.deepEqual(blackFrozen,{byoyomi:true,remaining:30000,periods:3});
+  s=act(s,{type:'move',index:65});s=wait(s,60000);assert.equal(s.turn,'black');
+  assert.deepEqual(timeLeft(s,gameClock(s,now),'black'),blackFrozen);
   assert.equal(s.phase,'play');assert.equal(s.clock.white,stopped.white);assert.equal(s.clock.black,stopped.black);
   assert.equal(timeLeft(s,gameClock(s,now),'white').timeout,true);
+  // Black times out, then plays on: White's time stays frozen instead of counting from a stale base.
+  const frozen={timeControl:{mainSeconds:60,overtime:'3x30 byo-yomi'},turn:'white',phase:'play',history:[],clock:{black:400000,white:150000,since:null,turnBase:121000,timedOut:{side:'black',move:9},left:{black:{main:0,periods:0},white:{main:0,periods:1}}}};
+  assert.deepEqual(timeLeft(frozen,gameClock(frozen,now),'white'),{byoyomi:true,remaining:30000,periods:1});
   const record=sgf(s);assert.match(record,/TM\[60\]OT\[3x30 byo-yomi\]/);assert.match(record,/White ran out of time at move 6\./);
  }finally{Date.now=realNow;}
 });
