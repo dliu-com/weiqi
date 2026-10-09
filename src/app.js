@@ -26,7 +26,7 @@ function renderSyncAge() {
   if (syncedAt === null) return;
   const s = Math.max(0, Math.floor((Date.now() - syncedAt) / 1000)), m = Math.floor(s / 60), h = Math.floor(m / 60);
   const ago = s < 60 ? t(`${s} 秒前`,`${s}s ago`) : m < 60 ? t(`${m} 分钟前`,`${m}m ago`) : t(`${h} 小时前`,`${h}h ago`);
-  $('sync').textContent = automatic ? ago : t('已暂停同步','Sync paused');
+  $('sync').textContent = automatic ? ago : t('已暂停','Paused');
   $('sync').title = (syncedSaved ? t('已保存 · ','Saved · ') : t('已同步 · ','Synced · ')) + localTimestamp(syncedAt, language);
 }
 // Turning auto-sync off is shown clearly, as the board may then be out of date.
@@ -136,7 +136,8 @@ function render() {
     el.setAttribute('aria-disabled',String(busy || (!review && (!!archiveId || ended || (!scoring && !canPlay())))));
   }
   $('turn').textContent = ended ? (state.result.winner ? names[state.result.winner] + t("胜"," wins") : state.result.reason==='unfinished' ? t('未完成','Unfinished') : t("和棋","Draw")) : scoring ? t("双方数子","Scoring") : t("轮到","To play: ") + names[state.turn];
-  $('detail').textContent = ended ? (state.result.reason==='unfinished' ? t('本局未完成。','The game was not finished.') : state.result.reason === 'resign' ? t("对方认输，本局结束。","The opponent resigned. Game over.") : state.result.reason==='agreed'?t('双方约定结果，棋局已保存。','Agreed result; game saved.'):t(`胜差 ${state.result.margin} 目 · ${gameTerms(state)}`,`Margin: ${state.result.margin} points · ${gameTerms(state)}`)) : scoring ? t("标记所有死子，然后确认胜负。","Mark all dead stones, then confirm the result.") : (canPlay() ? '' : state.history.length >= MAX_GAME_MOVES ? t(`已达 ${MAX_GAME_MOVES} 手上限，请点击“新一局”选择结果。`,`${MAX_GAME_MOVES}-move limit reached. Select New game to choose the result.`) : t("等待对方落子…","Waiting for the other player…")) + t(' '+gameTerms(state)+'。',' '+gameTerms(state)+'.');
+  $('detail').textContent = ended ? (state.result.reason==='unfinished' ? t('本局未完成。','The game was not finished.') : state.result.reason === 'resign' ? t("对方认输，本局结束。","The opponent resigned. Game over.") : state.result.reason==='agreed'?t('双方约定结果，棋局已保存。','Agreed result; game saved.'):t(`胜差 ${state.result.margin} 目`,`Margin: ${state.result.margin} points`)) : scoring ? t("标记所有死子，然后确认胜负。","Mark all dead stones, then confirm the result.") : (canPlay() ? '' : state.history.length >= MAX_GAME_MOVES ? t(`已达 ${MAX_GAME_MOVES} 手上限，请点击“新一局”选择结果。`,`${MAX_GAME_MOVES}-move limit reached. Select New game to choose the result.`) : t("等待对方落子…","Waiting for the other player…"));
+  $('game-terms').textContent = gameTerms(state);
   $('black-captures').textContent = displayed.captures.black; $('white-captures').textContent = displayed.captures.white;
   for (const side of ['black','white']) { const player = state.players?.[side] || ''; $(side + '-box-label').textContent = player || names[side]; $(side + '-box-label').title = names[side] + (player ? ': ' + player : ''); $(side + '-box-rank').textContent = state.playerRanks?.[side] || ''; $(side + '-captures-label').textContent = t('提子','Captures'); }
   const undoSide = state.history.at(-1)?.side;
@@ -164,6 +165,7 @@ function render() {
     $('turn').textContent = names[moveStatus.side] + (moveStatus.phase === 'submitting' ? t(' · 正在提交…',' · Submitting…') : t(' · 未发送',' · Not sent'));
     $('detail').textContent = moveStatus.phase === 'submitting' ? t('正在核对并保存落子，请稍候。','Checking and saving your move. Please wait.') : t('落子未发送，请检查网络后重试。','Move not sent. Check your connection and try again.');
   }
+  $('detail').hidden = !$('detail').textContent;
   $('turn').className = 'turn-label' + (!review && (state.phase === 'play' || state.result?.winner) ? ' turn-' + (pendingMove?.side || state.result?.winner || state.turn) : '');
   $('new').textContent=t('新一局','New game');$('end-game-cancel').textContent=t('取消','Cancel');
   renderResultDialog();

@@ -74,20 +74,20 @@ test('the edit dialog sets handicap before the first move and only states komi',
  c.get('live-handicap').value='3';c.get('live-handicap').onchange();assert.equal(c.get('live-komi').textContent,'White komi: 0.5 points');
  await c.get('edit-form').onsubmit({preventDefault(){}});
  assert.equal(c.remote().handicap,3);assert.equal(c.remote().komi,0.5);assert.equal(c.remote().turn,'white');
- assert.ok(c.get('white-box').classList.contains('active'));assert.match(c.get('detail').textContent,/Handicap 3 · White komi: 0.5 points/);
+ assert.ok(c.get('white-box').classList.contains('active'));assert.match(c.get('game-terms').textContent,/Handicap 3 · White komi: 0.5 points/);
  await c.run("action({type:'move',index:180})");c.run("$('edit-game').onclick()");assert.equal(c.get('live-handicap').disabled,true);
 });
 test('byo-yomi is set before the first move, counts down, and a timeout only stops the clock',async()=>{
  const c=await client();c.run("$('edit-game').onclick()");
  assert.equal(c.get('live-time').value,'count');assert.equal(c.get('live-byoyomi').hidden,true);assert.match(c.get('live-time-hint').textContent,/No time limit/);
- assert.equal(c.get('black-periods').hidden,true);assert.match(c.get('detail').textContent,/Count-up/);
+ assert.equal(c.get('black-periods').hidden,true);assert.match(c.get('game-terms').textContent,/^Chinese rules · White komi: 7.5 points · Count-up$/);assert.equal(c.get('detail').hidden,true);
  c.run("setLiveTime('byoyomi')");assert.equal(c.get('live-byoyomi').hidden,false);assert.equal(c.get('live-main').disabled,false);
  c.get('live-main').value='1';c.get('live-periods').value='3';c.get('live-period').value='30';
  await c.get('edit-form').onsubmit({preventDefault(){}});
  assert.deepEqual(c.remote().timeControl,{mainSeconds:60,overtime:'3x30 byo-yomi'});assert.equal(c.get('edit-dialog').open,false);
  c.intervals.find(i=>i.ms===1000).fn();
  assert.equal(c.get('black-time').textContent,'00:01:00');assert.equal(c.get('black-periods').hidden,false);assert.equal(c.get('black-periods').textContent,'Byo-yomi 3×30s');
- assert.match(c.get('detail').textContent,/Byo-yomi 1 min \+ 3×30s/);
+ assert.match(c.get('game-terms').textContent,/Byo-yomi 1 min \+ 3×30s/);
  await c.run("action({type:'move',index:180})");c.run("$('edit-game').onclick()");
  assert.equal(c.get('live-time').value,'byoyomi');assert.equal(c.get('live-main').disabled,true);
  await c.get('edit-form').onsubmit({preventDefault(){}});assert.equal(c.get('edit-dialog').open,false);
@@ -129,7 +129,7 @@ test('sync status shows how long ago the page synced',async()=>{
  const tick=c.intervals.find(i=>i.ms===1000).fn;c.advance(3000);tick();assert.equal(c.get('sync').textContent,'3s ago');
  c.advance(120000);tick();assert.equal(c.get('sync').textContent,'2m ago');
  await c.run("action({type:'move',index:180})");assert.equal(c.get('sync').textContent,'0s ago');assert.match(c.get('sync').title,/^Saved · /);
- c.get('auto').checked=false;c.get('auto').onchange();assert.equal(c.get('sync').textContent,'Sync paused');assert.ok(c.get('sync-group').classList.contains('off'));assert.match(c.get('sync').title,/^Saved · /);
+ c.get('auto').checked=false;c.get('auto').onchange();assert.equal(c.get('sync').textContent,'Paused');assert.ok(c.get('sync-group').classList.contains('off'));assert.match(c.get('sync').title,/^Saved · /);
  c.get('auto').checked=true;c.get('auto').onchange();assert.equal(c.get('sync').textContent,'0s ago');assert.ok(!c.get('sync-group').classList.contains('off'));
 });
 test('preflight rejects a stale move without submitting POST',async()=>{
