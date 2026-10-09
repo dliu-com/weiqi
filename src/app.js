@@ -19,7 +19,7 @@ function showSyncWarning(failed) {
   $('sync-warning').textContent = t('同步中断：无法连接服务器，棋盘可能不是最新状态。请检查网络；连接恢复后会自动更新。','Sync interrupted: the server could not be reached. This board may be out of date. Check your connection; syncing resumes when the connection returns.');
 }
 let moveStatus = null;
-let viewSavedGame = false, pendingSavedGeneration = null, resultRevision = null, countedResult = null;
+let viewSavedGame = false, pendingSavedGeneration = null, endedGeneration = null, resultRevision = null, countedResult = null;
 let reviewing = null, treeRenderKey = '', trialMoves = [];
 function previewMove(index) {
   if (reviewing === null || busy || !state) return;
@@ -60,6 +60,8 @@ function adopt(next) {
   if (pendingSavedGeneration !== null && next.lastSavedGame?.generation === pendingSavedGeneration) {
     pendingSavedGeneration = null; location.assign('/game/' + encodeURIComponent(next.lastSavedGame.id));
   }
+  const ended=freshGame&&next.lastResult?.generation===previousGeneration?next.lastResult:null,savedId=freshGame&&next.lastSavedGame?.generation===previousGeneration?next.lastSavedGame.id:null;
+  if(ended?.reason==='resign'&&ended.winner&&endedGeneration!==previousGeneration){showResigned(opposite(ended.winner),savedId);return;}
   if(freshGame)notice(next.lastSavedGame?.generation===previousGeneration?t('棋局已保存到棋谱库，新一局已准备好。','Game saved to the library. A new game is ready.'):previousMoves>MAX_GAME_MOVES?t(`超过 ${MAX_GAME_MOVES} 手，本局未保存。新一局已准备好。`,`Over ${MAX_GAME_MOVES} moves, so the game was not saved. A new game is ready.`):t(`不足 ${MIN_LIBRARY_MOVES} 手，本局未保存。新一局已准备好。`,`Under ${MIN_LIBRARY_MOVES} moves, so the game was not saved. A new game is ready.`));
 }
 async function sync(manual = false) {
@@ -234,6 +236,15 @@ setInterval(renderClock,1000);
 const boardView=new BoardView($('board'),{onPoint:i=>{if(busy||!state)return;prepareStoneSound();if(reviewing!==null){previewMove(i);return;}if(archiveId)return;if(state.phase==='scoring')action({type:'dead',index:i});else if(canPlay())action({type:'move',index:i});}});
 const points=boardView.points;
 function confirmAction(title,text,operation,acceptLabel=t('确认','Confirm')) { $('accept-confirm').textContent=acceptLabel; $('confirm-title').className=''; const revision = state.revision; pendingConfirmation = () => { if (state.revision !== revision) { notice(t('棋局已更新，请重新确认。','The game has changed. Please confirm again.')); return; } operation(); }; $('confirm-title').textContent=title; $('confirm-text').textContent=text; $('confirm-dialog').showModal(); }
+function showResigned(side,savedId){
+  $('resigned-title').textContent=t(names[side]+'认输',names[side]+' resigned');
+  $('resigned-text').textContent=savedId?t('棋局已保存到棋谱库。新一局已准备好。','The game is saved in the library. A new game is ready.'):t(`不足 ${MIN_LIBRARY_MOVES} 手，本局未保存。新一局已准备好。`,`Under ${MIN_LIBRARY_MOVES} moves, so the game was not saved. A new game is ready.`);
+  $('resigned-close').textContent=t('关闭','Close');$('resigned-open').textContent=t('打开棋谱','Open game');
+  $('resigned-open').hidden=!savedId;$('resigned-open').onclick=()=>location.assign('/game/'+encodeURIComponent(savedId));
+  for(const id of ['end-game-dialog','confirm-dialog'])if($(id).open)$(id).close();
+  if(!$('resigned-dialog').open)$('resigned-dialog').showModal();
+}
+$('resigned-close').onclick=()=>$('resigned-dialog').close();
 $('cancel-confirm').onclick=()=>$('confirm-dialog').close(); $('accept-confirm').onclick=()=>{ $('confirm-dialog').close(); pendingConfirmation?.(); };
 function renderResultDialog(){
   const counted=score(state.board,state.size,state.dead,state.komi),short=state.history.length<MIN_LIBRARY_MOVES,long=state.history.length>MAX_GAME_MOVES;
@@ -262,7 +273,7 @@ function chooseGameResult(openSaved = false, preset = null){
   for(const input of document.querySelectorAll('#result-options input[name="result"]'))input.checked=false;
   selectResult(preset||countedResult.choice);render();$('end-game-dialog').showModal();
 }
-function finishGame(result){pendingSavedGeneration=viewSavedGame&&state.history.length>=MIN_LIBRARY_MOVES&&state.history.length<=MAX_GAME_MOVES?(state.generation||0):null;return action(result);}
+function finishGame(result){endedGeneration=state.generation||0;pendingSavedGeneration=viewSavedGame&&state.history.length>=MIN_LIBRARY_MOVES&&state.history.length<=MAX_GAME_MOVES?(state.generation||0):null;return action(result);}
 for(const side of ['black','white']){
   const margin=$('margin-'+side);
   margin.onfocus=()=>selectResult('score-'+side);margin.oninput=()=>{margin.setCustomValidity('');selectResult('score-'+side);};
@@ -286,7 +297,7 @@ $('end-game-form').onsubmit=event=>{
 $('new').onclick=()=>chooseGameResult(false);
 $('end-game-cancel').onclick=()=>$('end-game-dialog').close();
 $('undo').onclick=()=>confirmAction(t('撤回' + names[state.history.at(-1)?.side] + '的上一手？','Undo ' + names[state.history.at(-1)?.side] + '’s last move?'),t("永久删除最近一手，不保留分支；双方设备都会更新。请先征得对方同意。","Permanently remove the last move on all devices; no variation is saved. Please agree with your opponent first."),()=>action({type:'undo'}));
-for (const side of ['black','white']) $('resign-' + side).onclick=()=>chooseGameResult(false,'resign-'+opposite(side));
+for (const side of ['black','white']) $('resign-' + side).onclick=()=>chooseGameResult(true,'resign-'+opposite(side));
 $('pass').onclick=()=>action({type:'pass'}); $('resume').onclick=()=>action({type:'resume'});
 $('confirm-score').onclick=()=>chooseGameResult(true);
 $('auto').onchange=()=>{automatic=$('auto').checked; if(automatic){lastActivity=Date.now();sync(true);}};

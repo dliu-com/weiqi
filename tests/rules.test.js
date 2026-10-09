@@ -69,6 +69,7 @@ test('legacy games migrate without losing moves, captures or current position',(
  assert.equal(reviewPosition(s,2).board,s.board);
  s=act(s,{type:'undo'});assert.equal(s.tree.nodes.length,2);assert.equal(reviewPosition(s,1).board,s.board);
  s=freshLiveGame(act(s,{type:'result',winner:'draw'}));assert.equal(gameTree(s).nodes.length,0);
+ assert.deepEqual(s.lastResult,{generation:0,winner:null,reason:'agreed'});assert.deepEqual(freshLiveGame(act(s,{type:'resign',side:'white'}),'2026100601').lastResult,{generation:s.generation,winner:'black',reason:'resign'});
 });
 test('single result confirmation finishes scoring and rejects stale results',()=>{
  let s=act(createState(),{type:'move',index:180});
