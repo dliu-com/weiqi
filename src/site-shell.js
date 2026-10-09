@@ -28,7 +28,7 @@ export class AppShell {
   document.addEventListener('focusin',event=>{if(openDropdown()&&!inside(event.target))this.closeDropdowns();});
   this.header.append(logo,this.brand,this.menuButton,this.menu);if(extra)this.header.append(extra);this.header.append(this.languageToggle,this.languages);
   // The five info pages share a tab bar at the top of main.
-  this.infoPages=[['/about','架构','Architecture'],['/benchmarks','基准实验','Benchmarks'],['/cost','费用','Cost'],['/security','安全','Security'],['/photo-recognition','照片识别','Photo recognition']];
+  this.infoPages=[['/about','架构','Architecture'],['/benchmarks','基准实验','Benchmarks'],['/cost','运行成本','Running costs'],['/security','安全','Security'],['/photo-recognition','照片识别','Photo recognition']];
   const main=document.querySelector('main');
   if(main&&this.infoPages.some(([href])=>href===location.pathname)){this.infoTabs=document.createElement('nav');this.infoTabs.className='info-tabs';main.prepend(this.infoTabs);this.syncInfoTabs=()=>this.infoTabs.classList.toggle('more-right',this.infoTabs.scrollLeft+this.infoTabs.clientWidth<this.infoTabs.scrollWidth-2);this.infoTabs.addEventListener('scroll',this.syncInfoTabs,{passive:true});addEventListener('resize',this.syncInfoTabs);}
   this.render();
