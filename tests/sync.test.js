@@ -164,9 +164,9 @@ test('a device set to one side only plays that side and only counts down its tim
  c.run("mySide='both'");c.run('render()');assert.equal(c.run('canPlay()'),true);
 });
 test('a page that cannot make sound yet asks for a tap during byo-yomi',async()=>{
- const c=await client({blocked:true});c.run('renderClock()');assert.equal(c.get('clock-note').hidden,true);
+ const c=await client({blocked:true});c.run('renderClock()');assert.equal(c.get('sound-unlock').hidden,true);
  await c.run("action({type:'metadata',name:'T',players:{black:'',white:''},timeControl:{mainSeconds:0,overtime:'2x30 byo-yomi'}})");
- assert.equal(c.get('clock-note').textContent,'Tap the page to turn on the countdown voice.');assert.equal(c.get('clock-note').hidden,false);
+ assert.equal(c.get('sound-unlock').textContent,'Turn on countdown voice');assert.equal(c.get('sound-unlock').hidden,false);assert.equal(c.get('clock-note').hidden,true);
 });
 test('sync status shows how long ago the page synced',async()=>{
  const c=await client();assert.equal(c.get('sync').textContent,'0s ago');assert.match(c.get('sync').title,/^Synced · /);
