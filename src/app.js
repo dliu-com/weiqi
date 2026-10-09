@@ -255,9 +255,8 @@ function renderClock() {
   $('pause-clock').disabled = !!archiveId || reviewing !== null || state.phase !== 'play' || !!clock.timedOut;
   $('pause-clock').textContent = state.clock?.paused ? t('恢复计时','Resume clock') : t('暂停计时','Pause clock');
   $('pause-clock').dataset.paused = state.clock?.paused ? 'true' : 'false';
-  $('clock-note').textContent = reviewing !== null ? t('该手结束时的累计用时','Total time at this move') : clock.timedOut ? t(names[clock.timedOut.side]+'超时，计时已停止，对局继续',names[clock.timedOut.side]+' ran out of time. The clock has stopped; play on.') : state.clock?.since && state.phase === 'play' && !state.clock?.paused && clock.autoPaused ? t('无人在线，计时自动暂停','No active page · Clock automatically paused') : '';
+  $('clock-note').textContent = reviewing !== null ? t('该手结束时的累计用时','Total time at this move') : state.clock?.since && state.phase === 'play' && !state.clock?.paused && clock.autoPaused ? t('无人在线，计时自动暂停','No active page · Clock automatically paused') : '';
   $('clock-note').hidden = !$('clock-note').textContent;
-  $('clock-note').classList.toggle('timeout', reviewing === null && !!clock.timedOut);
 }
 $('pause-clock').onclick = () => { if (state) action({type:'clock',paused:!state.clock?.paused}); };
 $('download-sgf').onclick = () => {
