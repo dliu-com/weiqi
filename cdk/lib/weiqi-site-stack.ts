@@ -131,9 +131,23 @@ export class WeiqiSiteStack extends Stack {
     const recordRoutes=new cloudfront.Function(this,'RecordRoutes',{code:cloudfront.FunctionCode.fromInline(fs.readFileSync(path.join(root,'src/routes.cjs'),'utf8'))});
     // Overwrites any client-supplied value, so the API can give each connection a fair share of public limits.
     const apiViewer=new cloudfront.Function(this,'ApiViewer',{code:cloudfront.FunctionCode.fromInline("function handler(event){var request=event.request;request.headers['x-weiqi-viewer']={value:event.viewer.ip};return request;}")});
+    // Central traffic monitoring (dliu-com/traffic-monitor): access logs + shared visitor cookie.
+    const trafficLogBucket = s3.Bucket.fromBucketAttributes(this, 'TrafficLogs', {
+      bucketName: Fn.importValue('TrafficLogBucketName'),
+      region: 'eu-west-1',
+    });
+    const visitorIdFunction = cloudfront.Function.fromFunctionAttributes(this, 'VisitorId', {
+      functionArn: Fn.importValue('TrafficVisitorFunctionArn'),
+      functionName: 'dliu-visitor-id',
+    });
+
     const distribution = new cloudfront.Distribution(this, 'SiteDistribution', {
+      enableLogging: true,
+      logBucket: trafficLogBucket,
+      logFilePrefix: 'raw/weiqi/',
+      logIncludesCookies: true,
       defaultBehavior: {
-        functionAssociations:[{eventType:cloudfront.FunctionEventType.VIEWER_REQUEST,function:recordRoutes}],
+        functionAssociations:[{eventType:cloudfront.FunctionEventType.VIEWER_REQUEST,function:recordRoutes},{ eventType: cloudfront.FunctionEventType.VIEWER_RESPONSE, function: visitorIdFunction }],
         origin: origins.S3BucketOrigin.withOriginAccessControl(bucket),
         allowedMethods: cloudfront.AllowedMethods.ALLOW_GET_HEAD,
         cachedMethods: cloudfront.CachedMethods.CACHE_GET_HEAD,
