@@ -66,7 +66,7 @@ test('player boxes show names, captures and time, and highlight the side to play
  await c.run("action({type:'move',index:180})");
  assert.ok(c.get('white-box').classList.contains('active'));assert.ok(!c.get('black-box').classList.contains('active'));
  assert.equal(c.get('black-box-label').textContent,'Dewei Liu');assert.equal(c.get('black-box-rank').textContent,'5d');assert.equal(c.get('white-box-label').textContent,'White');
- assert.equal(c.get('black-captures').textContent,0);assert.equal(c.get('black-captures-label').textContent,'Captures');
+ assert.equal(c.get('black-captures').textContent,'0');assert.equal(c.get('black-captures-label').textContent,'Captures');
 });
 test('the edit dialog sets handicap before the first move and only states komi',async()=>{
  const c=await client();c.run("$('edit-game').onclick()");
@@ -164,6 +164,15 @@ test('background polling never disables otherwise available controls',async()=>{
  }
  await c.run('sync()');
  assert.ok(changes.length>0);assert.ok(changes.every(([,disabled])=>disabled===false));
+});
+test('syncing an unchanged game rewrites no text, so a highlight stays selected',async()=>{
+ const c=await client();await c.run('sync()');const writes=[];
+ for(const id of ['game-name','game-terms','turn','detail','black-box-label','white-box-label','black-captures','pass','undo','resign','count','pause-clock','clock-note']) {
+  let value=c.get(id).textContent;
+  Object.defineProperty(c.get(id),'textContent',{get:()=>value,set:v=>{writes.push(id);value=v;}});
+ }
+ await c.run('sync()');c.run('renderClock()');
+ assert.deepEqual(writes,[]);
 });
 test('a move in flight leaves the panel unchanged; only a slow save shows submitting',async()=>{
  const c=await client();const changes=[];
