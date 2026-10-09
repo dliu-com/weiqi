@@ -1,4 +1,4 @@
-import { opposite, play, groupAt, score, gameTree, gameClock, handicapBoard, standardKomi, MAX_GAME_MOVES } from '../src/engine.js';
+import { opposite, play, groupAt, score, gameTree, gameClock, byoyomiSettings, spendTime, handicapBoard, standardKomi, MAX_GAME_MOVES } from '../src/engine.js';
 export class GameError extends Error {
   constructor(message, statusCode = 400) { super(message); this.statusCode = statusCode; }
 }
@@ -40,14 +40,18 @@ export function transition(current, request) {
     // Presence renewals keep the game revision unchanged, so they do not invalidate moves or dialogs.
   } else if (a.type === 'clock') {
     if (current.phase !== 'play' || typeof a.paused !== 'boolean') throw new GameError('当前棋局不能执行此操作。');
+    if (next.clock.timedOut) throw new GameError('计时已停止。');
     next.clock.paused = a.paused; next.clock.since = now;
   } else if (a.type === 'metadata') {
     if (typeof a.name !== 'string' || !a.name.trim() || a.name.trim().length > 80) throw new GameError('名称须为 1–80 个字符。');
     if (!a.players || ['black','white'].some(side => typeof a.players[side] !== 'string' || a.players[side].trim().length > 40)) throw new GameError('棋手姓名不能超过 40 个字符。');
+    // Live games are count-up (null) or byo-yomi, fixed once the first move is played.
     if(a.timeControl!==undefined){
-      const clock=a.timeControl;
-      if(clock!==null&&(!clock||!Number.isFinite(clock.mainSeconds)||clock.mainSeconds<0||clock.mainSeconds>864000||typeof clock.overtime!=='string'||clock.overtime.length>200))throw new GameError('操作无效。');
-      next.timeControl=clock===null?null:{mainSeconds:clock.mainSeconds,overtime:clock.overtime.trim()};
+      const clock=a.timeControl,byo=clock&&byoyomiSettings(clock);
+      if(clock!==null&&(!byo||!Number.isInteger(clock.mainSeconds)||clock.mainSeconds<0||clock.mainSeconds>36000||byo.periods<1||byo.periods>100||byo.period<1000||byo.period>3600000))throw new GameError('用时设置无效。');
+      const value=clock&&{mainSeconds:clock.mainSeconds,overtime:clock.overtime};
+      if(JSON.stringify(value)!==JSON.stringify(current.timeControl??null)&&(current.history.length||current.phase!=='play'))throw new GameError('第一手之后不能更改用时。');
+      next.timeControl=value;
     }
     if(a.playerRanks!==undefined&&(!a.playerRanks||['black','white'].some(side=>typeof a.playerRanks[side]!=='string'||a.playerRanks[side].trim().length>200)))throw new GameError('操作无效。');
     if(a.playerRanks!==undefined)next.playerRanks={black:a.playerRanks.black.trim(),white:a.playerRanks.white.trim()};
@@ -64,6 +68,11 @@ export function transition(current, request) {
     next.handicap=handicap;
     // Komi follows the rules and handicap; clients cannot set it directly.
     next.komi=standardKomi(next.rules||'Chinese',handicap);
+    if(!current.history.length&&(handicap!==(current.handicap||0)||JSON.stringify(next.timeControl??null)!==JSON.stringify(current.timeControl??null))){
+      const byo=byoyomiSettings(next.timeControl);
+      delete next.clock.timedOut;delete next.clock.left;delete next.clock.turnBase;
+      if(byo){next.clock.left={black:{main:byo.main,periods:byo.periods},white:{main:byo.main,periods:byo.periods}};next.clock.turnBase=next.clock[next.turn];}
+    }
   } else if (a.type === 'players') {
     if (!a.players || ['black','white'].some(side => typeof a.players[side] !== 'string' || a.players[side].trim().length > 40)) throw new GameError('棋手姓名不能超过 40 个字符。');
     next.players = { black: a.players.black.trim(), white: a.players.white.trim() };
@@ -77,6 +86,8 @@ export function transition(current, request) {
     next.tree.nodes.pop();
     next.tree.head = next.tree.nodes.length - 1;
     Object.assign(next, { board: last.board, turn: last.side, captures: last.captures, passes: last.passes, phase: 'play', dead: [], agreed: [], result: null });
+    // Undo restores the remaining byo-yomi time from before the move.
+    if (last.left && !next.clock.timedOut) { next.clock.left = last.left; next.clock.turnBase = next.clock[last.side]; }
   } else if (a.type === 'resume' && current.phase === 'scoring') {
     Object.assign(next, { phase: 'play', passes: 0, dead: [], agreed: [] });
   } else if (a.type === 'dead' && current.phase === 'scoring') {
@@ -125,10 +136,18 @@ export function transition(current, request) {
     for (let i = 0; i < next.board.length; i++) if (current.board[i] !== next.board[i]) changes.push([i, next.board[i]]);
     next.tree.nodes.push([next.tree.head, current.turn, a.type === 'pass' ? null : a.index, changes, new Date(now).toISOString(), [next.clock.black,next.clock.white]]);
     next.clock.since = now;
+    const byo = byoyomiSettings(next.timeControl);
+    if (byo && !next.clock.timedOut) {
+      const left = next.clock.left || {black:{main:byo.main,periods:byo.periods},white:{main:byo.main,periods:byo.periods}};
+      entry.left = structuredClone(left);
+      next.clock.left = {...left,[current.turn]:spendTime(left[current.turn],next.clock[current.turn]-(next.clock.turnBase||0),byo.period)};
+      next.clock.turnBase = next.clock[opposite(current.turn)];
+    }
     next.tree.head = next.tree.nodes.length - 1;
     next.history.push(entry); next.turn = opposite(current.turn);
   } else throw new GameError('当前棋局不能执行此操作。');
   if (a.type === 'resume' || a.type === 'undo') next.clock.since = now;
+  if (next.clock.timedOut) next.clock.since = null;
   if (next.phase === 'ended' && current.phase !== 'ended') next.date = londonDate(now);
   next.revision = current.revision + (heartbeat ? 0 : 1); next.updatedAt = heartbeat ? current.updatedAt : new Date().toISOString();
   if (JSON.stringify(next).length > 350000) throw new GameError('棋谱已达保存上限，请结算当前棋局或重新开始。');

@@ -3,7 +3,7 @@ import {BoardView} from './board-view.js';
 import {mountStoneSound,prepareStoneSound,playStoneSound} from './stone-sound.js';
 import {localTimestamp} from './site-time.js';
 import { t, language, setLanguage, translateError } from './i18n.js';
-import { play, opposite, score, gameTree, reviewPosition, gameClock, sgf, standardKomi, MIN_LIBRARY_MOVES, MAX_GAME_MOVES } from './engine.js';
+import { play, opposite, score, gameTree, reviewPosition, gameClock, byoyomiSettings, timeLeft, sgf, standardKomi, MIN_LIBRARY_MOVES, MAX_GAME_MOVES } from './engine.js';
 const $ = id => document.getElementById(id);
 mountStoneSound($('play-sound'));
 const names = { get black() { return t('黑方','Black'); }, get white() { return t('白方','White'); } };
@@ -11,7 +11,9 @@ const archiveId = new URLSearchParams(location.search).get('game');
 const apiPath = archiveId ? '/api/games/' + encodeURIComponent(archiveId) : '/api/game';
 const rulesName = rules => rules==='Japanese'?t('日本规则','Japanese rules'):t('中国规则','Chinese rules');
 const komiText = komi => t(`黑贴 ${komi} 目`,`White komi: ${komi} points`);
-const gameTerms = s => [rulesName(s.rules), s.handicap ? t(`让 ${s.handicap} 子`,`Handicap ${s.handicap}`) : '', komiText(s.komi)].filter(Boolean).join(' · ');
+const byoyomiText = (minutes,periods,seconds) => minutes ? t(`读秒 ${minutes} 分钟 + ${periods}×${seconds} 秒`,`Byo-yomi ${minutes} min + ${periods}×${seconds}s`) : t(`读秒 ${periods}×${seconds} 秒`,`Byo-yomi ${periods}×${seconds}s`);
+const timeTerm = s => { const byo = byoyomiSettings(s.timeControl); return byo ? byoyomiText(byo.main/60000,byo.periods,byo.period/1000) : s.timeControl ? '' : t('正计时','Count-up'); };
+const gameTerms = s => [rulesName(s.rules), s.handicap ? t(`让 ${s.handicap} 子`,`Handicap ${s.handicap}`) : '', komiText(s.komi), timeTerm(s)].filter(Boolean).join(' · ');
 const gameTitle = s => s.gameName || t('现场对弈休闲棋局','Live casual game');
 const letters = 'ABCDEFGHJKLMNOPQRST';
 const coord = i => letters[i % 19] + (19 - Math.floor(i / 19));
@@ -115,9 +117,10 @@ function render() {
   if (!state) return;
   $('game-name').textContent = gameTitle(state);
   $('edit-game').textContent=t('编辑棋局信息','Edit game info');
-  for(const [id,zh,en] of [['live-black-rank-label','段级位','Rank'],['live-white-rank-label','段级位','Rank'],['live-rules-label','规则','Rules'],['live-handicap-label','让子','Handicap'],['live-komi-label','贴目','Komi']])$(id).textContent=t(zh,en);
+  for(const [id,zh,en] of [['live-black-rank-label','段级位','Rank'],['live-white-rank-label','段级位','Rank'],['live-rules-label','规则','Rules'],['live-handicap-label','让子','Handicap'],['live-komi-label','贴目','Komi'],['live-time-label','用时','Time'],['live-main-label','基本用时（分钟）','Main time (min)'],['live-periods-label','读秒次数','Periods'],['live-period-label','每次（秒）','Seconds each']])$(id).textContent=t(zh,en);
+  for(const button of document.querySelectorAll('#live-time-choice button'))button.textContent=button.dataset.time==='byoyomi'?t('读秒','Byo-yomi'):t('正计时','Count-up');
   for(const button of document.querySelectorAll('#live-rules-choice button'))button.textContent=rulesName(button.dataset.rules);
-  if($('edit-dialog').open)showLiveKomi();
+  if($('edit-dialog').open){showLiveKomi();setLiveTime($('live-time').value);}
   $('edit-game').disabled = state.phase==='ended';
   const review = reviewing === null ? null : reviewPosition(state, reviewing);
   const displayed = (review && trialMoves.at(-1)) || review || state;
@@ -239,12 +242,21 @@ function renderClock() {
   const saved = reviewing !== null ? gameTree(state).nodes[reviewing]?.[5] : null;
   const clock = reviewing === null ? gameClock(state) : {black:saved?.[0] || 0,white:saved?.[1] || 0,paused:true};
   const format = ms => { const seconds = Math.floor(ms/1000); return [Math.floor(seconds/3600),Math.floor(seconds/60)%60,seconds%60].map(n=>String(n).padStart(2,'0')).join(':'); };
-  $('black-time').textContent = reviewing !== null && !saved ? '—' : format(clock.black);
-  $('white-time').textContent = reviewing !== null && !saved ? '—' : format(clock.white);
-  $('pause-clock').disabled = !!archiveId || reviewing !== null || state.phase !== 'play';
+  const byo = byoyomiSettings(state.timeControl);
+  for (const side of ['black','white']) {
+    // Byo-yomi boxes count down; review and count-up games show elapsed time.
+    const left = byo && reviewing === null ? timeLeft(state, clock, side) : null;
+    $(side + '-time').textContent = reviewing !== null && !saved ? '—' : left?.timeout ? t('超时','Time out') : left ? format(Math.ceil(left.remaining/1000)*1000) : format(clock[side]);
+    $(side + '-periods').hidden = !byo;
+    $(side + '-periods').textContent = left ? t(`读秒 ${left.periods}×${byo.period/1000}秒`,`Byo-yomi ${left.periods}×${byo.period/1000}s`) : '';
+    $(side + '-box').classList.toggle('byoyomi', !!left?.byoyomi && !left.timeout);
+    $(side + '-box').classList.toggle('timeout', !!left?.timeout);
+  }
+  $('pause-clock').disabled = !!archiveId || reviewing !== null || state.phase !== 'play' || !!clock.timedOut;
   $('pause-clock').textContent = state.clock?.paused ? t('恢复计时','Resume clock') : t('暂停计时','Pause clock');
-  $('clock-note').textContent = reviewing !== null ? t('该手结束时的累计用时','Total time at this move') : !state.clock?.since ? '' : state.phase !== 'play' ? t('计时已停止','Clock stopped') : state.clock?.paused ? t('计时已暂停','Clock paused') : clock.autoPaused ? t('无人在线，计时自动暂停','No active page · Clock automatically paused') : t('所有页面离线 1 分钟后自动暂停','Auto-pauses after all pages are inactive for 1 minute');
+  $('clock-note').textContent = reviewing !== null ? t('该手结束时的累计用时','Total time at this move') : clock.timedOut ? t(names[clock.timedOut.side]+'超时，计时已停止，对局继续',names[clock.timedOut.side]+' ran out of time. The clock has stopped; play on.') : !state.clock?.since ? '' : state.phase !== 'play' ? t('计时已停止','Clock stopped') : state.clock?.paused ? t('计时已暂停','Clock paused') : clock.autoPaused ? t('无人在线，计时自动暂停','No active page · Clock automatically paused') : t('所有页面离线 1 分钟后自动暂停','Auto-pauses after all pages are inactive for 1 minute');
   $('clock-note').hidden = !$('clock-note').textContent;
+  $('clock-note').classList.toggle('timeout', reviewing === null && !!clock.timedOut);
 }
 $('pause-clock').onclick = () => { if (state) action({type:'clock',paused:!state.clock?.paused}); };
 $('download-sgf').onclick = () => {
@@ -337,6 +349,9 @@ $('edit-game').onclick = () => {
   $('white-input').value = state.players?.white || '';
   $('black-rank-input').value=state.playerRanks?.black||'';$('white-rank-input').value=state.playerRanks?.white||'';
 $('live-handicap').value=String(state.handicap||0);$('live-handicap').disabled=state.history.length>0||state.phase!=='play';setLiveRules(state.rules||'Chinese');
+  const byo=byoyomiSettings(state.timeControl);
+  $('live-main').value=byo?byo.main/60000:30;$('live-periods').value=byo?byo.periods:3;$('live-period').value=byo?byo.period/1000:30;
+  setLiveTime(byo?'byoyomi':'count');
   $('edit-error').textContent = '';
   $('edit-dialog').showModal();
 };
@@ -350,14 +365,33 @@ function setLiveRules(rules){
 }
 for(const button of document.querySelectorAll('#live-rules-choice button'))button.onclick=()=>setLiveRules(button.dataset.rules);
 $('live-handicap').onchange=showLiveKomi;
+// Time control is fixed after the first move, like handicap.
+const liveTimeEditable=()=>!!state&&!state.history.length&&state.phase==='play';
+function setLiveTime(mode){
+  const editable=liveTimeEditable();
+  $('live-time').value=mode;
+  for(const button of document.querySelectorAll('#live-time-choice button')){button.setAttribute('aria-pressed',String(button.dataset.time===mode));button.disabled=!editable;}
+  $('live-byoyomi').hidden=mode!=='byoyomi';
+  for(const id of ['live-main','live-periods','live-period'])$(id).disabled=!editable||mode!=='byoyomi';
+  $('live-time-hint').textContent=mode==='byoyomi'?t('超时不判负，只停止计时。','Running out of time stops the clock; play continues.'):t('不限时，记录双方用时。','No time limit. Records the time each player uses.');
+}
+for(const button of document.querySelectorAll('#live-time-choice button'))button.onclick=()=>setLiveTime(button.dataset.time);
 $('edit-form').onsubmit = async event => {
   event.preventDefault();
   if (busy) return;
   if (editRevision !== state.revision) { $('edit-error').textContent = t('棋局已更新，请关闭后重新编辑。','The game changed. Close and reopen this editor.'); return; }
   const name = $('name-input').value.trim(), players = { black:$('black-input').value.trim(), white:$('white-input').value.trim() };
   const playerRanks={black:$('black-rank-input').value.trim(),white:$('white-rank-input').value.trim()};
-  await action({type:'metadata', name, players, playerRanks, rules:$('live-rules').value,handicap:Number($('live-handicap').value)});
-  if (state.gameName === name && state.players?.black === players.black && state.players?.white === players.white && state.playerRanks?.black===playerRanks.black && state.playerRanks?.white===playerRanks.white) $('edit-dialog').close();
+  let timeControl;
+  if(liveTimeEditable()){
+    if($('live-time').value==='byoyomi'){
+      const [minutes,periods,seconds]=['live-main','live-periods','live-period'].map(id=>Number($(id).value));
+      if(!Number.isInteger(minutes)||!Number.isInteger(periods)||!Number.isInteger(seconds)||minutes<0||minutes>600||periods<1||periods>100||seconds<1||seconds>3600){$('edit-error').textContent=t('请输入有效的读秒设置。','Enter valid byo-yomi settings.');return;}
+      timeControl={mainSeconds:minutes*60,overtime:periods+'x'+seconds+' byo-yomi'};
+    } else timeControl=null;
+  }
+  await action({type:'metadata', name, players, playerRanks, rules:$('live-rules').value,handicap:Number($('live-handicap').value),...(timeControl===undefined?{}:{timeControl})});
+  if ((timeControl===undefined||JSON.stringify(state.timeControl??null)===JSON.stringify(timeControl)) && state.gameName === name && state.players?.black === players.black && state.players?.white === players.white && state.playerRanks?.black===playerRanks.black && state.playerRanks?.white===playerRanks.white) $('edit-dialog').close();
   else $('edit-error').textContent = t('保存失败，请关闭后重试。','Not saved. Close and try again.');
 };
 
