@@ -6,6 +6,8 @@ export function createState() {
   const size = 19;
   return { createdAt: new Date().toISOString(), gameName: null, players: { black: '', white: '' }, revision: 0, size, board: '.'.repeat(size * size), turn: 'black', history: [], captures: { black: 0, white: 0 }, passes: 0, phase: 'play', dead: [], agreed: [], komi: 7.5, result: null, updatedAt: null };
 }
+// Finished live games are dated like library game IDs, by the London calendar.
+export const londonDate=ms=>{const parts=new Intl.DateTimeFormat('en-GB',{timeZone:'Europe/London',year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(ms);return ['year','month','day'].map(type=>parts.find(p=>p.type===type).value).join('-');};
 export function freshLiveGame(completed,libraryId){
  const next=createState();next.revision=completed.revision+1;next.generation=next.revision;next.updatedAt=new Date().toISOString();if(libraryId)next.lastSavedGame={id:libraryId,generation:completed.generation||0};
  // Lets every open /play page explain how the previous game ended.
@@ -53,9 +55,8 @@ export function transition(current, request) {
     if(a.handicap!==undefined&&(!Number.isInteger(a.handicap)||a.handicap<0||a.handicap>9))throw new GameError('操作无效。');
     const handicap=a.handicap??current.handicap??0;
     if(handicap!==(current.handicap||0)&&(current.history.length||current.phase!=='play'))throw new GameError('第一手之后不能更改让子。');
-    if(a.date!==undefined&&!/^\d{4}-\d{2}-\d{2}$/.test(a.date))throw new GameError('操作无效。');
     next.gameName = a.name.trim(); next.players = {black:a.players.black.trim(),white:a.players.white.trim()};
-    if(a.rules!==undefined)next.rules=a.rules;if(a.date!==undefined)next.date=a.date;
+    if(a.rules!==undefined)next.rules=a.rules;
     if(handicap!==(current.handicap||0)){
       next.board=handicapBoard(handicap);next.turn=handicap>1?'white':'black';
       next.tree={root:next.board,captures:{black:0,white:0},turn:next.turn,nodes:[],head:-1};
@@ -128,6 +129,7 @@ export function transition(current, request) {
     next.history.push(entry); next.turn = opposite(current.turn);
   } else throw new GameError('当前棋局不能执行此操作。');
   if (a.type === 'resume' || a.type === 'undo') next.clock.since = now;
+  if (next.phase === 'ended' && current.phase !== 'ended') next.date = londonDate(now);
   next.revision = current.revision + (heartbeat ? 0 : 1); next.updatedAt = heartbeat ? current.updatedAt : new Date().toISOString();
   if (JSON.stringify(next).length > 350000) throw new GameError('棋谱已达保存上限，请结算当前棋局或重新开始。');
   return next;

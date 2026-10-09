@@ -115,7 +115,7 @@ function render() {
   if (!state) return;
   $('game-name').textContent = gameTitle(state);
   $('edit-game').textContent=t('编辑棋局信息','Edit game info');
-  for(const [id,zh,en] of [['live-black-rank-label','段级位','Rank'],['live-white-rank-label','段级位','Rank'],['live-date-label','日期','Date'],['live-rules-label','规则','Rules'],['live-handicap-label','让子','Handicap'],['live-komi-label','贴目','Komi']])$(id).textContent=t(zh,en);
+  for(const [id,zh,en] of [['live-black-rank-label','段级位','Rank'],['live-white-rank-label','段级位','Rank'],['live-rules-label','规则','Rules'],['live-handicap-label','让子','Handicap'],['live-komi-label','贴目','Komi']])$(id).textContent=t(zh,en);
   for(const button of document.querySelectorAll('#live-rules-choice button'))button.textContent=rulesName(button.dataset.rules);
   if($('edit-dialog').open)showLiveKomi();
   $('edit-game').disabled = state.phase==='ended';
@@ -336,7 +336,7 @@ $('edit-game').onclick = () => {
   $('black-input').value = state.players?.black || '';
   $('white-input').value = state.players?.white || '';
   $('black-rank-input').value=state.playerRanks?.black||'';$('white-rank-input').value=state.playerRanks?.white||'';
-  $('live-date').value=state.date||state.createdAt?.slice(0,10)||'';$('live-handicap').value=String(state.handicap||0);$('live-handicap').disabled=state.history.length>0||state.phase!=='play';setLiveRules(state.rules||'Chinese');
+$('live-handicap').value=String(state.handicap||0);$('live-handicap').disabled=state.history.length>0||state.phase!=='play';setLiveRules(state.rules||'Chinese');
   $('edit-error').textContent = '';
   $('edit-dialog').showModal();
 };
@@ -356,7 +356,7 @@ $('edit-form').onsubmit = async event => {
   if (editRevision !== state.revision) { $('edit-error').textContent = t('棋局已更新，请关闭后重新编辑。','The game changed. Close and reopen this editor.'); return; }
   const name = $('name-input').value.trim(), players = { black:$('black-input').value.trim(), white:$('white-input').value.trim() };
   const playerRanks={black:$('black-rank-input').value.trim(),white:$('white-rank-input').value.trim()};
-  await action({type:'metadata', name, players, playerRanks, date:$('live-date').value,rules:$('live-rules').value,handicap:Number($('live-handicap').value)});
+  await action({type:'metadata', name, players, playerRanks, rules:$('live-rules').value,handicap:Number($('live-handicap').value)});
   if (state.gameName === name && state.players?.black === players.black && state.players?.white === players.white && state.playerRanks?.black===playerRanks.black && state.playerRanks?.white===playerRanks.white) $('edit-dialog').close();
   else $('edit-error').textContent = t('保存失败，请关闭后重试。','Not saved. Close and try again.');
 };
