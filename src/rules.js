@@ -100,8 +100,8 @@ const sections = [
           "Clocks and pausing"
         ],
         [
-          "首手落子后开始记录当前执子方的累计用时，不是倒计时，也没有超时判负。“暂停计时”会暂停计时及落子，点击“恢复计时”后继续。进入数子或棋局结束时停止计时，悔棋不会退回已用时间。",
-          "Elapsed timing starts after the first move and runs for the side to play. It is not a countdown and has no time-loss rule. Pause clock stops timing and prevents moves until Resume clock is selected. Scoring and game end stop the clock. Undo does not refund thinking time."
+          "首手落子后开始计时，只计当前执子方。默认“正计时”：记录累计用时，没有时间限制。若第一手前选择“读秒”，先用基本时间，用完后进入读秒：每次读秒内落子则重新计时，超过一次读秒则扣减一次；最后一次读秒用完即超时。超时不判负，双方计时停止，对局继续。“暂停计时”会暂停计时及落子，点击“恢复计时”后继续。进入数子或棋局结束时停止计时。悔棋不会退回已用时间；读秒时剩余时间恢复到该手之前。",
+          "Timing starts after the first move and runs for the side to play. The default, Count-up, records elapsed time with no limit. If Byo-yomi is chosen before the first move, main time is used first, then byo-yomi periods: moving within a period keeps it, and using a full period uses it up. When the last period runs out, that player is out of time. This does not lose the game; both clocks stop and play continues. Pause clock stops timing and prevents moves until Resume clock is selected. Scoring and game end stop the clock. Undo does not refund elapsed time; with byo-yomi, the time left returns to what it was before the undone move."
         ]
       ],
       [

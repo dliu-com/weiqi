@@ -109,7 +109,30 @@ export function gameClock(state, now = Date.now()) {
   clock.autoPaused = expired;
   const until = expired ? last : now;
   if (state.phase === 'play' && !clock.paused && clock.since !== null) clock[state.turn] += Math.max(0, until - clock.since);
+  // Running out of byo-yomi stops the clock for both players; the game continues.
+  const byo = byoyomiSettings(state.timeControl);
+  if (byo && state.phase === 'play' && !clock.timedOut && clock.since !== null) {
+    const left = clock.left?.[state.turn] || {main:byo.main,periods:byo.periods}, limit = (clock.turnBase || 0) + left.main + left.periods * byo.period;
+    if (clock[state.turn] >= limit) { clock[state.turn] = limit; clock.timedOut = {side:state.turn,move:(state.history?.length || 0) + 1}; }
+  }
   return clock;
+}
+// Live byo-yomi is stored like SGF TM/OT: main seconds plus "<periods>x<seconds> byo-yomi".
+export function byoyomiSettings(timeControl) {
+  const m = /^(\d+)x(\d+) byo-yomi$/.exec(timeControl?.overtime || '');
+  return m && Number.isFinite(timeControl.mainSeconds) ? {main:timeControl.mainSeconds*1000,periods:Number(m[1]),period:Number(m[2])*1000} : null;
+}
+// A move within the current period keeps the period; each full period used is lost.
+export function spendTime(left, spent, period) {
+  return spent < left.main ? {main:left.main-spent,periods:left.periods} : {main:0,periods:left.periods-Math.floor((spent-left.main)/period)};
+}
+export function timeLeft(state, clock, side) {
+  const byo = byoyomiSettings(state.timeControl); if (!byo) return null;
+  if (clock.timedOut?.side === side) return {timeout:true,remaining:0,periods:0,byoyomi:true};
+  const left = clock.left?.[side] || {main:byo.main,periods:byo.periods}, spent = side === state.turn ? Math.max(0, clock[side] - (clock.turnBase || 0)) : 0;
+  if (spent < left.main) return {byoyomi:false,remaining:left.main-spent,periods:left.periods};
+  const over = spent - left.main;
+  return {byoyomi:true,remaining:byo.period-over%byo.period,periods:left.periods-Math.floor(over/byo.period)};
 }
 export function sgf(state) {
   const escape = value => String(value).replace(/\\/g,'\\\\').replace(/\]/g,'\\]').replace(/\r\n?/g,'\n');
@@ -120,7 +143,8 @@ export function sgf(state) {
   let root=';GM[1]FF[4]CA[UTF-8]SZ[19]'+prop('RU',state.rules||'Chinese')+prop('KM',state.komi??7.5)+prop('HA',state.handicap||null)+prop('GN',state.gameName || '现场对弈休闲棋局')+prop('DT',state.date||state.createdAt?.slice(0,10))+prop('PB',state.players?.black)+prop('PW',state.players?.white)+prop('BR',state.playerRanks?.black)+prop('WR',state.playerRanks?.white)+prop('TM',state.timeControl?.mainSeconds)+prop('OT',state.timeControl?.overtime);
   if(state.result)root+=prop('RE',state.result.reason==='unfinished'?'Void':(state.result.winner==='black'?'B':state.result.winner==='white'?'W':'0')+(state.result.winner?'+'+(state.result.reason==='resign'?'R':state.result.reason==='agreed'?'':state.result.margin):''));
   for(const side of ['B','W']) { const points=[...tree.root].flatMap((s,i)=>s===side?[coord(i)]:[]); if(points.length)root+='A'+side+points.map(p=>'['+p+']').join(''); }
-  root+=prop('C','Shared Go game. Times are elapsed wall-clock seconds, not a time limit. Move times unavailable for moves made before timing was enabled.');
+  const timedOut=state.clock?.timedOut;
+  root+=prop('C','Shared Go game. '+(byoyomiSettings(state.timeControl)?'Byo-yomi; running out of time stops the clock and the game continues. Times are elapsed wall-clock seconds.':'Times are elapsed wall-clock seconds, not a time limit.')+(timedOut?' '+(timedOut.side==='black'?'Black':'White')+' ran out of time at move '+timedOut.move+'.':'')+' Move times unavailable for moves made before timing was enabled.');
   const sequence = parent => {
     const branches=(children.get(parent)||[]).map(id=>{
       const [,side,index,,playedAt,times]=tree.nodes[id];

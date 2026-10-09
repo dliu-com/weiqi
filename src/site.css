@@ -128,6 +128,11 @@ button.is-loading:before{content:'';display:inline-block;width:12px;height:12px;
 #edit-form select:disabled{opacity:.6}
 #edit-form .komi-field{font-size:14px;min-width:0}
 #edit-form .komi-field output{display:block;margin-top:6px;padding:10px 0;font-weight:650}
+#edit-form .byoyomi-fields{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));align-items:end;gap:10px;margin-top:10px}
+#edit-form .byoyomi-fields[hidden]{display:none}
+#edit-form .byoyomi-fields label{margin:0;font-size:13px}
+#edit-form .byoyomi-fields input:disabled,.rules-choice button:disabled{opacity:.6}
+#edit-form .field-hint{display:block;margin-top:6px;font-size:12px;color:var(--muted)}
 .sr-only{position:absolute!important;width:1px;height:1px;margin:-1px;padding:0;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}
 .player-boxes{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:10px;margin:0 0 12px}
 .player-box{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:baseline;gap:6px 8px;padding:10px 12px;border:1px solid var(--line);border-radius:8px;background:#fff;min-width:0}
@@ -138,9 +143,13 @@ button.is-loading:before{content:'';display:inline-block;width:12px;height:12px;
 .player-box-white::before{background:radial-gradient(circle at 30% 25%,#fff,#dfdfd6);border:1px solid #b9b9ad}
 .play-page .workspace-panel>.game-meta,.play-page .workspace-panel>.status-card{grid-column:1/-1}
 .player-box-side small{margin-left:6px;white-space:nowrap;font-weight:400;font-size:12px;color:var(--muted)}
-.player-box-time{font-size:17px;font-variant-numeric:tabular-nums}
+.player-box-time{font-size:17px;line-height:24px;font-variant-numeric:tabular-nums}
 .player-box-captures{font-size:12px;color:var(--muted);white-space:nowrap}
 .player-box-captures strong{color:var(--ink);font-weight:600}
+.player-box-periods{flex:1 1 100%;min-height:1.3em;font-size:12px;line-height:1.3;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.player-box.byoyomi .player-box-time,.player-box.timeout .player-box-time{color:#a12a1f}
+.player-box.timeout .player-box-time{font-weight:650}
+.status-card .game-clock small.timeout{color:#a12a1f;font-weight:600}
 .status-card .game-clock{align-items:center;margin:8px 0 12px}
 .status-card .game-clock small{width:auto;flex:1;min-width:12em;color:var(--muted)}
 body.focus .player-boxes{flex:1 1 100%;margin:0}

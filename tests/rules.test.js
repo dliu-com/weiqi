@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { play, score, gameTree, reviewPosition, sgf, MAX_GAME_MOVES } from '../src/engine.js';
+import { play, score, gameTree, reviewPosition, sgf, gameClock, timeLeft, MAX_GAME_MOVES } from '../src/engine.js';
 import { readSgf } from '../src/sgf.js';
 import { createState, transition, freshLiveGame, londonDate } from '../backend/game-service.js';
 const act = (s,action) => transition(s,{expectedRevision:s.revision,action});
@@ -124,4 +124,33 @@ test('live games are dated when they end, and metadata cannot set the date',()=>
  s=transition(s,{expectedRevision:s.revision,action:{type:'move',index:60}});assert.equal(s.date,undefined);
  s=transition(s,{expectedRevision:s.revision,action:{type:'resign',side:'white'}});
  assert.equal(s.date,londonDate(Date.now()));assert.match(s.date,/^\d{4}-\d{2}-\d{2}$/);assert.match(sgf(s),new RegExp('DT\\['+s.date+'\\]'));
+});
+test('live byo-yomi counts down, keeps periods, and a timeout only stops the clock',()=>{
+ const realNow=Date.now;let now=Date.parse('2026-10-09T12:00:00Z');Date.now=()=>now;
+ try{
+  const wait=(s,ms)=>{while(ms>0){const step=Math.min(ms,30000);now+=step;ms-=step;s=transition(s,{action:{type:'heartbeat'}});}return s;};
+  let s=createState();
+  assert.throws(()=>act(s,{type:'metadata',name:'T',players:{black:'',white:''},timeControl:{mainSeconds:60,overtime:'Fischer: 10 seconds increment'}}),/用时/);
+  s=act(s,{type:'metadata',name:'T',players:{black:'',white:''},timeControl:{mainSeconds:60,overtime:'3x30 byo-yomi'}});
+  assert.deepEqual(s.clock.left,{black:{main:60000,periods:3},white:{main:60000,periods:3}});
+  s=act(s,{type:'move',index:60});
+  s=wait(s,70000);
+  assert.deepEqual(timeLeft(s,gameClock(s,now),'white'),{byoyomi:true,remaining:20000,periods:3});
+  s=act(s,{type:'move',index:61});assert.deepEqual(s.clock.left.white,{main:0,periods:3});
+  assert.throws(()=>act(s,{type:'metadata',name:'T',players:{black:'',white:''},timeControl:null}),/第一手之后/);
+  s=act(s,{type:'metadata',name:'Renamed',players:{black:'',white:''}});assert.ok(s.timeControl);
+  s=wait(s,50000);s=act(s,{type:'move',index:62});assert.deepEqual(s.clock.left.black,{main:10000,periods:3});
+  s=wait(s,65000);s=act(s,{type:'move',index:63});assert.deepEqual(s.clock.left.white,{main:0,periods:1});
+  s=act(s,{type:'undo'});assert.deepEqual(s.clock.left.white,{main:0,periods:3});assert.equal(s.turn,'white');
+  s=wait(s,65000);s=act(s,{type:'move',index:63});assert.deepEqual(s.clock.left.white,{main:0,periods:1});
+  s=wait(s,10000);s=act(s,{type:'move',index:64});
+  s=wait(s,31000);
+  assert.deepEqual(s.clock.timedOut,{side:'white',move:6});assert.equal(s.clock.since,null);
+  const stopped={...s.clock};
+  assert.throws(()=>act(s,{type:'clock',paused:true}),/计时已停止/);
+  s=act(s,{type:'move',index:65});s=wait(s,60000);
+  assert.equal(s.phase,'play');assert.equal(s.clock.white,stopped.white);assert.equal(s.clock.black,stopped.black);
+  assert.equal(timeLeft(s,gameClock(s,now),'white').timeout,true);
+  const record=sgf(s);assert.match(record,/TM\[60\]OT\[3x30 byo-yomi\]/);assert.match(record,/White ran out of time at move 6\./);
+ }finally{Date.now=realNow;}
 });

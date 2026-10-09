@@ -4,7 +4,7 @@ import vm from 'node:vm';
 import { readFileSync } from 'node:fs';
 import { webcrypto } from 'node:crypto';
 import { createState, transition, freshLiveGame } from '../backend/game-service.js';
-import { play, opposite, score, gameTree, reviewPosition, gameClock, sgf, standardKomi, MIN_LIBRARY_MOVES, MAX_GAME_MOVES } from '../src/engine.js';
+import { play, opposite, score, gameTree, reviewPosition, gameClock, byoyomiSettings, timeLeft, sgf, standardKomi, MIN_LIBRARY_MOVES, MAX_GAME_MOVES } from '../src/engine.js';
 
 // Exercise the actual client with an isolated DOM/network/clock, never the live game.
 async function client({publish=false}={}) {
@@ -22,7 +22,7 @@ async function client({publish=false}={}) {
   const get = id => { if(!elements.has(id)) elements.set(id,new Element()); return elements.get(id); };
   let remote = createState(), failAfterSave = false, failGet = false, now = Date.now();
   const context = vm.createContext({
-    mountTimeControl(){let current=null;return {render(){},fill(value){current=value;},value(){return current;}};},mountStoneSound(){},prepareStoneSound(){},playStoneSound(){},localTimestamp:()=> 'test · UTC+1', play, opposite, score, gameTree, reviewPosition, gameClock, sgf, standardKomi, MIN_LIBRARY_MOVES, MAX_GAME_MOVES, language:'en', t: (zh,en)=>en, translateError:s=>s, setLanguage(){},
+    mountTimeControl(){let current=null;return {render(){},fill(value){current=value;},value(){return current;}};},mountStoneSound(){},prepareStoneSound(){},playStoneSound(){},localTimestamp:()=> 'test · UTC+1', play, opposite, score, gameTree, reviewPosition, gameClock, byoyomiSettings, timeLeft, sgf, standardKomi, MIN_LIBRARY_MOVES, MAX_GAME_MOVES, language:'en', t: (zh,en)=>en, translateError:s=>s, setLanguage(){},
     location:{search:'',assign(url){calls.push('NAVIGATE '+url);}},URLSearchParams,
     document: {querySelector:s=>{const m=s.match(/input\[value="([^"]+)"\]/);if(m)return radios.find(r=>r.value===m[1]);if(s.includes(':checked'))return radios.find(r=>r.checked)||null;if(!selected.has(s))selected.set(s,new Element());return selected.get(s);},getElementById:get,createElement:()=>new Element(),createElementNS:()=>new Element(),
       createDocumentFragment:()=>new Element(),querySelectorAll:s=>s.includes('name="result"')?radios:[],addEventListener(){},visibilityState:'visible',body:new Element()},
@@ -76,6 +76,25 @@ test('the edit dialog sets handicap before the first move and only states komi',
  assert.equal(c.remote().handicap,3);assert.equal(c.remote().komi,0.5);assert.equal(c.remote().turn,'white');
  assert.ok(c.get('white-box').classList.contains('active'));assert.match(c.get('detail').textContent,/Handicap 3 · White komi: 0.5 points/);
  await c.run("action({type:'move',index:180})");c.run("$('edit-game').onclick()");assert.equal(c.get('live-handicap').disabled,true);
+});
+test('byo-yomi is set before the first move, counts down, and a timeout only stops the clock',async()=>{
+ const c=await client();c.run("$('edit-game').onclick()");
+ assert.equal(c.get('live-time').value,'count');assert.equal(c.get('live-byoyomi').hidden,true);assert.match(c.get('live-time-hint').textContent,/No time limit/);
+ assert.equal(c.get('black-periods').hidden,true);assert.match(c.get('detail').textContent,/Count-up/);
+ c.run("setLiveTime('byoyomi')");assert.equal(c.get('live-byoyomi').hidden,false);assert.equal(c.get('live-main').disabled,false);
+ c.get('live-main').value='1';c.get('live-periods').value='3';c.get('live-period').value='30';
+ await c.get('edit-form').onsubmit({preventDefault(){}});
+ assert.deepEqual(c.remote().timeControl,{mainSeconds:60,overtime:'3x30 byo-yomi'});assert.equal(c.get('edit-dialog').open,false);
+ c.intervals.find(i=>i.ms===1000).fn();
+ assert.equal(c.get('black-time').textContent,'00:01:00');assert.equal(c.get('black-periods').hidden,false);assert.equal(c.get('black-periods').textContent,'Byo-yomi 3×30s');
+ assert.match(c.get('detail').textContent,/Byo-yomi 1 min \+ 3×30s/);
+ await c.run("action({type:'move',index:180})");c.run("$('edit-game').onclick()");
+ assert.equal(c.get('live-time').value,'byoyomi');assert.equal(c.get('live-main').disabled,true);
+ await c.get('edit-form').onsubmit({preventDefault(){}});assert.equal(c.get('edit-dialog').open,false);
+ Object.assign(c.remote().clock,{timedOut:{side:'white',move:2},since:null});
+ c.intervals.find(i=>i.ms===5000).fn();while(c.run('polling'))await new Promise(r=>setImmediate(r));c.intervals.find(i=>i.ms===1000).fn();
+ assert.equal(c.get('white-time').textContent,'Time out');assert.ok(c.get('white-box').classList.contains('timeout'));
+ assert.match(c.get('clock-note').textContent,/White ran out of time/);assert.equal(c.get('pause-clock').disabled,true);assert.equal(c.run('canPlay()'),true);
 });
 test('sync status shows how long ago the page synced',async()=>{
  const c=await client();assert.equal(c.get('sync').textContent,'Synced just now');
