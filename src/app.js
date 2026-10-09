@@ -51,7 +51,7 @@ function previewMove(index) {
     render();playStoneSound();
   } catch(error) { notice(translateError(error.message)); }
 }
-let state = null, busy = false, polling = false, automatic = true, lastActivity = Date.now(), noticeTimer, pendingConfirmation;
+let state = null, stateAt = null, boundarySync = {key:'',at:0}, busy = false, polling = false, automatic = true, lastActivity = Date.now(), noticeTimer, pendingConfirmation;
 function notice(message) { $('notice').textContent = message; $('notice').hidden = false; clearTimeout(noticeTimer); noticeTimer = setTimeout(() => $('notice').hidden = true, 6000); }
 async function request(method = 'GET', payload) {
   const headers = {}, options = { method, cache: 'no-store', signal: AbortSignal.timeout(10000), headers };
@@ -74,7 +74,7 @@ function adopt(next) {
   if (reviewing !== null && reviewing >= gameTree(next).nodes.length) reviewing = null;
   const freshGame=state&&(state.generation||0)!==(next.generation||0),previousGeneration=state?.generation||0,previousMoves=state?.history.length||0;
   const newStone=state&&!freshGame&&next.history.length===state.history.length+1&&next.history.at(-1)?.type==='move';
-  state = next; render();if(newStone)playStoneSound();
+  state = next; stateAt = Date.now(); render();if(newStone)playStoneSound();
   if (pendingSavedGeneration !== null && next.lastSavedGame?.generation === pendingSavedGeneration) {
     pendingSavedGeneration = null; location.assign('/game/' + encodeURIComponent(next.lastSavedGame.id));
   }
@@ -240,23 +240,31 @@ $('review-live').onclick = () => { if (archiveId) { location.href = './'; return
 function renderClock() {
   if (!state) return;
   const saved = reviewing !== null ? gameTree(state).nodes[reviewing]?.[5] : null;
-  const clock = reviewing === null ? gameClock(state) : {black:saved?.[0] || 0,white:saved?.[1] || 0,paused:true};
+  const now = Date.now(), clock = reviewing === null ? gameClock(state, now) : {black:saved?.[0] || 0,white:saved?.[1] || 0,paused:true};
   const format = ms => { const seconds = Math.floor(ms/1000); return [Math.floor(seconds/3600),Math.floor(seconds/60)%60,seconds%60].map(n=>String(n).padStart(2,'0')).join(':'); };
   const byo = byoyomiSettings(state.timeControl);
+  // Time that runs out on this page shows 0 until a sync after that moment, as another device may have just moved.
+  const stage = left => [left?.timeout, left?.byoyomi, left?.periods].join();
+  const confirmed = byo && reviewing === null && !archiveId && state.phase === 'play' && stateAt !== null ? timeLeft(state, gameClock(state, Math.min(stateAt, now)), state.turn) : null;
+  const held = confirmed && stage(confirmed) !== stage(timeLeft(state, clock, state.turn)) ? {...confirmed, remaining:0} : null;
+  const heldKey = held ? [state.generation || 0, state.history.length, stage(confirmed)].join() : '';
+  if (held && (heldKey !== boundarySync.key || now - boundarySync.at >= 3000) && document.visibilityState === 'visible') { boundarySync = {key:heldKey, at:now}; sync(); }
+  const timedOut = held ? null : clock.timedOut;
   for (const side of ['black','white']) {
     // Byo-yomi boxes count down; review and count-up games show elapsed time.
-    const left = byo && reviewing === null ? timeLeft(state, clock, side) : null;
+    const left = held && side === state.turn ? held : byo && reviewing === null ? timeLeft(state, clock, side) : null;
     $(side + '-time').textContent = reviewing !== null && !saved ? '—' : left?.timeout ? t('超时','Time out') : left ? format(Math.ceil(left.remaining/1000)*1000) : format(clock[side]);
     $(side + '-periods').hidden = !byo;
     $(side + '-periods').textContent = left ? t(`读秒 ${left.periods}×${byo.period/1000}秒`,`Byo-yomi ${left.periods}×${byo.period/1000}s`) : '';
     $(side + '-box').classList.toggle('byoyomi', !!left?.byoyomi && !left.timeout);
     $(side + '-box').classList.toggle('timeout', !!left?.timeout);
   }
-  $('pause-clock').disabled = !!archiveId || reviewing !== null || state.phase !== 'play' || !!clock.timedOut;
+  $('pause-clock').disabled = !!archiveId || reviewing !== null || state.phase !== 'play' || !!timedOut;
   $('pause-clock').textContent = state.clock?.paused ? t('恢复计时','Resume clock') : t('暂停计时','Pause clock');
   $('pause-clock').dataset.paused = state.clock?.paused ? 'true' : 'false';
-  $('clock-note').textContent = reviewing !== null ? t('该手结束时的累计用时','Total time at this move') : state.clock?.since && state.phase === 'play' && !state.clock?.paused && clock.autoPaused ? t('无人在线，计时自动暂停','No active page · Clock automatically paused') : '';
+  $('clock-note').textContent = reviewing !== null ? t('该手结束时的累计用时','Total time at this move') : timedOut ? t(names[timedOut.side]+'超时，计时已停止，对局继续',names[timedOut.side]+' ran out of time. The clock has stopped; play on.') : state.clock?.since && state.phase === 'play' && !state.clock?.paused && clock.autoPaused ? t('无人在线，计时自动暂停','No active page · Clock automatically paused') : '';
   $('clock-note').hidden = !$('clock-note').textContent;
+  $('clock-note').classList.toggle('timeout', reviewing === null && !!timedOut);
 }
 $('pause-clock').onclick = () => { if (state) action({type:'clock',paused:!state.clock?.paused}); };
 $('download-sgf').onclick = () => {

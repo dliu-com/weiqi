@@ -94,7 +94,25 @@ test('byo-yomi is set before the first move, counts down, and a timeout only sto
  Object.assign(c.remote().clock,{timedOut:{side:'white',move:2},since:null});
  c.intervals.find(i=>i.ms===3000).fn();while(c.run('polling'))await new Promise(r=>setImmediate(r));c.intervals.find(i=>i.ms===1000).fn();
  assert.equal(c.get('white-time').textContent,'Time out');assert.ok(c.get('white-box').classList.contains('timeout'));
- assert.equal(c.get('clock-note').hidden,true);assert.equal(c.get('white-time').textContent,'Time out');assert.equal(c.get('pause-clock').disabled,true);assert.equal(c.run('canPlay()'),true);
+ assert.match(c.get('clock-note').textContent,/White ran out of time/);assert.ok(c.get('clock-note').classList.contains('timeout'));assert.equal(c.get('pause-clock').disabled,true);assert.equal(c.run('canPlay()'),true);
+});
+test('a clock that runs out locally shows 0 and syncs before showing the next period',async()=>{
+ const c=await client(),tick=()=>c.run('renderClock()'),settle=async()=>{while(c.run('polling'))await new Promise(r=>setImmediate(r));};
+ await c.run("action({type:'metadata',name:'T',players:{black:'',white:''},timeControl:{mainSeconds:60,overtime:'3x30 byo-yomi'}})");
+ await c.run("action({type:'move',index:180})");
+ // White has used 58.5s; 2s later the page alone thinks main time is over.
+ c.remote().clock.white+=58500;c.intervals.find(i=>i.ms===3000).fn();await settle();tick();assert.equal(c.get('white-time').textContent,'00:00:02');
+ c.advance(2000);const before=c.calls.length;tick();
+ assert.equal(c.get('white-time').textContent,'00:00:00');assert.equal(c.get('white-periods').textContent,'Byo-yomi 3×30s');assert.ok(!c.get('white-box').classList.contains('byoyomi'));
+ assert.equal(c.run('polling'),true);tick();await settle();assert.deepEqual(c.calls.slice(before),['HEARTBEAT']);
+ tick();assert.equal(c.get('white-time').textContent,'00:00:30');assert.ok(c.get('white-box').classList.contains('byoyomi'));
+ // The last period: White moved on another device just before it ran out here.
+ // This page runs 2s ahead of the server after the advance above.
+ c.remote().clock.white+=88000;c.intervals.find(i=>i.ms===3000).fn();await settle();tick();assert.equal(c.get('white-time').textContent,'00:00:02');assert.equal(c.get('white-periods').textContent,'Byo-yomi 1×30s');
+ c.move(181);c.advance(2000);tick();
+ assert.equal(c.get('white-time').textContent,'00:00:00');assert.equal(c.get('white-periods').textContent,'Byo-yomi 1×30s');assert.equal(c.get('clock-note').hidden,true);
+ await settle();tick();
+ assert.equal(c.run('state.turn'),'black');assert.equal(c.get('white-time').textContent,'00:00:30');assert.equal(c.get('white-periods').textContent,'Byo-yomi 1×30s');assert.equal(c.get('clock-note').hidden,true);
 });
 test('sync status shows how long ago the page synced',async()=>{
  const c=await client();assert.equal(c.get('sync').textContent,'0s ago');assert.match(c.get('sync').title,/^Synced · /);
