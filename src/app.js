@@ -282,7 +282,8 @@ function renderResultDialog(){
   const counted=score(state.board,state.size,state.dead,state.komi),short=state.history.length<MIN_LIBRARY_MOVES,long=state.history.length>MAX_GAME_MOVES;
   $('result-label').textContent=t('本局结果','Game result');
   $('result-options').setAttribute('aria-label',t('结果','Result'));
-  $('result-count-summary').textContent=t(`自动数子：黑 ${counted.black} 目 · 白 ${counted.white} + ${state.komi} 目`,`Automatic count: Black ${counted.black} · White ${counted.white} + ${state.komi}`);
+  $('result-count-label').textContent=t('自动数子结果','Automatic count result');
+  $('result-count-summary').textContent=t(`黑 ${counted.black} 目 · 白 ${counted.white} 目 + 贴目 ${state.komi}`,`Black ${counted.black} · White ${counted.white} + ${state.komi} komi`);
   $('result-count-winner').textContent=counted.winner?t(`${names[counted.winner]}胜 ${counted.margin} 目`,`${names[counted.winner]} wins by ${counted.margin} points`):t('和棋','Draw');
   $('result-count-winner').dataset.winner=counted.winner||'draw';
   for(const side of ['black','white']){$('result-score-'+side+'-text').textContent=t(names[side]+'胜',names[side]+' wins by');$('result-resign-'+side+'-text').textContent=t(names[side]+'中盘胜',names[side]+' wins by resignation');}
