@@ -45,7 +45,8 @@ async function client({publish=false}={}) {
   while(run('polling')) await new Promise(resolve=>setImmediate(resolve));
   const move=i=>{remote=transition(remote,{expectedRevision:remote.revision,action:{type:'move',index:i}});};
   const pass=()=>{remote=transition(remote,{expectedRevision:remote.revision,action:{type:'pass'}});};
-  return {run,get,calls,intervals,timers,remote:()=>remote,move,pass,
+  const endRemote=action=>{remote=transition(remote,{expectedRevision:remote.revision,action});remote=freshLiveGame(remote,remote.history.length>=MIN_LIBRARY_MOVES?'2026100601':undefined);};
+  return {run,get,calls,intervals,timers,remote:()=>remote,move,pass,endRemote,
     // Stones on rows 0, 2 and 4 keep a liberty below, so nothing is captured.
     seed:n=>{for(let k=0;k<n;k++)move(38*Math.floor(k/19)+k%19);},
     choose:value=>{radios.find(r=>r.value===value).checked=true;},checked:()=>radios.find(r=>r.checked)?.value,
@@ -125,6 +126,26 @@ test('both resignation buttons open the result dialog with that resignation sele
   c.submitResult();while(c.run('busy'))await new Promise(r=>setImmediate(r));
   assert.equal(c.remote().result.winner,opposite(side));assert.equal(c.remote().result.reason,'resign');
  }
+});
+test('a resign button opens the saved game on that page without the resigned popup',async()=>{
+ const c=await client({publish:true});c.seed(MIN_LIBRARY_MOVES);await c.run('sync()');
+ c.get('resign-white').onclick();assert.equal(c.get('end-game-confirm').textContent,'Save and view game');c.submitResult();
+ while(c.run('busy'))await new Promise(r=>setImmediate(r));
+ assert.deepEqual(c.calls.filter(x=>x.startsWith('NAVIGATE')),['NAVIGATE /game/2026100601']);assert.notEqual(c.get('resigned-dialog').open,true);
+});
+test('other open pages show who resigned, linking to the game only when it was saved',async()=>{
+ for(const moves of [MIN_LIBRARY_MOVES,1]){
+  const c=await client();c.seed(moves);await c.run('sync()');c.get('end-game-dialog').showModal();
+  c.endRemote({type:'resign',side:'black'});await c.run('sync()');
+  assert.equal(c.get('resigned-dialog').open,true);assert.equal(c.get('end-game-dialog').open,false);
+  assert.equal(c.get('resigned-title').textContent,'Black resigned');assert.equal(c.get('resigned-open').hidden,moves<MIN_LIBRARY_MOVES);
+  if(moves<MIN_LIBRARY_MOVES)assert.match(c.get('resigned-text').textContent,/not saved/);
+  else {c.get('resigned-open').onclick();assert.deepEqual(c.calls.filter(x=>x.startsWith('NAVIGATE')),['NAVIGATE /game/2026100601']);}
+  c.get('resigned-close').onclick();assert.equal(c.get('resigned-dialog').open,false);
+ }
+ const c=await client();c.seed(MIN_LIBRARY_MOVES);await c.run('sync()');
+ c.endRemote({type:'result',reason:'unfinished'});await c.run('sync()');
+ assert.notEqual(c.get('resigned-dialog').open,true);assert.match(c.get('notice').textContent,/saved to the library/);
 });
 
 test('preview moves are local, survive sync, undo and clear without changing saved history',async()=>{
