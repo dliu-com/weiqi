@@ -12,6 +12,7 @@ const KEEP=[
  'a6bbaa61-3e2d-4f0a-8fd7-bd6a51150fbe-deep', // T4 · 3,000
  '08f5cea6-45d6-4861-b557-54b6a45684e5-deep' // T4 · 5,000
 ];
+// benchmarks.html sets <base href="/">, so in-page links need the page path.
 const HOUR=3600;
 let data=null,failed=false,scrolled=false;
 const $=id=>document.getElementById(id);
@@ -35,7 +36,7 @@ function table(head,rows,className){
  for(const h of head)top.append(el('th',h));thead.append(top);
  for(const row of rows){
   const tr=el('tr');if(row.id)tr.id=row.id;
-  for(const c of row.cells){const v=c&&typeof c==='object'?c:{text:c},td=el('td',v.href?null:v.text,v.num?'num':null);if(v.href){const a=el('a',v.text);a.href=v.href;td.append(a);}if(v.span)td.colSpan=v.span;tr.append(td);}
+  for(const c of row.cells){const v=c&&typeof c==='object'?c:{text:c},td=el('td',v.href?null:v.text,v.num?'num':null);if(v.href){const a=el('a',v.text);a.href=v.href.startsWith('#')?location.pathname+location.search+v.href:v.href;td.append(a);}if(v.span)td.colSpan=v.span;tr.append(td);}
   tbody.append(tr);
  }
  tbl.append(thead,tbody);wrap.append(tbl);return wrap;
