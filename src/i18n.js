@@ -50,7 +50,7 @@ const messages = {
   "取消": "Cancel",
   "确认": "Confirm",
   "19 × 19 棋盘，黑先白后。点击空交叉点落子；无气的棋块被提走。禁止自杀及全局同形（棋盘局面不可重复），停一手不受同形限制。": "19 × 19 board. Black plays first. Click an empty intersection to play. Groups without liberties are captured. Suicide and repeating an earlier board position (positional superko) are prohibited; passing is exempt.",
-  "双方连续停一手后进入数子。点击整块棋子标记或取消死子，确认死子后查看胜负，再确认结果结束棋局。采用中国数子法：活子与围空合计，白贴 7.5 点（相当于 3¾ 子）。提子数仅供参考，不额外计分。": "Two consecutive passes start scoring. Click groups to mark or unmark dead stones; confirm the dead stones, review the winner, then confirm the result to finish. Chinese area scoring counts living stones plus territory. White receives 7.5 points komi (equivalent to 3¾ zi). Captures do not add points.",
+  "双方连续停一手后进入数子。点击整块棋子标记或取消死子，确认死子后查看胜负，再确认结果结束棋局。采用中国数子法：活子与围空合计，黑贴 7.5 点（相当于 3¾ 子）。提子数仅供参考，不额外计分。": "Two consecutive passes start scoring. Click groups to mark or unmark dead stones; confirm the dead stones, review the winner, then confirm the result to finish. Chinese area scoring counts living stones plus territory. White receives 7.5 points komi (equivalent to 3¾ zi). Captures do not add points.",
   "这是休闲对弈工具。死活、双活及特殊争议请双方协商；有争议时选择“继续对弈”。仅被一方围住的空点计入该方，双方相邻的空点为公气。": "This is a casual game. Agree on dead groups, seki and special disputes together, or resume play. Empty regions surrounded by only one color count for that color; regions touching both colors are neutral.",
   "全站共用一盘棋，任何访问者都能操作。新局会替换当前棋局。": "The site shares one game. Any visitor can play either side. Starting a new game replaces the current game.",
   "DL 首页": "DL home",
