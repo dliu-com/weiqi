@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { play, score, gameTree, reviewPosition, sgf, MAX_GAME_MOVES } from '../src/engine.js';
 import { readSgf } from '../src/sgf.js';
-import { createState, transition, freshLiveGame } from '../backend/game-service.js';
+import { createState, transition, freshLiveGame, londonDate } from '../backend/game-service.js';
 const act = (s,action) => transition(s,{expectedRevision:s.revision,action});
 test('capture removes a group with its last liberty filled',()=>{
  const b=['.B.','BWB','...'].join(''); const m=play(b,7,'black',3); assert.equal(m.board[4],'.');assert.deepEqual(m.captured,[4]);
@@ -116,4 +116,12 @@ test('live handicap sets stones and fixed komi before the first move only',()=>{
  s=act(s,{type:'undo'});assert.equal(s.board,setup);assert.equal(s.turn,'white');
  for(const handicap of [-1,10,1.5,'2'])assert.throws(()=>meta(createState(),{handicap}));
  assert.equal(meta(createState(),{rules:'Japanese',komi:3}).komi,6.5);
+});
+test('live games are dated when they end, and metadata cannot set the date',()=>{
+ let s=createState();
+ s=transition(s,{expectedRevision:s.revision,action:{type:'metadata',name:'Dated',players:{black:'A',white:'B'},date:'2020-01-02',handicap:0}});
+ assert.equal(s.date,undefined);
+ s=transition(s,{expectedRevision:s.revision,action:{type:'move',index:60}});assert.equal(s.date,undefined);
+ s=transition(s,{expectedRevision:s.revision,action:{type:'resign',side:'white'}});
+ assert.equal(s.date,londonDate(Date.now()));assert.match(s.date,/^\d{4}-\d{2}-\d{2}$/);assert.match(sgf(s),new RegExp('DT\\['+s.date+'\\]'));
 });
