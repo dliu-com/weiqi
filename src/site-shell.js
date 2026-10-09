@@ -26,10 +26,19 @@ export class AppShell {
   document.addEventListener('click',event=>{if(!swallowClick)return;swallowClick=false;event.preventDefault();event.stopPropagation();},true);
   document.addEventListener('keydown',event=>{swallowClick=false;const open=openDropdown();if(event.key!=='Escape'||!open)return;event.preventDefault();event.stopPropagation();this.closeDropdowns();open[0].focus();},true);
   document.addEventListener('focusin',event=>{if(openDropdown()&&!inside(event.target))this.closeDropdowns();});
-  this.header.append(logo,this.brand,this.menuButton,this.menu);if(extra)this.header.append(extra);this.header.append(this.languageToggle,this.languages);this.render();
+  this.header.append(logo,this.brand,this.menuButton,this.menu);if(extra)this.header.append(extra);this.header.append(this.languageToggle,this.languages);
+  // The five info pages share a tab bar at the top of main.
+  this.infoPages=[['/about','架构','Architecture'],['/benchmarks','基准实验','Benchmarks'],['/cost','费用','Cost'],['/security','安全','Security'],['/photo-recognition','照片识别','Photo recognition']];
+  const main=document.querySelector('main');
+  if(main&&this.infoPages.some(([href])=>href===location.pathname)){this.infoTabs=document.createElement('nav');this.infoTabs.className='info-tabs';main.prepend(this.infoTabs);this.syncInfoTabs=()=>this.infoTabs.classList.toggle('more-right',this.infoTabs.scrollLeft+this.infoTabs.clientWidth<this.infoTabs.scrollWidth-2);this.infoTabs.addEventListener('scroll',this.syncInfoTabs,{passive:true});addEventListener('resize',this.syncInfoTabs);}
+  this.render();
   const measure=()=>document.documentElement.style.setProperty('--record-header-height',this.header.getBoundingClientRect().height+'px');
   if(typeof ResizeObserver!=='undefined')new ResizeObserver(measure).observe(this.header);measure();
  }
- render(){this.brand.textContent=t('DL 围棋','DL Weiqi');this.menu.setAttribute('aria-label',t('主菜单','Main menu'));this.menuButton.setAttribute('aria-label',t('菜单','Menu'));this.languageToggle.setAttribute('aria-label',t('语言','Language'));for(const a of this.links){a.textContent=t(a.dataset.zh,a.dataset.en);if(location.pathname===a.getAttribute('href')||a.getAttribute('href')==='/game'&&location.pathname.startsWith('/game/'))a.setAttribute('aria-current','page');}for(const b of this.languages.children)b.setAttribute('aria-pressed',String(language===b.dataset.language));}
+ render(){this.brand.textContent=t('DL 围棋','DL Weiqi');this.menu.setAttribute('aria-label',t('主菜单','Main menu'));this.menuButton.setAttribute('aria-label',t('菜单','Menu'));this.languageToggle.setAttribute('aria-label',t('语言','Language'));for(const a of this.links){a.textContent=t(a.dataset.zh,a.dataset.en);if(location.pathname===a.getAttribute('href')||a.getAttribute('href')==='/game'&&location.pathname.startsWith('/game/'))a.setAttribute('aria-current','page');}for(const b of this.languages.children)b.setAttribute('aria-pressed',String(language===b.dataset.language));
+  if(this.infoTabs){this.infoTabs.setAttribute('aria-label',t('技术说明','Technical pages'));this.infoTabs.replaceChildren(...this.infoPages.map(([href,zh,en])=>{const a=document.createElement('a');a.href=href;a.textContent=t(zh,en);if(location.pathname===href)a.setAttribute('aria-current','page');return a;}));const about=this.links.find(a=>a.getAttribute('href')==='/about');if(about)about.setAttribute('aria-current','page');
+   // On phones the tabs scroll sideways: keep the current tab visible.
+   const current=this.infoTabs.querySelector('[aria-current]'),box=this.infoTabs.getBoundingClientRect(),r=current?.getBoundingClientRect();if(r&&r.right>box.right)this.infoTabs.scrollLeft+=r.right-box.right+16;this.syncInfoTabs();}
+ }
 }
 export const appShell=new AppShell();
