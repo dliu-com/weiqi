@@ -1,5 +1,4 @@
 import './site-shell.js';
-import {mountTimeControl} from './time-control.js';
 import {BoardView} from './board-view.js';
 import {mountStoneSound,prepareStoneSound,playStoneSound} from './stone-sound.js';
 import {localTimestamp} from './site-time.js';
@@ -7,7 +6,6 @@ import { t, language, setLanguage, translateError } from './i18n.js';
 import { play, opposite, score, gameTree, reviewPosition, gameClock, sgf, MIN_LIBRARY_MOVES, MAX_GAME_MOVES } from './engine.js';
 const $ = id => document.getElementById(id);
 mountStoneSound($('play-sound'));
-const timeControl=mountTimeControl($('edit-form'),t);
 const names = { get black() { return t('黑方','Black'); }, get white() { return t('白方','White'); } };
 const archiveId = new URLSearchParams(location.search).get('game');
 const apiPath = archiveId ? '/api/games/' + encodeURIComponent(archiveId) : '/api/game';
@@ -99,7 +97,6 @@ function render() {
   if (!state) return;
   $('game-name').textContent = gameTitle(state);
   $('player-names').textContent = names.black + (state.players?.black ? ': ' + state.players.black : '') + ' · ' + names.white + (state.players?.white ? ': ' + state.players.white : '');
-  timeControl.render();
   $('edit-game').textContent=t('编辑棋局信息','Edit game info');
   for(const [id,zh,en] of [['live-black-rank-label','黑方段级位','Black rank'],['live-white-rank-label','白方段级位','White rank'],['live-date-label','日期','Date'],['live-rules-label','规则','Rules'],['live-komi-label','贴目','Komi']])$(id).textContent=t(zh,en);
   for(const option of document.querySelectorAll('#live-rules option'))option.textContent=option.value==='Chinese'?t('中国规则','Chinese rules'):t('日本规则','Japanese rules');
@@ -116,7 +113,7 @@ function render() {
     el.setAttribute('aria-disabled',String(busy || (!review && (!!archiveId || ended || (!scoring && !canPlay())))));
   }
   $('turn').textContent = ended ? (state.result.winner ? names[state.result.winner] + t("胜"," wins") : state.result.reason==='unfinished' ? t('未完成','Unfinished') : t("和棋","Draw")) : scoring ? t("双方数子","Scoring") : t("轮到","To play: ") + names[state.turn];
-  $('detail').textContent = ended ? (state.result.reason==='unfinished' ? t('本局未完成。','The game was not finished.') : state.result.reason === 'resign' ? t("对方认输，本局结束。","The opponent resigned. Game over.") : state.result.reason==='agreed'?t('双方约定结果，棋局已保存。','Agreed result; game saved.'):t(`胜差 ${state.result.margin} 目 · 白贴 ${state.komi} 目`,`Margin: ${state.result.margin} points · White komi: ${state.komi}`)) : scoring ? t("标记所有死子，然后确认胜负。","Mark all dead stones, then confirm the result.") : (canPlay() ? '' : state.history.length >= MAX_GAME_MOVES ? t(`已达 ${MAX_GAME_MOVES} 手上限，请点击“新一局”选择结果。`,`${MAX_GAME_MOVES}-move limit reached. Select New game to choose the result.`) : t("等待对方落子…","Waiting for the other player…")) + t(' 白贴 '+state.komi+' 目。',' White komi: '+state.komi+' points.');
+  $('detail').textContent = ended ? (state.result.reason==='unfinished' ? t('本局未完成。','The game was not finished.') : state.result.reason === 'resign' ? t("对方认输，本局结束。","The opponent resigned. Game over.") : state.result.reason==='agreed'?t('双方约定结果，棋局已保存。','Agreed result; game saved.'):t(`胜差 ${state.result.margin} 目 · 黑贴 ${state.komi} 目`,`Margin: ${state.result.margin} points · White komi: ${state.komi}`)) : scoring ? t("标记所有死子，然后确认胜负。","Mark all dead stones, then confirm the result.") : (canPlay() ? '' : state.history.length >= MAX_GAME_MOVES ? t(`已达 ${MAX_GAME_MOVES} 手上限，请点击“新一局”选择结果。`,`${MAX_GAME_MOVES}-move limit reached. Select New game to choose the result.`) : t("等待对方落子…","Waiting for the other player…")) + t(' 黑贴 '+state.komi+' 目。',' White komi: '+state.komi+' points.');
   $('black-captures').textContent = displayed.captures.black; $('white-captures').textContent = displayed.captures.white;
   const undoSide = state.history.at(-1)?.side;
   $('undo').textContent = undoSide ? t('悔棋（' + names[undoSide] + '）', 'Undo ' + names[undoSide]) : t('悔棋','Undo');
@@ -308,18 +305,18 @@ $('edit-game').onclick = () => {
   $('white-input').value = state.players?.white || '';
   $('black-rank-input').value=state.playerRanks?.black||'';$('white-rank-input').value=state.playerRanks?.white||'';
   $('live-date').value=state.date||state.createdAt?.slice(0,10)||'';$('live-rules').value=state.rules||'Chinese';$('live-komi').value=state.komi;
-  timeControl.fill(state.timeControl);
   $('edit-error').textContent = '';
   $('edit-dialog').showModal();
 };
 $('cancel-edit').onclick = () => $('edit-dialog').close();
+$('live-rules').onchange = () => { $('live-komi').value = $('live-rules').value === 'Japanese' ? 6.5 : 7.5; };
 $('edit-form').onsubmit = async event => {
   event.preventDefault();
   if (busy) return;
   if (editRevision !== state.revision) { $('edit-error').textContent = t('棋局已更新，请关闭后重新编辑。','The game changed. Close and reopen this editor.'); return; }
   const name = $('name-input').value.trim(), players = { black:$('black-input').value.trim(), white:$('white-input').value.trim() };
   const playerRanks={black:$('black-rank-input').value.trim(),white:$('white-rank-input').value.trim()};
-  await action({type:'metadata', name, players, playerRanks, timeControl:timeControl.value(), date:$('live-date').value,rules:$('live-rules').value,komi:Number($('live-komi').value)});
+  await action({type:'metadata', name, players, playerRanks, date:$('live-date').value,rules:$('live-rules').value,komi:Number($('live-komi').value)});
   if (state.gameName === name && state.players?.black === players.black && state.players?.white === players.white && state.playerRanks?.black===playerRanks.black && state.playerRanks?.white===playerRanks.white) $('edit-dialog').close();
   else $('edit-error').textContent = t('保存失败，请关闭后重试。','Not saved. Close and try again.');
 };
