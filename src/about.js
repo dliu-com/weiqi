@@ -74,7 +74,7 @@ const sections=[
    [['新棋谱','New records'],['100 / 天','100 per day']],
    [['修改','Edits'],['120 / 分钟','120 per minute']]]},
   ['限流不是 AWS 账单的硬上限。','Throttling is not a hard cap on the AWS bill.']
- ],[['/cost','费用估算','Cost estimate'],['/security','安全审查','Security review']]],
+ ],[['/cost','网站运行成本','Site running costs'],['/security','安全审查','Security review']]],
  ['网页与 API','Website and API',[
   ['网页文件保存在私有 S3 存储桶，通过 CloudFront 提供。','Website files are kept in a private S3 bucket and served through CloudFront.'],
   ['CloudFront 把 /game/棋局ID 路由到复盘页。','CloudFront routes /game/game-ID to the replay page.'],
@@ -180,7 +180,7 @@ function readMore(){
  section.className='about-read-more';heading.textContent=t('延伸阅读','Read more');grid.className='about-cards';
  for(const [href,name,title,line,key]of [
   ['/benchmarks','chart',['CPU / GPU 基准实验','CPU / GPU benchmarks'],['支持 GPU 与访问数选择的测试','Tests behind the GPU and visit choices'],['深度 3,000 次：T4 约 44 分钟','Deep 3,000 visits ≈ 44 min on T4']],
-  ['/cost','budget',['费用估算','Cost estimate'],['按用量计费，无固定月费','Pay per use, no fixed monthly fee'],['深度分析 US$0.50–0.75 / 局','Deep analysis US$0.50–0.75 per game']],
+  ['/cost','budget',['网站运行成本','Site running costs'],['网站承担，用户免费','Paid by the site, free for users'],['深度分析 US$0.50–0.75 / 局','Deep analysis US$0.50–0.75 per game']],
   ['/security','shield',['安全审查','Security review'],['线上渗透测试与威胁模型','Live penetration test and threat model'],['2026 年 10 月 8 日测试','Tested 8 Oct 2026']],
   ['/photo-recognition','camera',['照片识别原理','How photo recognition works'],['从棋盘照片到可编辑局面','From a board photo to an editable position'],['6 张实拍照片中 5 张完全正确','5 of 6 real photos exact']]
  ]){
