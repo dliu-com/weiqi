@@ -7,6 +7,7 @@ import {createState,transition,GameError,freshLiveGame} from '../backend/game-se
 import {createDraft,draftTransition,draftPublication,freshSavedDraft} from '../backend/draft-service.js';
 import {mainRecordingSgf,newRecordingSgf} from '../src/recording-tree.js';
 import {sgf,score,MIN_LIBRARY_MOVES,MAX_GAME_MOVES} from '../src/engine.js';
+import {padMoves,withMoves} from './fixtures/long-game.js';
 import {readSgf} from '../src/sgf.js';
 function api(){
  const rows=new Map(),saved=new Map();let fail=false;
@@ -42,16 +43,22 @@ test('failed live publication preserves the finished board until a retry saves i
 });
 test('saving clears the draft, and a repeated save returns the same library record',async()=>{
  const a=api(),id='12345678-1234-1234-1234-123456789abc';let d=(await a.call('/api/draft')).draft;
- d=(await a.call('/api/draft',{action:'update',expectedRevision:d.revision,sgf:'(;SZ[19]GN[Test]PB[A];B[dd](;W[pp])(;W[dp]))',selected:1})).draft;
+ d=(await a.call('/api/draft',{action:'update',expectedRevision:d.revision,sgf:'(;SZ[19]GN[Test]PB[A];B[dd](;W[pp]'+padMoves()+')(;W[dp]))',selected:1})).draft;
  const finished=await a.call('/api/draft',{action:'save',expectedRevision:d.revision,id});assert.equal(finished.status,200);
  const blank=readSgf(finished.draft.sgf);assert.equal(blank.nodes.length,1);assert.equal(blank.name,'Recorded game');assert.equal(blank.players.black,'');assert.equal(finished.draft.selected,0);assert.ok(finished.draft.revision>d.revision);
- const replay=await a.call('/api/draft',{action:'save',expectedRevision:d.revision,id});assert.equal(replay.status,200);assert.equal(replay.id,finished.id);assert.equal(a.saved.size,1);assert.equal(readSgf([...a.saved.values()][0].sgf).nodes.length,3);
+ const replay=await a.call('/api/draft',{action:'save',expectedRevision:d.revision,id});assert.equal(replay.status,200);assert.equal(replay.id,finished.id);assert.equal(a.saved.size,1);assert.equal(readSgf([...a.saved.values()][0].sgf).nodes.length,53);
  const edited=await a.call('/api/draft',{action:'update',expectedRevision:finished.draft.revision,sgf:'(;SZ[19];B[pp])',selected:1});assert.equal(edited.status,200);assert.equal((await a.call('/api/draft',{action:'save',expectedRevision:d.revision,id})).status,409);assert.equal(readSgf((await a.call('/api/draft')).draft.sgf).nodes.length,2);
 });
 test('failed draft publication remains locked and recoverable, then clears on retry',async()=>{
- const a=api(),id='12345678-1234-1234-1234-123456789abc';let d=(await a.call('/api/draft',{action:'update',expectedRevision:0,sgf:'(;SZ[19];B[dd])',selected:1})).draft;a.fail(true);
- assert.equal((await a.call('/api/draft',{action:'save',expectedRevision:d.revision,id})).status,500);d=(await a.call('/api/draft')).draft;assert.equal(d.publication.status,'pending');assert.equal(readSgf(d.sgf).nodes.length,2);
+ const a=api(),id='12345678-1234-1234-1234-123456789abc';let d=(await a.call('/api/draft',{action:'update',expectedRevision:0,sgf:withMoves('(;SZ[19];B[dd])',50,'W'),selected:1})).draft;a.fail(true);
+ assert.equal((await a.call('/api/draft',{action:'save',expectedRevision:d.revision,id})).status,500);d=(await a.call('/api/draft')).draft;assert.equal(d.publication.status,'pending');assert.equal(readSgf(d.sgf).nodes.length,52);
  a.fail(false);const retry=await a.call('/api/draft',{action:'save',expectedRevision:d.revision,id});assert.equal(retry.status,200);assert.equal(readSgf(retry.draft.sgf).nodes.length,1);assert.equal(a.saved.size,1);
+});
+
+test('drafts need at least the library minimum of moves before saving',()=>{
+ const request={expectedRevision:0,id:'12345678-1234-1234-1234-123456789abc'},short={revision:0,sgf:withMoves('(;SZ[19])',MIN_LIBRARY_MOVES-1)};
+ assert.throws(()=>draftPublication(short,request),e=>e.statusCode===400&&e.message.includes(`at least ${MIN_LIBRARY_MOVES} moves`)&&e.message.includes(`has ${MIN_LIBRARY_MOVES-1}`));
+ assert.equal(draftPublication({revision:0,sgf:withMoves('(;SZ[19])',MIN_LIBRARY_MOVES)},request).publication.status,'pending');
 });
 
 test('an already-published legacy draft clears once without deleting the library record',async()=>{
