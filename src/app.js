@@ -309,15 +309,11 @@ function renderClock() {
   $('pause-clock').disabled = !!archiveId || reviewing !== null || state.phase !== 'play' || !!timedOut;
   setText($('pause-clock'),state.clock?.paused ? t('恢复计时','Resume clock') : t('暂停计时','Pause clock'));
   $('pause-clock').dataset.paused = state.clock?.paused ? 'true' : 'false';
-  setText($('clock-note'),reviewing !== null ? t('该手结束时的累计用时','Total time at this move') : timedOut ? t(names[timedOut.side]+'超时，计时已停止，对局继续',names[timedOut.side]+' ran out of time. The clock has stopped; play on.') : state.clock?.since && state.phase === 'play' && !state.clock?.paused && clock.autoPaused ? t('无人在线，计时自动暂停','No active page · Clock automatically paused') : '');
+  setText($('clock-note'),reviewing !== null ? t('该手结束时的累计用时','Total time at this move') : timedOut ? t(names[timedOut.side]+'超时，计时已停止，对局继续',names[timedOut.side]+' ran out of time. The clock has stopped; play on.') : state.clock?.since && state.phase === 'play' && !state.clock?.paused && clock.autoPaused ? t('无人在线，计时自动暂停','No active page · Clock automatically paused') : byo && !archiveId && state.phase === 'play' && soundBlocked() ? t('轻触页面即可开启读秒声音','Tap the page to turn on the countdown voice.') : '');
   $('clock-note').hidden = !$('clock-note').textContent;
   $('clock-note').classList.toggle('timeout', reviewing === null && !!timedOut);
-  // Browsers keep a newly opened or refreshed page silent until it is tapped.
-  $('sound-unlock').hidden = !(byo && !archiveId && reviewing === null && state.phase === 'play' && !timedOut && soundBlocked());
-  setText($('sound-unlock'),t('开启读秒声音','Turn on countdown voice'));
 }
 $('pause-clock').onclick = () => { if (state) action({type:'clock',paused:!state.clock?.paused}); };
-$('sound-unlock').onclick = () => prepareStoneSound();
 setInterval(renderClock,250);
 unlockSoundOnTap();
 const boardView=new BoardView($('board'),{onPoint:i=>{if(busy||!state)return;prepareStoneSound();if(reviewing!==null){previewMove(i);return;}if(archiveId)return;if(state.phase==='scoring')action({type:'dead',index:i});else if(canPlay())action({type:'move',index:i});}});
