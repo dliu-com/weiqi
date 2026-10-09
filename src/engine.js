@@ -129,7 +129,8 @@ export function spendTime(left, spent, period) {
 export function timeLeft(state, clock, side) {
   const byo = byoyomiSettings(state.timeControl); if (!byo) return null;
   if (clock.timedOut?.side === side) return {timeout:true,remaining:0,periods:0,byoyomi:true};
-  const left = clock.left?.[side] || {main:byo.main,periods:byo.periods}, spent = side === state.turn ? Math.max(0, clock[side] - (clock.turnBase || 0)) : 0;
+  // After any timeout the clock is stopped, so the other side's time stays frozen.
+  const left = clock.left?.[side] || {main:byo.main,periods:byo.periods}, spent = side === state.turn && !clock.timedOut ? Math.max(0, clock[side] - (clock.turnBase || 0)) : 0;
   if (spent < left.main) return {byoyomi:false,remaining:left.main-spent,periods:left.periods};
   const over = spent - left.main;
   return {byoyomi:true,remaining:byo.period-over%byo.period,periods:left.periods-Math.floor(over/byo.period)};
