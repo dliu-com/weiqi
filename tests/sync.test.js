@@ -8,7 +8,7 @@ import { play, opposite, score, gameTree, reviewPosition, gameClock, sgf, MIN_LI
 
 // Exercise the actual client with an isolated DOM/network/clock, never the live game.
 async function client({publish=false}={}) {
-  const elements = new Map(), intervals = [], calls = [];
+  const elements = new Map(), intervals = [], timers = [], calls = [];
   class Element {
     parentElement = {append(){},querySelectorAll(){return [];}}; style = {}; dataset = {}; children = []; attrs = {}; hidden = false; checked = true;
     classList = { toggle() {}, contains() { return false; } };
@@ -26,7 +26,7 @@ async function client({publish=false}={}) {
     location:{search:'',assign(url){calls.push('NAVIGATE '+url);}},URLSearchParams,
     document: {querySelector:s=>{const m=s.match(/input\[value="([^"]+)"\]/);if(m)return radios.find(r=>r.value===m[1]);if(s.includes(':checked'))return radios.find(r=>r.checked)||null;if(!selected.has(s))selected.set(s,new Element());return selected.get(s);},getElementById:get,createElement:()=>new Element(),createElementNS:()=>new Element(),
       createDocumentFragment:()=>new Element(),querySelectorAll:s=>s.includes('name="result"')?radios:[],addEventListener(){},visibilityState:'visible',body:new Element()},
-    window:{addEventListener(){}},setInterval(fn,ms){intervals.push({fn,ms});},setTimeout(){},clearTimeout(){},
+    window:{addEventListener(){}},setInterval(fn,ms){intervals.push({fn,ms});},setTimeout(fn,ms){timers.push({fn,ms});},clearTimeout(){},
     Date:class extends Date { static now(){return now;} },AbortSignal,TextEncoder,crypto:webcrypto,
     fetch:async (url,options)=>{
       calls.push(options.method === 'POST' && JSON.parse(options.body).action.type === 'heartbeat' ? 'HEARTBEAT' : options.method);
@@ -45,7 +45,7 @@ async function client({publish=false}={}) {
   while(run('polling')) await new Promise(resolve=>setImmediate(resolve));
   const move=i=>{remote=transition(remote,{expectedRevision:remote.revision,action:{type:'move',index:i}});};
   const pass=()=>{remote=transition(remote,{expectedRevision:remote.revision,action:{type:'pass'}});};
-  return {run,get,calls,intervals,remote:()=>remote,move,pass,
+  return {run,get,calls,intervals,timers,remote:()=>remote,move,pass,
     // Stones on rows 0, 2 and 4 keep a liberty below, so nothing is captured.
     seed:n=>{for(let k=0;k<n;k++)move(38*Math.floor(k/19)+k%19);},
     choose:value=>{radios.find(r=>r.value===value).checked=true;},checked:()=>radios.find(r=>r.checked)?.value,
@@ -90,10 +90,18 @@ test('background polling never disables otherwise available controls',async()=>{
  await c.run('sync()');
  assert.ok(changes.length>0);assert.ok(changes.every(([,disabled])=>disabled===false));
 });
-test('submitting label is visible while a move is in flight, then clears on success',async()=>{
- const c=await client();const saving=c.run("action({type:'move',index:180})");
+test('a move in flight leaves the panel unchanged; only a slow save shows submitting',async()=>{
+ const c=await client();const changes=[];
+ for(const id of ['pass','new','resign-black','resign-white','edit-game','pause-clock']) {
+  let value=c.get(id).disabled;
+  Object.defineProperty(c.get(id),'disabled',{get:()=>value,set:v=>{if(v!==value)changes.push([id,v]);value=v;}});
+ }
+ const before=c.get('turn').textContent,saving=c.run("action({type:'move',index:180})");
+ assert.equal(c.get('turn').textContent,before);
+ c.timers.findLast(x=>x.ms===1500).fn();
  assert.equal(c.get('turn').textContent,'Black · Submitting…');await saving;
  assert.equal(c.get('turn').textContent,'To play: White');
+ assert.deepEqual(changes,[]);
 });
 test('network errors show not sent and later sync recovers a saved move',async()=>{
  const before=await client();before.offline();await before.run("action({type:'move',index:180})");
