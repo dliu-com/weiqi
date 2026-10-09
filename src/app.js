@@ -1,9 +1,9 @@
 import './site-shell.js';
 import {BoardView} from './board-view.js';
-import {mountStoneSound,prepareStoneSound,playStoneSound} from './stone-sound.js';
+import {mountStoneSound,prepareStoneSound,playStoneSound,speakSecond} from './stone-sound.js';
 import {localTimestamp} from './site-time.js';
 import { t, language, setLanguage, translateError } from './i18n.js';
-import { play, opposite, score, gameTree, reviewPosition, gameClock, byoyomiSettings, timeLeft, sgf, standardKomi, MIN_LIBRARY_MOVES, MAX_GAME_MOVES } from './engine.js';
+import { play, opposite, score, gameTree, reviewPosition, gameClock, byoyomiSettings, timeLeft, standardKomi, MIN_LIBRARY_MOVES, MAX_GAME_MOVES } from './engine.js';
 const $ = id => document.getElementById(id);
 mountStoneSound($('play-sound'));
 const names = { get black() { return t('黑方','Black'); }, get white() { return t('白方','White'); } };
@@ -21,15 +21,16 @@ let syncFailed = false;
 let syncedAt = null, syncedSaved = false;
 // Shows how long ago this page last confirmed the cloud game; other messages replace it.
 function showSynced(saved) { syncedAt = Date.now(); syncedSaved = saved; renderSyncAge(); }
-function setLabel(button, label) { button.setAttribute('aria-label', label); button.title = label; }
 function showSyncText(text) { syncedAt = null; $('sync').textContent = text; $('sync').title = ''; }
 function renderSyncAge() {
   if (syncedAt === null) return;
   const s = Math.max(0, Math.floor((Date.now() - syncedAt) / 1000)), m = Math.floor(s / 60), h = Math.floor(m / 60);
   const ago = s < 60 ? t(`${s} 秒前`,`${s}s ago`) : m < 60 ? t(`${m} 分钟前`,`${m}m ago`) : t(`${h} 小时前`,`${h}h ago`);
-  $('sync').textContent = ago;
+  $('sync').textContent = automatic ? ago : t('已暂停同步','Sync paused');
   $('sync').title = (syncedSaved ? t('已保存 · ','Saved · ') : t('已同步 · ','Synced · ')) + localTimestamp(syncedAt, language);
 }
+// Turning auto-sync off is shown clearly, as the board may then be out of date.
+function renderAutoSync() { $('sync-group').classList.toggle('off', !automatic); renderSyncAge(); }
 setInterval(renderSyncAge, 1000);
 function showSyncWarning(failed) {
   syncFailed = failed;
@@ -51,7 +52,7 @@ function previewMove(index) {
     render();playStoneSound();
   } catch(error) { notice(translateError(error.message)); }
 }
-let state = null, stateAt = null, boundarySync = {key:'',at:0}, busy = false, polling = false, automatic = true, lastActivity = Date.now(), noticeTimer, pendingConfirmation;
+let state = null, stateAt = null, boundarySync = {key:'',at:0}, spokenKey = '', busy = false, polling = false, automatic = true, lastActivity = Date.now(), noticeTimer, pendingConfirmation;
 function notice(message) { $('notice').textContent = message; $('notice').hidden = false; clearTimeout(noticeTimer); noticeTimer = setTimeout(() => $('notice').hidden = true, 6000); }
 async function request(method = 'GET', payload) {
   const headers = {}, options = { method, cache: 'no-store', signal: AbortSignal.timeout(10000), headers };
@@ -140,11 +141,11 @@ function render() {
   for (const side of ['black','white']) { const player = state.players?.[side] || ''; $(side + '-box-label').textContent = player || names[side]; $(side + '-box-label').title = names[side] + (player ? ': ' + player : ''); $(side + '-box-rank').textContent = state.playerRanks?.[side] || ''; $(side + '-captures-label').textContent = t('提子','Captures'); }
   const undoSide = state.history.at(-1)?.side;
   // Stones on the buttons show the side; the full wording stays in the accessible name.
-  $('undo').textContent = t('悔棋','Undo'); setLabel($('undo'), undoSide ? t('悔棋（' + names[undoSide] + '）', 'Undo ' + names[undoSide]) : t('悔棋','Undo'));
+  $('undo').textContent = undoSide ? t(names[undoSide] + '悔棋', 'Undo ' + names[undoSide] + '\'s move') : t('悔棋','Undo');
   $('resign').textContent = t('认输','Resign');
   $('resign').disabled = !!archiveId || reviewing !== null || ended;
   $('undo').dataset.side = undoSide || '';
-  $('pass').textContent = t('停一手','Pass'); $('pass').dataset.side = state.turn; setLabel($('pass'), names[state.turn] + t('停一手',' passes'));
+  $('pass').textContent = names[state.turn] + t('停一手',' passes'); $('pass').dataset.side = state.turn;
   $('pass').disabled = !canPlay(); $('undo').disabled = !!archiveId || reviewing !== null || !state.history.length; $('new').disabled = !!archiveId || reviewing !== null;
   $('scoring').hidden = !totals;
   $('scoring-help').hidden = ended;
@@ -259,6 +260,11 @@ function renderClock() {
     $(side + '-box').classList.toggle('byoyomi', !!left?.byoyomi && !left.timeout);
     $(side + '-box').classList.toggle('timeout', !!left?.timeout);
   }
+  // Read the last 10 seconds of each byo-yomi period aloud.
+  const running = !held && byo && reviewing === null && !archiveId && state.phase === 'play' && state.clock?.since != null && !state.clock?.paused && !clock.autoPaused && !clock.timedOut ? timeLeft(state, clock, state.turn) : null;
+  const count = running?.byoyomi ? Math.ceil(running.remaining / 1000) : 0, spoken = count > 0 && count <= 10 ? [state.generation || 0, state.history.length, running.periods, count].join() : '';
+  if (spoken && spoken !== spokenKey && document.visibilityState === 'visible') speakSecond(count);
+  spokenKey = spoken;
   $('pause-clock').disabled = !!archiveId || reviewing !== null || state.phase !== 'play' || !!timedOut;
   $('pause-clock').textContent = state.clock?.paused ? t('恢复计时','Resume clock') : t('暂停计时','Pause clock');
   $('pause-clock').dataset.paused = state.clock?.paused ? 'true' : 'false';
@@ -267,12 +273,8 @@ function renderClock() {
   $('clock-note').classList.toggle('timeout', reviewing === null && !!timedOut);
 }
 $('pause-clock').onclick = () => { if (state) action({type:'clock',paused:!state.clock?.paused}); };
-$('download-sgf').onclick = () => {
-  if (!state) return;
-  const url = URL.createObjectURL(new Blob([sgf(state)],{type:'application/x-go-sgf;charset=utf-8'}));
-  const link = document.createElement('a'); link.href=url; link.download=(state.gameName || state.createdAt || 'weiqi').replace(/[^\p{L}\p{N} _-]/gu,'-').slice(0,80)+'.sgf'; link.click(); setTimeout(()=>URL.revokeObjectURL(url),1000);
-};
-setInterval(renderClock,1000);
+setInterval(renderClock,250);
+window.addEventListener('pointerdown',()=>prepareStoneSound(),{once:true});
 const boardView=new BoardView($('board'),{onPoint:i=>{if(busy||!state)return;prepareStoneSound();if(reviewing!==null){previewMove(i);return;}if(archiveId)return;if(state.phase==='scoring')action({type:'dead',index:i});else if(canPlay())action({type:'move',index:i});}});
 const points=boardView.points;
 function confirmAction(title,text,operation,acceptLabel=t('确认','Confirm')) { $('accept-confirm').textContent=acceptLabel; $('confirm-title').className=''; const revision = state.revision; pendingConfirmation = () => { if (state.revision !== revision) { notice(t('棋局已更新，请重新确认。','The game has changed. Please confirm again.')); return; } operation(); }; $('confirm-title').textContent=title; $('confirm-text').textContent=text; $('confirm-dialog').showModal(); }
@@ -343,8 +345,8 @@ $('undo').onclick=()=>confirmAction(t('撤回' + names[state.history.at(-1)?.sid
 $('resign').onclick=()=>chooseGameResult(true,'none');
 $('pass').onclick=()=>action({type:'pass'}); $('resume').onclick=()=>action({type:'resume'});
 $('confirm-score').onclick=()=>chooseGameResult(true);
-$('auto').onchange=()=>{automatic=$('auto').checked; if(automatic){lastActivity=Date.now();sync(true);}};
-setInterval(()=>{ if(!automatic)return; if(Date.now()-lastActivity>=10*60*1000){automatic=false;$('auto').checked=false;showSyncText(t("10 分钟无落子，已暂停同步","Paused: no move in 10 min"));return;} if(document.visibilityState==='visible')sync(); },3000);
+$('auto').onchange=()=>{automatic=$('auto').checked; renderAutoSync(); if(automatic){lastActivity=Date.now();sync(true);}};
+setInterval(()=>{ if(!automatic)return; if(Date.now()-lastActivity>=10*60*1000){automatic=false;$('auto').checked=false;renderAutoSync();showSyncText(t("10 分钟无落子，已暂停同步","Paused: no move in 10 min"));return;} if(document.visibilityState==='visible')sync(); },3000);
 window.addEventListener('focus',()=>{if(automatic)sync();}); window.addEventListener('online',()=>{if(automatic)sync();}); document.addEventListener('visibilitychange',()=>{if(automatic&&document.visibilityState==='visible')sync();});
 if (archiveId) {
   automatic = false; $('auto').checked = false; $('sync-group').hidden = true;

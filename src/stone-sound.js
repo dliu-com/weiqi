@@ -7,8 +7,11 @@ try{const saved=localStorage.getItem(key);if(saved!==null&&Number.isFinite(Numbe
 // stone-placement-LICENSE.txt for the original sample and MIT attribution.
 const sampleBytes=fetch(new URL('./stone-placement.mp3',import.meta.url)).then(response=>response.ok?response.arrayBuffer():null).catch(()=>null);
 let decodedSample=null;
+let speechReady=false;
 export function prepareStoneSound(){
  if(!volume)return;
+ // iOS only speaks after speech has started inside a tap.
+ if(!speechReady&&window.speechSynthesis&&typeof SpeechSynthesisUtterance==='function'){speechReady=true;try{const u=new SpeechSynthesisUtterance('');u.volume=0;speechSynthesis.speak(u);}catch{}}
  try{
   const Audio=window.AudioContext||window.webkitAudioContext;if(!Audio)return;
   context??=new Audio();
@@ -29,6 +32,11 @@ export function playStoneSound(){
   source.connect(gain);gain.connect(context.destination);
   source.onended=()=>{source.disconnect();gain.disconnect();};source.start();
  }).catch(()=>{});
+}
+// Byo-yomi seconds are read aloud at the same volume setting; speech is quieter than the click, so low settings are raised.
+export function speakSecond(n){
+ const speech=window.speechSynthesis;if(!volume||!speech||typeof SpeechSynthesisUtterance!=='function')return;
+ try{speech.cancel();const u=new SpeechSynthesisUtterance(String(n));u.lang=t('zh-CN','en-GB');u.rate=1.2;u.volume=Math.sqrt(volume/100);speech.speak(u);}catch{}
 }
 export function mountStoneSound(container){
  const label=document.createElement('label'),text=document.createElement('span'),slider=document.createElement('input'),value=document.createElement('output');

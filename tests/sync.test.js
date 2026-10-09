@@ -8,7 +8,7 @@ import { play, opposite, score, gameTree, reviewPosition, gameClock, byoyomiSett
 
 // Exercise the actual client with an isolated DOM/network/clock, never the live game.
 async function client({publish=false}={}) {
-  const elements = new Map(), intervals = [], timers = [], calls = [];
+  const elements = new Map(), intervals = [], timers = [], calls = [], spoken = [];
   class Element {
     parentElement = {append(){},querySelectorAll(){return [];}}; style = {}; dataset = {}; children = []; attrs = {}; hidden = false; checked = true;
     classes = new Set(); classList = { toggle:(c,on=!this.classes.has(c))=>{on?this.classes.add(c):this.classes.delete(c);return on;}, contains:c=>this.classes.has(c) };
@@ -22,7 +22,7 @@ async function client({publish=false}={}) {
   const get = id => { if(!elements.has(id)) elements.set(id,new Element()); return elements.get(id); };
   let remote = createState(), failAfterSave = false, failGet = false, now = Date.now();
   const context = vm.createContext({
-    mountTimeControl(){let current=null;return {render(){},fill(value){current=value;},value(){return current;}};},mountStoneSound(){},prepareStoneSound(){},playStoneSound(){},localTimestamp:()=> 'test · UTC+1', play, opposite, score, gameTree, reviewPosition, gameClock, byoyomiSettings, timeLeft, sgf, standardKomi, MIN_LIBRARY_MOVES, MAX_GAME_MOVES, language:'en', t: (zh,en)=>en, translateError:s=>s, setLanguage(){},
+    mountTimeControl(){let current=null;return {render(){},fill(value){current=value;},value(){return current;}};},mountStoneSound(){},prepareStoneSound(){},playStoneSound(){},speakSecond(n){spoken.push(n);},localTimestamp:()=> 'test · UTC+1', play, opposite, score, gameTree, reviewPosition, gameClock, byoyomiSettings, timeLeft, sgf, standardKomi, MIN_LIBRARY_MOVES, MAX_GAME_MOVES, language:'en', t: (zh,en)=>en, translateError:s=>s, setLanguage(){},
     location:{search:'',assign(url){calls.push('NAVIGATE '+url);}},URLSearchParams,
     document: {querySelector:s=>{const m=s.match(/input\[value="([^"]+)"\]/);if(m)return radios.find(r=>r.value===m[1]);if(s.includes(':checked'))return radios.find(r=>r.checked)||null;if(!selected.has(s))selected.set(s,new Element());return selected.get(s);},getElementById:get,createElement:()=>new Element(),createElementNS:()=>new Element(),
       createDocumentFragment:()=>new Element(),querySelectorAll:s=>s.includes('name="result"')?radios:[],addEventListener(){},visibilityState:'visible',body:new Element()},
@@ -46,7 +46,7 @@ async function client({publish=false}={}) {
   const move=i=>{remote=transition(remote,{expectedRevision:remote.revision,action:{type:'move',index:i}});};
   const pass=()=>{remote=transition(remote,{expectedRevision:remote.revision,action:{type:'pass'}});};
   const endRemote=action=>{remote=transition(remote,{expectedRevision:remote.revision,action});remote=freshLiveGame(remote,remote.history.length>=MIN_LIBRARY_MOVES?'2026100601':undefined);};
-  return {run,get,calls,intervals,timers,remote:()=>remote,move,pass,endRemote,
+  return {run,get,calls,spoken,intervals,timers,remote:()=>remote,move,pass,endRemote,
     // Stones on rows 0, 2 and 4 keep a liberty below, so nothing is captured.
     seed:n=>{for(let k=0;k<n;k++)move(38*Math.floor(k/19)+k%19);},
     choose:value=>{radios.find(r=>r.value===value).checked=true;},checked:()=>radios.find(r=>r.checked)?.value,
@@ -114,11 +114,23 @@ test('a clock that runs out locally shows 0 and syncs before showing the next pe
  await settle();tick();
  assert.equal(c.run('state.turn'),'black');assert.equal(c.get('white-time').textContent,'00:00:30');assert.equal(c.get('white-periods').textContent,'Byo-yomi 1×30s');assert.equal(c.get('clock-note').hidden,true);
 });
+test('byo-yomi reads the last 10 seconds of a period aloud, once each',async()=>{
+ const c=await client(),tick=()=>c.run('renderClock()');
+ await c.run("action({type:'metadata',name:'T',players:{black:'',white:''},timeControl:{mainSeconds:0,overtime:'2x30 byo-yomi'}})");
+ await c.run("action({type:'move',index:180})");
+ tick();c.advance(15000);tick();assert.deepEqual(c.spoken,[]);
+ c.advance(5500);tick();tick();assert.deepEqual(c.spoken,[10]);assert.equal(c.get('white-time').textContent,'00:00:10');
+ c.advance(1000);tick();assert.deepEqual(c.spoken,[10,9]);
+ c.run("state.clock.paused=true");c.advance(1000);tick();c.run("state.clock.paused=false");
+ c.run("reviewing=0");tick();c.run("reviewing=null");assert.deepEqual(c.spoken,[10,9]);
+});
 test('sync status shows how long ago the page synced',async()=>{
  const c=await client();assert.equal(c.get('sync').textContent,'0s ago');assert.match(c.get('sync').title,/^Synced · /);
  const tick=c.intervals.find(i=>i.ms===1000).fn;c.advance(3000);tick();assert.equal(c.get('sync').textContent,'3s ago');
  c.advance(120000);tick();assert.equal(c.get('sync').textContent,'2m ago');
  await c.run("action({type:'move',index:180})");assert.equal(c.get('sync').textContent,'0s ago');assert.match(c.get('sync').title,/^Saved · /);
+ c.get('auto').checked=false;c.get('auto').onchange();assert.equal(c.get('sync').textContent,'Sync paused');assert.ok(c.get('sync-group').classList.contains('off'));assert.match(c.get('sync').title,/^Saved · /);
+ c.get('auto').checked=true;c.get('auto').onchange();assert.equal(c.get('sync').textContent,'0s ago');assert.ok(!c.get('sync-group').classList.contains('off'));
 });
 test('preflight rejects a stale move without submitting POST',async()=>{
  const c=await client();c.move(180);await c.run("action({type:'move',index:181})");
@@ -135,7 +147,7 @@ test('failed preflight never changes the board',async()=>{
 test('10 minutes idle switches polling off, and hidden tabs do not poll',async()=>{
  const c=await client();c.run("document.visibilityState='hidden'");const before=c.calls.length;
  c.intervals.find(i=>i.ms===3000).fn();assert.equal(c.calls.length,before);c.advance(600001);c.intervals.find(i=>i.ms===3000).fn();
- assert.equal(c.get('auto').checked,false);assert.equal(c.run('automatic'),false);
+ assert.equal(c.get('auto').checked,false);assert.equal(c.run('automatic'),false);assert.ok(c.get('sync-group').classList.contains('off'));assert.equal(c.get('sync').textContent,'Paused: no move in 10 min');
 });
 test('review stays selected while live moves sync and cannot submit moves',async()=>{
  const c=await client();c.move(180);await c.run('sync()');c.run('selectReview(-1)');
