@@ -112,3 +112,12 @@ test('recorded games are capped at 400 moves in the editor, the draft API and on
  assert.equal(draftTransition(legacy,{expectedRevision:5,sgf:passes(401),selected:0}).revision,6);
  assert.throws(()=>draftPublication(legacy,{expectedRevision:5,id}),e=>e.statusCode===400&&/This game has 402/.test(e.message));
 });
+test('SGF import merges repeated root properties and reads point margins with a unit',async()=>{
+ const {recordingResultFields}=await import('../src/recording-tree.js'),{gameResult}=await import('../src/game-result.js');
+ const r=recordingTree('(;CA[utf-8]AP[zhq]AP[zhq_robot]AP[zhq_robot_custom]PB[浮世谣]PW[铁骑破阵]BR[6 段]WR[7 段]HA[0]RE[B+9.5目]KM[6.5]SZ[19]RU[japanese];B[pd];W[dc])');
+ assert.deepEqual(r.rootProperties.AP,['zhq','zhq_robot','zhq_robot_custom']);assert.equal(r.komi,6.5);assert.equal(r.nodes.length,3);
+ assert.match(recordingSgf(r),/AP\[zhq\]\[zhq_robot\]\[zhq_robot_custom\]/);assert.equal(readSgf(recordingSgf(r)).nodes.length,3);
+ assert.deepEqual(recordingResultFields('B+9.5目'),{choice:'Bpoints',margin:'9.5'});assert.deepEqual(recordingResultFields('W+3.5 points'),{choice:'Wpoints',margin:'3.5'});
+ assert.equal(gameResult('B+9.5目').zh,'黑方赢 9.5 目');assert.equal(readSgf('(;KM[6.5]KM[6.5];B[aa])').komi,6.5);
+ assert.throws(()=>readSgf('(;SZ[19];B[aa]B[bb])'),/Invalid SGF property: B/);assert.throws(()=>readSgf('(;KM[6.5]KM[7.5];B[aa])'),/Invalid SGF property: KM/);
+});

@@ -24,7 +24,7 @@ export function recordingResultFields(result){
   if(/^(?:r|res|resign|resignation)$/i.test(reason))return {choice:side+'R',margin:''};
   if(/^(?:t|time|timeout)$/i.test(reason))return {choice:side+'T',margin:''};
   if(/^(?:f|forfeit)$/i.test(reason))return {choice:side+'F',margin:''};
-  if(/^\d+(?:\.\d+)?$/.test(reason)&&Number(reason)>0)return {choice:side+'points',margin:reason};
+  const points=reason.match(/^(\d+(?:\.\d+)?)\s*(?:目|点|points?|pts?)?$/i)?.[1];if(points&&Number(points)>0)return {choice:side+'points',margin:points};
   return {choice:side+'+',margin:''};
  }
  return {choice:'?',margin:''};
