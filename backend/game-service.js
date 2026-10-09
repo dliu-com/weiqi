@@ -1,4 +1,4 @@
-import { opposite, play, groupAt, score, gameTree, gameClock, MAX_GAME_MOVES } from '../src/engine.js';
+import { opposite, play, groupAt, score, gameTree, gameClock, handicapBoard, standardKomi, MAX_GAME_MOVES } from '../src/engine.js';
 export class GameError extends Error {
   constructor(message, statusCode = 400) { super(message); this.statusCode = statusCode; }
 }
@@ -50,10 +50,19 @@ export function transition(current, request) {
     if(a.playerRanks!==undefined&&(!a.playerRanks||['black','white'].some(side=>typeof a.playerRanks[side]!=='string'||a.playerRanks[side].trim().length>200)))throw new GameError('操作无效。');
     if(a.playerRanks!==undefined)next.playerRanks={black:a.playerRanks.black.trim(),white:a.playerRanks.white.trim()};
     if(a.rules!==undefined&&!['Chinese','Japanese'].includes(a.rules))throw new GameError('操作无效。');
-    if(a.komi!==undefined&&(!Number.isFinite(a.komi)||Math.abs(a.komi)>100))throw new GameError('操作无效。');
+    if(a.handicap!==undefined&&(!Number.isInteger(a.handicap)||a.handicap<0||a.handicap>9))throw new GameError('操作无效。');
+    const handicap=a.handicap??current.handicap??0;
+    if(handicap!==(current.handicap||0)&&(current.history.length||current.phase!=='play'))throw new GameError('第一手之后不能更改让子。');
     if(a.date!==undefined&&!/^\d{4}-\d{2}-\d{2}$/.test(a.date))throw new GameError('操作无效。');
     next.gameName = a.name.trim(); next.players = {black:a.players.black.trim(),white:a.players.white.trim()};
-    if(a.rules!==undefined)next.rules=a.rules;if(a.komi!==undefined)next.komi=a.komi;if(a.date!==undefined)next.date=a.date;
+    if(a.rules!==undefined)next.rules=a.rules;if(a.date!==undefined)next.date=a.date;
+    if(handicap!==(current.handicap||0)){
+      next.board=handicapBoard(handicap);next.turn=handicap>1?'white':'black';
+      next.tree={root:next.board,captures:{black:0,white:0},turn:next.turn,nodes:[],head:-1};
+    }
+    next.handicap=handicap;
+    // Komi follows the rules and handicap; clients cannot set it directly.
+    next.komi=standardKomi(next.rules||'Chinese',handicap);
   } else if (a.type === 'players') {
     if (!a.players || ['black','white'].some(side => typeof a.players[side] !== 'string' || a.players[side].trim().length > 40)) throw new GameError('棋手姓名不能超过 40 个字符。');
     next.players = { black: a.players.black.trim(), white: a.players.white.trim() };

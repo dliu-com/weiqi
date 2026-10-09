@@ -4,6 +4,18 @@ export const stone = side => side === 'black' ? 'B' : 'W';
 export const MIN_LIBRARY_MOVES = 50;
 // Hard cap for live and recorded games, counting passes like the library does.
 export const MAX_GAME_MOVES = 400;
+// Standard 19 × 19 placements. Handicap 1 has no stones; Black just plays first.
+export function handicapBoard(count) {
+  if (!Number.isInteger(count) || count < 0 || count > 9) throw new Error('Choose 0–9 handicap stones.');
+  const points = [[15,3],[3,15],[15,15],[3,3],[3,9],[15,9],[9,3],[9,15]], board = Array(361).fill('.');
+  const placed = count === 1 ? [] : count === 5 ? points.slice(0,4).concat([[9,9]]) : count === 7 ? points.slice(0,6).concat([[9,9]]) : count === 9 ? points.concat([[9,9]]) : points.slice(0,count);
+  for (const [x,y] of placed) board[y*19+x] = 'B';
+  return board.join('');
+}
+export function standardKomi(rules, handicap = 0) {
+  if (Number(handicap) > 0) return 0.5;
+  return /chinese|中国|中國|aga/i.test(rules || '') ? 7.5 : 6.5;
+}
 export function neighbors(index, size) {
   const x = index % size, y = Math.floor(index / size);
   return [x > 0 ? index - 1 : -1, x < size - 1 ? index + 1 : -1, y > 0 ? index - size : -1, y < size - 1 ? index + size : -1].filter(i => i >= 0);
@@ -105,7 +117,7 @@ export function sgf(state) {
   const tree=gameTree(state), children=new Map();
   tree.nodes.forEach((node,id)=>{if(!children.has(node[0]))children.set(node[0],[]);children.get(node[0]).push(id);});
   const coord = i => String.fromCharCode(97+i%19,97+Math.floor(i/19));
-  let root=';GM[1]FF[4]CA[UTF-8]SZ[19]'+prop('RU',state.rules||'Chinese')+prop('KM',state.komi??7.5)+prop('GN',state.gameName || 'Live game')+prop('DT',state.date||state.createdAt?.slice(0,10))+prop('PB',state.players?.black)+prop('PW',state.players?.white)+prop('BR',state.playerRanks?.black)+prop('WR',state.playerRanks?.white)+prop('TM',state.timeControl?.mainSeconds)+prop('OT',state.timeControl?.overtime);
+  let root=';GM[1]FF[4]CA[UTF-8]SZ[19]'+prop('RU',state.rules||'Chinese')+prop('KM',state.komi??7.5)+prop('HA',state.handicap||null)+prop('GN',state.gameName || '现场对弈休闲棋局')+prop('DT',state.date||state.createdAt?.slice(0,10))+prop('PB',state.players?.black)+prop('PW',state.players?.white)+prop('BR',state.playerRanks?.black)+prop('WR',state.playerRanks?.white)+prop('TM',state.timeControl?.mainSeconds)+prop('OT',state.timeControl?.overtime);
   if(state.result)root+=prop('RE',state.result.reason==='unfinished'?'Void':(state.result.winner==='black'?'B':state.result.winner==='white'?'W':'0')+(state.result.winner?'+'+(state.result.reason==='resign'?'R':state.result.reason==='agreed'?'':state.result.margin):''));
   for(const side of ['B','W']) { const points=[...tree.root].flatMap((s,i)=>s===side?[coord(i)]:[]); if(points.length)root+='A'+side+points.map(p=>'['+p+']').join(''); }
   root+=prop('C','Shared Go game. Times are elapsed wall-clock seconds, not a time limit. Move times unavailable for moves made before timing was enabled.');

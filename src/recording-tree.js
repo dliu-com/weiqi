@@ -1,13 +1,10 @@
 import {readSgf,parseSgf} from './sgf.js';
-import {play,MAX_GAME_MOVES} from './engine.js';
+import {play,MAX_GAME_MOVES,handicapBoard,standardKomi} from './engine.js';
 export function recordingTree(source){const record=readSgf(source);record.rootProperties=structuredClone(parseSgf(source).nodes[0]);delete record.rootProperties.B;delete record.rootProperties.W;return record;}
 // Deepest move number reachable from a node, across every variation.
 export function recordingDepth(record,id=0){let deepest=0;const pending=[id];while(pending.length){const node=record.nodes[pending.pop()];deepest=Math.max(deepest,node.depth||0);pending.push(...node.children);}return deepest;}
 export function recordingLimitError(){return Object.assign(Error(`A game can have at most ${MAX_GAME_MOVES} moves.`),{code:'move-limit',statusCode:400});}
-export function defaultRecordingKomi(rules,handicap=0){
- if(Number(handicap)>0)return 0.5;
- return /chinese|中国|中國|aga/i.test(rules||'')?7.5:6.5;
-}
+export function defaultRecordingKomi(rules,handicap=0){return standardKomi(rules,handicap);}
 export function setRecordingRules(record,rules){
  const next=structuredClone(record),handicap=Number(record.rootProperties.HA?.[0]||0);
  if(record.komi===defaultRecordingKomi(record.rules,handicap))next.komi=defaultRecordingKomi(rules,handicap);
@@ -109,10 +106,8 @@ export function repositionRecordingMove(record,id,index){
 export function setRecordingHandicap(record,count){
  if(record.nodes.length!==1)throw Error('Handicap can be changed only before recording moves.');
  if(!Number.isInteger(count)||count<0||count>9)throw Error('Choose 0–9 handicap stones.');
- const next=structuredClone(record),points=[[15,3],[3,15],[15,15],[3,3],[3,9],[15,9],[9,3],[9,15]],board=Array(361).fill('.');
- const placed=count===1?[]:count===5?points.slice(0,4).concat([[9,9]]):count===7?points.slice(0,6).concat([[9,9]]):count===9?points.concat([[9,9]]):points.slice(0,count);
- for(const [x,y]of placed)board[y*19+x]='B';
- next.nodes[0].board=board.join('');next.initialPlayer=count>1?'W':'B';next.nodes[0].turn=next.initialPlayer;
+ const next=structuredClone(record);
+ next.nodes[0].board=handicapBoard(count);next.initialPlayer=count>1?'W':'B';next.nodes[0].turn=next.initialPlayer;
  next.rootProperties.HA=[String(count)];
  if(count!==Number(record.rootProperties.HA?.[0]||0))next.komi=defaultRecordingKomi(record.rules,count);
  return next;
