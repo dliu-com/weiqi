@@ -36,6 +36,6 @@ export function mountStoneSound(container){
  slider.oninput=()=>{volume=Number(slider.value);try{localStorage.setItem(key,String(volume));}catch{}refresh();prepareStoneSound();};
  slider.onchange=()=>playStoneSound();label.append(text,slider,value);container.append(label);controls.push({text,slider,value});refresh();
 }
-function refresh(){for(const {text,slider,value}of controls){text.textContent=t('落子音量','Stone sound volume');slider.setAttribute('aria-label',text.textContent);slider.value=String(volume);value.textContent=volume?volume+'%':t('静音','Muted');}}
+function refresh(){for(const {text,slider,value}of controls){text.textContent=t('落子音量','Stone sound volume');text.title=text.textContent;slider.setAttribute('aria-label',text.textContent);slider.value=String(volume);value.textContent=volume?volume+'%':t('静音','Muted');}}
 window.addEventListener('site-language-change',refresh);
 window.addEventListener('storage',event=>{if(event.key===key){volume=event.newValue===null?defaultVolume:Math.max(0,Math.min(100,Number(event.newValue)||0));refresh();}});

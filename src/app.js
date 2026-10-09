@@ -21,13 +21,14 @@ let syncFailed = false;
 let syncedAt = null, syncedSaved = false;
 // Shows how long ago this page last confirmed the cloud game; other messages replace it.
 function showSynced(saved) { syncedAt = Date.now(); syncedSaved = saved; renderSyncAge(); }
+function setLabel(button, label) { button.setAttribute('aria-label', label); button.title = label; }
 function showSyncText(text) { syncedAt = null; $('sync').textContent = text; $('sync').title = ''; }
 function renderSyncAge() {
   if (syncedAt === null) return;
   const s = Math.max(0, Math.floor((Date.now() - syncedAt) / 1000)), m = Math.floor(s / 60), h = Math.floor(m / 60);
-  const ago = s < 1 ? t('刚刚','just now') : s < 60 ? t(`${s} 秒前`,`${s}s ago`) : m < 60 ? t(`${m} 分钟前`,`${m}m ago`) : t(`${h} 小时前`,`${h}h ago`);
-  $('sync').textContent = (syncedSaved ? t('已保存 · ','Saved ') : t('已同步 · ','Synced ')) + ago;
-  $('sync').title = localTimestamp(syncedAt, language);
+  const ago = s < 60 ? t(`${s} 秒前`,`${s}s ago`) : m < 60 ? t(`${m} 分钟前`,`${m}m ago`) : t(`${h} 小时前`,`${h}h ago`);
+  $('sync').textContent = ago;
+  $('sync').title = (syncedSaved ? t('已保存 · ','Saved · ') : t('已同步 · ','Synced · ')) + localTimestamp(syncedAt, language);
 }
 setInterval(renderSyncAge, 1000);
 function showSyncWarning(failed) {
@@ -138,13 +139,12 @@ function render() {
   $('black-captures').textContent = displayed.captures.black; $('white-captures').textContent = displayed.captures.white;
   for (const side of ['black','white']) { const player = state.players?.[side] || ''; $(side + '-box-label').textContent = player || names[side]; $(side + '-box-label').title = names[side] + (player ? ': ' + player : ''); $(side + '-box-rank').textContent = state.playerRanks?.[side] || ''; $(side + '-captures-label').textContent = t('提子','Captures'); }
   const undoSide = state.history.at(-1)?.side;
-  $('undo').textContent = undoSide ? t('悔棋（' + names[undoSide] + '）', 'Undo ' + names[undoSide]) : t('悔棋','Undo');
-  for (const side of ['black','white']) {
-    $('resign-' + side).textContent = names[side] + t('认输',' resigns');
-    $('resign-' + side).disabled = !!archiveId || reviewing !== null || ended;
-  }
+  // Stones on the buttons show the side; the full wording stays in the accessible name.
+  $('undo').textContent = t('悔棋','Undo'); setLabel($('undo'), undoSide ? t('悔棋（' + names[undoSide] + '）', 'Undo ' + names[undoSide]) : t('悔棋','Undo'));
+  $('resign').textContent = t('认输','Resign');
+  $('resign').disabled = !!archiveId || reviewing !== null || ended;
   $('undo').dataset.side = undoSide || '';
-  $('pass').textContent = names[state.turn] + t('停一手',' passes');
+  $('pass').textContent = t('停一手','Pass'); $('pass').dataset.side = state.turn; setLabel($('pass'), names[state.turn] + t('停一手',' passes'));
   $('pass').disabled = !canPlay(); $('undo').disabled = !!archiveId || reviewing !== null || !state.history.length; $('new').disabled = !!archiveId || reviewing !== null;
   $('scoring').hidden = !totals;
   $('scoring-help').hidden = ended;
@@ -254,7 +254,8 @@ function renderClock() {
   }
   $('pause-clock').disabled = !!archiveId || reviewing !== null || state.phase !== 'play' || !!clock.timedOut;
   $('pause-clock').textContent = state.clock?.paused ? t('恢复计时','Resume clock') : t('暂停计时','Pause clock');
-  $('clock-note').textContent = reviewing !== null ? t('该手结束时的累计用时','Total time at this move') : clock.timedOut ? t(names[clock.timedOut.side]+'超时，计时已停止，对局继续',names[clock.timedOut.side]+' ran out of time. The clock has stopped; play on.') : !state.clock?.since ? '' : state.phase !== 'play' ? t('计时已停止','Clock stopped') : state.clock?.paused ? t('计时已暂停','Clock paused') : clock.autoPaused ? t('无人在线，计时自动暂停','No active page · Clock automatically paused') : t('所有页面离线 1 分钟后自动暂停','Auto-pauses after all pages are inactive for 1 minute');
+  $('pause-clock').dataset.paused = state.clock?.paused ? 'true' : 'false';
+  $('clock-note').textContent = reviewing !== null ? t('该手结束时的累计用时','Total time at this move') : clock.timedOut ? t(names[clock.timedOut.side]+'超时，计时已停止，对局继续',names[clock.timedOut.side]+' ran out of time. The clock has stopped; play on.') : state.clock?.since && state.phase === 'play' && !state.clock?.paused && clock.autoPaused ? t('无人在线，计时自动暂停','No active page · Clock automatically paused') : '';
   $('clock-note').hidden = !$('clock-note').textContent;
   $('clock-note').classList.toggle('timeout', reviewing === null && !!clock.timedOut);
 }
@@ -291,10 +292,12 @@ function renderResultDialog(){
   document.querySelector('#result-options [data-row="draw"]').hidden=!!counted.winner&&!document.querySelector('#result-options input[value="draw"]').checked;
   $('result-short').hidden=!short&&!long;$('result-short').textContent=long?t(`超过 ${MAX_GAME_MOVES} 手：本局不会保存到棋谱库，也不做 AI 分析。`,`Over ${MAX_GAME_MOVES} moves: this game will not be saved to the library or analysed.`):t(`不足 ${MIN_LIBRARY_MOVES} 手：本局不会保存到棋谱库，也不做 AI 分析。`,`Under ${MIN_LIBRARY_MOVES} moves: this game will not be saved to the library or analysed.`);
   $('end-game-confirm').textContent=short||long?t('结束本局','End game'):viewSavedGame?t('保存并查看棋谱','Save and view game'):t('保存并开始新一局','Save and start a new game');
-  $('end-game-confirm').disabled=busy;$('end-game-cancel').textContent=t('取消','Cancel');
+  $('end-game-confirm').disabled=busy||!resultChosen();$('end-game-cancel').textContent=t('取消','Cancel');
 }
-const selectResult=value=>{const input=document.querySelector(`#result-options input[value="${value}"]`);if(input)input.checked=true;};
-// One dialog for every ending; the automatic count is selected unless a resign button opened it.
+const resultChosen=()=>!!document.querySelector('#result-options input[name="result"]:checked');
+const selectResult=value=>{const input=document.querySelector(`#result-options input[value="${value}"]`);if(input)input.checked=true;$('end-game-confirm').disabled=busy||!resultChosen();};
+$('result-options').addEventListener('change',()=>{$('end-game-confirm').disabled=busy||!resultChosen();});
+// One dialog for every ending. New game and Confirm dead stones select the automatic count; Resign selects nothing, so the winner is chosen on purpose.
 function chooseGameResult(openSaved = false, preset = null){
   if(!state||busy||archiveId||reviewing!==null)return;
   viewSavedGame=openSaved;
@@ -329,14 +332,14 @@ $('end-game-form').onsubmit=event=>{
 $('new').onclick=()=>chooseGameResult(false);
 $('end-game-cancel').onclick=()=>$('end-game-dialog').close();
 $('undo').onclick=()=>confirmAction(t('撤回' + names[state.history.at(-1)?.side] + '的上一手？','Undo ' + names[state.history.at(-1)?.side] + '’s last move?'),t("永久删除最近一手，不保留分支；双方设备都会更新。请先征得对方同意。","Permanently remove the last move on all devices; no variation is saved. Please agree with your opponent first."),()=>action({type:'undo'}));
-for (const side of ['black','white']) $('resign-' + side).onclick=()=>chooseGameResult(true,'resign-'+opposite(side));
+$('resign').onclick=()=>chooseGameResult(true,'none');
 $('pass').onclick=()=>action({type:'pass'}); $('resume').onclick=()=>action({type:'resume'});
 $('confirm-score').onclick=()=>chooseGameResult(true);
 $('auto').onchange=()=>{automatic=$('auto').checked; if(automatic){lastActivity=Date.now();sync(true);}};
-setInterval(()=>{ if(!automatic)return; if(Date.now()-lastActivity>=10*60*1000){automatic=false;$('auto').checked=false;showSyncText(t("10 分钟无落子，已暂停自动同步","Auto-sync paused after 10 minutes without a move"));return;} if(document.visibilityState==='visible')sync(); },5000);
+setInterval(()=>{ if(!automatic)return; if(Date.now()-lastActivity>=10*60*1000){automatic=false;$('auto').checked=false;showSyncText(t("10 分钟无落子，已暂停同步","Paused: no move in 10 min"));return;} if(document.visibilityState==='visible')sync(); },3000);
 window.addEventListener('focus',()=>{if(automatic)sync();}); window.addEventListener('online',()=>{if(automatic)sync();}); document.addEventListener('visibilitychange',()=>{if(automatic&&document.visibilityState==='visible')sync();});
 if (archiveId) {
-  automatic = false; $('auto').checked = false; document.querySelector('.sync-card').hidden = true;
+  automatic = false; $('auto').checked = false; $('sync-group').hidden = true;
 }
 sync();
 

@@ -53,9 +53,9 @@ async function client({publish=false}={}) {
     submitResult:()=>get('end-game-form').onsubmit({preventDefault(){}}),
     loseResponse:()=>{failAfterSave=true;},offline:()=>{failGet=true;},online:()=>{failGet=false;failAfterSave=false;},advance:ms=>{now+=ms;}};
 }
-test('visible idle page polls every 5 seconds without a focus event',async()=>{
- const c=await client();assert.equal(c.intervals.find(i=>i.ms===5000).ms,5000);c.move(180);
- c.intervals.find(i=>i.ms===5000).fn();while(c.run('polling'))await new Promise(r=>setImmediate(r));
+test('visible idle page polls every 3 seconds without a focus event',async()=>{
+ const c=await client();assert.equal(c.intervals.find(i=>i.ms===3000).ms,3000);c.move(180);
+ c.intervals.find(i=>i.ms===3000).fn();while(c.run('polling'))await new Promise(r=>setImmediate(r));
  assert.equal(c.run('state.board[180]'),'B');assert.match(c.get('turn').textContent,/White/);
 });
 test('player boxes show names, captures and time, and highlight the side to play',async()=>{
@@ -92,15 +92,15 @@ test('byo-yomi is set before the first move, counts down, and a timeout only sto
  assert.equal(c.get('live-time').value,'byoyomi');assert.equal(c.get('live-main').disabled,true);
  await c.get('edit-form').onsubmit({preventDefault(){}});assert.equal(c.get('edit-dialog').open,false);
  Object.assign(c.remote().clock,{timedOut:{side:'white',move:2},since:null});
- c.intervals.find(i=>i.ms===5000).fn();while(c.run('polling'))await new Promise(r=>setImmediate(r));c.intervals.find(i=>i.ms===1000).fn();
+ c.intervals.find(i=>i.ms===3000).fn();while(c.run('polling'))await new Promise(r=>setImmediate(r));c.intervals.find(i=>i.ms===1000).fn();
  assert.equal(c.get('white-time').textContent,'Time out');assert.ok(c.get('white-box').classList.contains('timeout'));
  assert.match(c.get('clock-note').textContent,/White ran out of time/);assert.equal(c.get('pause-clock').disabled,true);assert.equal(c.run('canPlay()'),true);
 });
 test('sync status shows how long ago the page synced',async()=>{
- const c=await client();assert.equal(c.get('sync').textContent,'Synced just now');
- const tick=c.intervals.find(i=>i.ms===1000).fn;c.advance(3000);tick();assert.equal(c.get('sync').textContent,'Synced 3s ago');
- c.advance(120000);tick();assert.equal(c.get('sync').textContent,'Synced 2m ago');
- await c.run("action({type:'move',index:180})");assert.equal(c.get('sync').textContent,'Saved just now');
+ const c=await client();assert.equal(c.get('sync').textContent,'0s ago');assert.match(c.get('sync').title,/^Synced · /);
+ const tick=c.intervals.find(i=>i.ms===1000).fn;c.advance(3000);tick();assert.equal(c.get('sync').textContent,'3s ago');
+ c.advance(120000);tick();assert.equal(c.get('sync').textContent,'2m ago');
+ await c.run("action({type:'move',index:180})");assert.equal(c.get('sync').textContent,'0s ago');assert.match(c.get('sync').title,/^Saved · /);
 });
 test('preflight rejects a stale move without submitting POST',async()=>{
  const c=await client();c.move(180);await c.run("action({type:'move',index:181})");
@@ -116,7 +116,7 @@ test('failed preflight never changes the board',async()=>{
 });
 test('10 minutes idle switches polling off, and hidden tabs do not poll',async()=>{
  const c=await client();c.run("document.visibilityState='hidden'");const before=c.calls.length;
- c.intervals.find(i=>i.ms===5000).fn();assert.equal(c.calls.length,before);c.advance(600001);c.intervals.find(i=>i.ms===5000).fn();
+ c.intervals.find(i=>i.ms===3000).fn();assert.equal(c.calls.length,before);c.advance(600001);c.intervals.find(i=>i.ms===3000).fn();
  assert.equal(c.get('auto').checked,false);assert.equal(c.run('automatic'),false);
 });
 test('review stays selected while live moves sync and cannot submit moves',async()=>{
@@ -128,7 +128,7 @@ test('review stays selected while live moves sync and cannot submit moves',async
 });
 test('background polling never disables otherwise available controls',async()=>{
  const c=await client();const changes=[];
- for(const id of ['pass','new','resign-black','resign-white']) {
+ for(const id of ['pass','new','resign']) {
   let value=c.get(id).disabled;
   Object.defineProperty(c.get(id),'disabled',{get:()=>value,set:v=>{changes.push([id,v]);value=v;}});
  }
@@ -137,7 +137,7 @@ test('background polling never disables otherwise available controls',async()=>{
 });
 test('a move in flight leaves the panel unchanged; only a slow save shows submitting',async()=>{
  const c=await client();const changes=[];
- for(const id of ['pass','new','resign-black','resign-white','edit-game','pause-clock']) {
+ for(const id of ['pass','new','resign','edit-game','pause-clock']) {
   let value=c.get(id).disabled;
   Object.defineProperty(c.get(id),'disabled',{get:()=>value,set:v=>{if(v!==value)changes.push([id,v]);value=v;}});
  }
@@ -162,18 +162,20 @@ test('background sync failure shows a persistent inline warning and successful r
  c.online();await c.run('sync()');assert.equal(c.get('sync-warning').hidden,true);
 });
 
-test('both resignation buttons open the result dialog with that resignation selected',async()=>{
+test('one Resign button opens the result dialog with nothing selected until a winner is chosen',async()=>{
  for(const side of ['black','white']) {
-  const c=await client();assert.equal(c.get('resign-'+side).textContent,side==='black'?'Black resigns':'White resigns');
-  c.get('resign-'+side).onclick();assert.equal(c.get('end-game-dialog').open,true);assert.notEqual(c.get('confirm-dialog').open,true);
-  assert.equal(c.checked(),'resign-'+opposite(side));
+  const c=await client();assert.equal(c.get('resign').textContent,'Resign');
+  c.get('resign').onclick();assert.equal(c.get('end-game-dialog').open,true);assert.notEqual(c.get('confirm-dialog').open,true);
+  assert.equal(c.checked(),undefined);assert.equal(c.get('end-game-confirm').disabled,true);
+  c.submitResult();assert.equal(c.get('end-game-dialog').open,true);assert.equal(c.remote().phase,'play');
+  c.run('selectResult("resign-'+opposite(side)+'")');assert.equal(c.get('end-game-confirm').disabled,false);
   c.submitResult();while(c.run('busy'))await new Promise(r=>setImmediate(r));
   assert.equal(c.remote().result.winner,opposite(side));assert.equal(c.remote().result.reason,'resign');
  }
 });
 test('a resign button opens the saved game on that page without the resigned popup',async()=>{
  const c=await client({publish:true});c.seed(MIN_LIBRARY_MOVES);await c.run('sync()');
- c.get('resign-white').onclick();assert.equal(c.get('end-game-confirm').textContent,'Save and view game');c.submitResult();
+ c.get('resign').onclick();assert.equal(c.get('end-game-confirm').textContent,'Save and view game');c.choose('resign-black');c.submitResult();
  while(c.run('busy'))await new Promise(r=>setImmediate(r));
  assert.deepEqual(c.calls.filter(x=>x.startsWith('NAVIGATE')),['NAVIGATE /game/2026100601']);assert.notEqual(c.get('resigned-dialog').open,true);
 });
