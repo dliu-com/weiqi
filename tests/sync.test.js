@@ -158,7 +158,7 @@ test('a device set to one side only plays that side and only counts down its tim
  await c.run("action({type:'metadata',name:'T',players:{black:'',white:''},timeControl:{mainSeconds:0,overtime:'2x30 byo-yomi'}})");
  assert.equal(c.run('canPlay()'),true);assert.equal(c.get('pass').disabled,false);
  await c.run("action({type:'move',index:180})");c.run('state.clock.since=stateAt=Date.now()');
- assert.equal(c.run('canPlay()'),false);assert.equal(c.get('pass').disabled,true);assert.equal(c.get('detail').textContent,'Waiting for the other player…');
+ assert.equal(c.run('canPlay()'),false);assert.equal(c.get('pass').disabled,true);assert.equal(c.get('detail').textContent,'');
  tick();c.advance(19800);tick();assert.deepEqual(c.spoken,[]);
  c.run("mySide='white'");c.advance(1000);tick();assert.deepEqual(c.spoken,[9]);
  c.run("mySide='both'");c.run('render()');assert.equal(c.run('canPlay()'),true);

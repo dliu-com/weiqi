@@ -159,7 +159,6 @@ button.is-loading:before{content:'';display:inline-block;width:12px;height:12px;
 .play-prefs #play-sound{flex:1 1 140px;min-width:0}
 .play-prefs .stone-sound-control{margin:0;gap:8px}
 .my-side{display:flex;align-items:center;flex-wrap:wrap;gap:6px;flex:1 1 100%;font-size:13px}
-.play-prefs .my-side>span{margin:0 2px 0 0}
 .my-side button{margin:0;padding:6px 10px;font-size:13px}
 .my-side button[aria-pressed=true]{color:#805719;border-color:#805719;background:#f6efe1;font-weight:650}
 .play-prefs .stone-sound-control>span{flex-shrink:0;width:18px;height:18px;margin:0;overflow:hidden;font-size:0;background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%235d6b70' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M11 5 6 9H3v6h3l5 4z' fill='%235d6b70'/%3E%3Cpath d='M15.5 8.5a5 5 0 0 1 0 7M18.5 5.5a9 9 0 0 1 0 13'/%3E%3C/svg%3E") center/contain no-repeat}
