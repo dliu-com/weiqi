@@ -32,8 +32,8 @@ const sections = [
           "Passing and ending the game"
         ],
         [
-          "无须落子时可“停一手”。双方连续停一手后进入数子阶段。也可点击“黑方认输”或“白方认输”，确认后对方获胜。",
-          "Choose Pass when you do not want to place a stone. Two consecutive passes begin scoring. Alternatively, select Black resigns or White resigns; after confirmation, the other side wins."
+          "无须落子时可“停一手”。双方连续停一手后进入数子阶段。也可点击“认输”，在结果窗口选择哪方中盘胜。",
+          "Choose Pass when you do not want to place a stone. Two consecutive passes begin scoring. Alternatively, select Resign and choose the winner by resignation in the result window."
         ]
       ],
       [
@@ -90,8 +90,8 @@ const sections = [
           "Auto-sync"
         ],
         [
-          "默认开启，页面可见时每 5 秒检查更新。连续 10 分钟无落子后自动关闭，可重新打开开关，或点击“立即同步”。切回页面或恢复网络时也会尝试同步。请求超过 10 秒无响应或连接失败，会显示醒目的页内提示；成功同步后提示消失。",
-          "Auto-sync is on by default and checks for updates every 5 seconds while the page is visible. It switches off after 10 minutes without a move. Turn it back on or select Sync now. Returning to the page or reconnecting also triggers a sync attempt. Failed requests or requests with no response for 10 seconds show an inline warning, which clears after a successful sync."
+          "默认开启，页面可见时每 3 秒检查更新。连续 10 分钟无落子后自动关闭，可重新打开开关，或点击“立即同步”。切回页面或恢复网络时也会尝试同步。请求超过 10 秒无响应或连接失败，会显示醒目的页内提示；成功同步后提示消失。",
+          "Auto-sync is on by default and checks for updates every 3 seconds while the page is visible. It switches off after 10 minutes without a move. Turn it back on or select Sync now. Returning to the page or reconnecting also triggers a sync attempt. Failed requests or requests with no response for 10 seconds show an inline warning, which clears after a successful sync."
         ]
       ],
       [
