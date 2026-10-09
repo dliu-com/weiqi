@@ -32,7 +32,7 @@ const server = http.createServer(async (request, response) => {
   if (pathname === '/api/game' || pathname.startsWith('/api/games')) {
     const archiveId = pathname.startsWith('/api/games/') ? pathname.slice(11) : null;
     let selected = archiveId ? archives.get(archiveId) : state;
-    const send = (code, value) => { response.writeHead(code, { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' }); response.end(JSON.stringify(value)); };
+    const send = (code, value) => { response.writeHead(code, { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' }); response.end(JSON.stringify(value.state && !archiveId ? { ...value, serverTime: Date.now() } : value)); };
     if (request.method === 'GET' && pathname === '/api/games') return send(200,{games:[...archives].map(([id,s])=>({id,gameName:s.gameName,createdAt:s.createdAt,updatedAt:s.updatedAt})),cursor:null});
     if (!selected) return send(404,{message:'页面不存在。'});
     if (request.method === 'GET') return send(200, { state: selected });

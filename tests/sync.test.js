@@ -7,7 +7,7 @@ import { createState, transition, freshLiveGame } from '../backend/game-service.
 import { play, opposite, score, gameTree, reviewPosition, gameClock, byoyomiSettings, timeLeft, sgf, standardKomi, MIN_LIBRARY_MOVES, MAX_GAME_MOVES } from '../src/engine.js';
 
 // Exercise the actual client with an isolated DOM/network/clock, never the live game.
-async function client({publish=false}={}) {
+async function client({publish=false,serverOffset}={}) {
   const elements = new Map(), intervals = [], timers = [], calls = [], spoken = [];
   class Element {
     parentElement = {append(){},querySelectorAll(){return [];}}; style = {}; dataset = {}; children = []; attrs = {}; hidden = false; checked = true;
@@ -21,8 +21,9 @@ async function client({publish=false}={}) {
   const radios=['score-black','score-white','resign-black','resign-white','draw','unfinished'].map(value=>({value,on:false,get checked(){return this.on;},set checked(v){if(v)for(const r of radios)r.on=false;this.on=v;}})), selected=new Map();
   const get = id => { if(!elements.has(id)) elements.set(id,new Element()); return elements.get(id); };
   let remote = createState(), failAfterSave = false, failGet = false, now = Date.now();
+  const serverTime = () => serverOffset === undefined ? {} : {serverTime:now + serverOffset};
   const context = vm.createContext({
-    mountTimeControl(){let current=null;return {render(){},fill(value){current=value;},value(){return current;}};},mountStoneSound(){},prepareStoneSound(){},playStoneSound(){},speakSecond(n){spoken.push(n);},localTimestamp:()=> 'test · UTC+1', play, opposite, score, gameTree, reviewPosition, gameClock, byoyomiSettings, timeLeft, sgf, standardKomi, MIN_LIBRARY_MOVES, MAX_GAME_MOVES, language:'en', t: (zh,en)=>en, translateError:s=>s, setLanguage(){},
+    mountTimeControl(){let current=null;return {render(){},fill(value){current=value;},value(){return current;}};},mountStoneSound(){},prepareStoneSound(){},playStoneSound(){},speakSecond(n){spoken.push(n);},speakText(text){spoken.push(text);},speechLead:()=>150,playLongBeep(){spoken.push('BEEP');},localTimestamp:()=> 'test · UTC+1', play, opposite, score, gameTree, reviewPosition, gameClock, byoyomiSettings, timeLeft, sgf, standardKomi, MIN_LIBRARY_MOVES, MAX_GAME_MOVES, language:'en', t: (zh,en)=>en, translateError:s=>s, setLanguage(){},
     location:{search:'',assign(url){calls.push('NAVIGATE '+url);}},URLSearchParams,
     document: {querySelector:s=>{const m=s.match(/input\[value="([^"]+)"\]/);if(m)return radios.find(r=>r.value===m[1]);if(s.includes(':checked'))return radios.find(r=>r.checked)||null;if(!selected.has(s))selected.set(s,new Element());return selected.get(s);},getElementById:get,createElement:()=>new Element(),createElementNS:()=>new Element(),
       createDocumentFragment:()=>new Element(),querySelectorAll:s=>s.includes('name="result"')?radios:[],addEventListener(){},visibilityState:'visible',body:new Element()},
@@ -30,12 +31,12 @@ async function client({publish=false}={}) {
     Date:class extends Date { static now(){return now;} },AbortSignal,TextEncoder,crypto:webcrypto,
     fetch:async (url,options)=>{
       calls.push(options.method === 'POST' && JSON.parse(options.body).action.type === 'heartbeat' ? 'HEARTBEAT' : options.method);
-      if(options.method==='GET') {if(failGet)throw new Error('Offline');return {ok:true,json:async()=>({state:structuredClone(remote)})};}
+      if(options.method==='GET') {if(failGet)throw new Error('Offline');return {ok:true,json:async()=>({state:structuredClone(remote),...serverTime()})};}
       const request=JSON.parse(options.body);
       remote=transition(remote,request);
       if(publish&&remote.phase==='ended')remote=freshLiveGame(remote,remote.history.length>=MIN_LIBRARY_MOVES?'2026100601':undefined);
       if(failAfterSave)throw new Error('Response lost');
-      return {ok:true,json:async()=>({state:structuredClone(remote)})};
+      return {ok:true,json:async()=>({state:structuredClone(remote),...serverTime()})};
     }
   });
   vm.runInContext(readFileSync(new URL('../src/board-geometry.js',import.meta.url),'utf8').replace(/^export /gm,''),context);
@@ -108,21 +109,49 @@ test('a clock that runs out locally shows 0 and syncs before showing the next pe
  tick();assert.equal(c.get('white-time').textContent,'00:00:30');assert.ok(c.get('white-box').classList.contains('byoyomi'));
  // The last period: White moved on another device just before it ran out here.
  // This page runs 2s ahead of the server after the advance above.
- c.remote().clock.white+=88000;c.intervals.find(i=>i.ms===3000).fn();await settle();tick();assert.equal(c.get('white-time').textContent,'00:00:02');assert.equal(c.get('white-periods').textContent,'Byo-yomi 1×30s');
+ c.remote().clock.white+=88000;c.intervals.find(i=>i.ms===3000).fn();await settle();tick();assert.equal(c.get('white-time').textContent,'00:00:02');assert.equal(c.get('white-periods').textContent,'Last period · 30s');
  c.move(181);c.advance(2000);tick();
- assert.equal(c.get('white-time').textContent,'00:00:00');assert.equal(c.get('white-periods').textContent,'Byo-yomi 1×30s');assert.equal(c.get('clock-note').hidden,true);
+ assert.equal(c.get('white-time').textContent,'00:00:00');assert.equal(c.get('white-periods').textContent,'Last period · 30s');assert.equal(c.get('clock-note').hidden,true);
  await settle();tick();
- assert.equal(c.run('state.turn'),'black');assert.equal(c.get('white-time').textContent,'00:00:30');assert.equal(c.get('white-periods').textContent,'Byo-yomi 1×30s');assert.equal(c.get('clock-note').hidden,true);
+ assert.equal(c.run('state.turn'),'black');assert.equal(c.get('white-time').textContent,'00:00:30');assert.equal(c.get('white-periods').textContent,'Last period · 30s');assert.equal(c.get('clock-note').hidden,true);
 });
-test('byo-yomi reads the last 10 seconds of a period aloud, once each',async()=>{
+test('byo-yomi numbers are timed to be heard as each second remains, never late',async()=>{
  const c=await client(),tick=()=>c.run('renderClock()');
  await c.run("action({type:'metadata',name:'T',players:{black:'',white:''},timeControl:{mainSeconds:0,overtime:'2x30 byo-yomi'}})");
- await c.run("action({type:'move',index:180})");
- tick();c.advance(15000);tick();assert.deepEqual(c.spoken,[]);
- c.advance(5500);tick();tick();assert.deepEqual(c.spoken,[10]);assert.equal(c.get('white-time').textContent,'00:00:10');
- c.advance(1000);tick();assert.deepEqual(c.spoken,[10,9]);
+ await c.run("action({type:'move',index:180})");c.run('state.clock.since=stateAt=Date.now()');
+ // Speech takes 150 ms to start here, plus a 50 ms margin, so each number starts 200 ms early.
+ tick();c.advance(19700);tick();assert.deepEqual(c.spoken,[]);assert.equal(c.timers.at(-1).ms,101);
+ c.advance(100);tick();assert.deepEqual(c.spoken,[10]);assert.equal(c.get('white-time').textContent,'00:00:11');
+ c.advance(200);tick();assert.equal(c.get('white-time').textContent,'00:00:10');tick();assert.deepEqual(c.spoken,[10]);
+ c.advance(800);tick();assert.deepEqual(c.spoken,[10,9]);
+ // 150 ms late for "eight": skipped rather than read late.
+ c.advance(1150);tick();assert.deepEqual(c.spoken,[10,9]);
+ // "One" starts with 1.2 s left, so it is heard as 1 s remains.
+ c.advance(6850);tick();assert.deepEqual(c.spoken,[10,9,1]);assert.equal(c.get('white-time').textContent,'00:00:02');assert.equal(c.timers.at(-1).ms,201);
+ c.advance(200);tick();assert.equal(c.get('white-time').textContent,'00:00:01');assert.deepEqual(c.spoken,[10,9,1]);
  c.run("state.clock.paused=true");c.advance(1000);tick();c.run("state.clock.paused=false");
- c.run("reviewing=0");tick();c.run("reviewing=null");assert.deepEqual(c.spoken,[10,9]);
+ c.run("reviewing=0");tick();c.run("reviewing=null");assert.deepEqual(c.spoken,[10,9,1]);
+});
+test('byo-yomi says how many periods are left, and a timeout sounds a long beep',async()=>{
+ const c=await client(),tick=()=>c.run('renderClock()'),confirm=()=>{c.run('stateAt=state.clock.lastSeen=Date.now()');tick();};
+ await c.run("action({type:'metadata',name:'T',players:{black:'',white:''},timeControl:{mainSeconds:60,overtime:'3x30 byo-yomi'}})");
+ await c.run("action({type:'move',index:180})");c.run('state.clock.since=stateAt=Date.now()');
+ tick();assert.equal(c.get('white-periods').textContent,'Byo-yomi 3×30s');
+ c.advance(61000);confirm();assert.deepEqual(c.spoken,['Byo-yomi, 3 periods']);
+ assert.equal(c.get('white-periods').textContent,'Periods left: 3 × 30s');assert.ok(c.get('white-box').classList.contains('period-used'));
+ c.advance(5000);confirm();assert.ok(!c.get('white-box').classList.contains('period-used'));
+ c.advance(30000);confirm();assert.deepEqual(c.spoken.at(-1),'2 periods left');assert.equal(c.get('white-periods').textContent,'Periods left: 2 × 30s');
+ assert.ok(c.get('white-box').classList.contains('period-used'));
+ c.advance(30000);confirm();assert.deepEqual(c.spoken.at(-1),'Last period');assert.equal(c.get('white-periods').textContent,'Last period · 30s');
+ const before=c.spoken.length;c.advance(30000);confirm();confirm();
+ assert.deepEqual(c.spoken.slice(before),['BEEP']);assert.equal(c.get('white-time').textContent,'Time out');assert.equal(c.get('white-periods').textContent,'No periods left');
+});
+test('clocks follow the server time even when the device clock is off',async()=>{
+ const c=await client({serverOffset:5000}),tick=()=>c.run('renderClock()');
+ await c.run("action({type:'metadata',name:'T',players:{black:'',white:''},timeControl:{mainSeconds:0,overtime:'2x30 byo-yomi'}})");
+ await c.run("action({type:'move',index:180})");assert.equal(c.run('serverNow()-Date.now()'),5000);
+ c.run('state.clock.since=stateAt=serverNow()');tick();assert.equal(c.get('white-time').textContent,'00:00:30');
+ c.run('state.clock.since=Date.now()');tick();assert.equal(c.get('white-time').textContent,'00:00:25');
 });
 test('sync status shows how long ago the page synced',async()=>{
  const c=await client();assert.equal(c.get('sync').textContent,'0s ago');assert.match(c.get('sync').title,/^Synced · /);

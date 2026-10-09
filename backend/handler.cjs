@@ -6,6 +6,8 @@ const response = (statusCode, body) => ({
   headers: { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store', 'x-content-type-options': 'nosniff' },
   body: JSON.stringify(body),
 });
+// Live-game replies carry the server's time so pages can match their clocks to it.
+const gameResponse = (statusCode, body) => response(statusCode, { ...body, serverTime: Date.now() });
 async function readGame(key = 'current') {
   const data = await db.send(new GetItemCommand({
     TableName: process.env.TABLE_NAME,
@@ -41,7 +43,7 @@ exports.handler = async event => {
         id: i.gameId.S.slice(8), gameName: i.gameName?.S || null, createdAt: i.createdAt?.S, updatedAt: i.updatedAt?.S
       })), cursor: data.LastEvaluatedKey?.gameId.S || null });
     }
-    if (method === 'GET') {let state=await readGame(key);if(!archiveId&&state.phase==='ended')state=await publishLiveGame(state);return response(200,{state});}
+    if (method === 'GET') {let state=await readGame(key);if(!archiveId&&state.phase==='ended')state=await publishLiveGame(state);return gameResponse(200,{state});}
     if (requestPath === '/api/games') return response(405, { message: '不支持此请求方法。' });
     if (method !== 'POST') return response(405, { message: '不支持此请求方法。' });
     const headers = event.headers || {};
@@ -53,8 +55,8 @@ exports.handler = async event => {
     try { request = JSON.parse(raw); } catch { return response(400, { message: '请求格式无效。' }); }
     if (archiveId) throw new GameError('当前棋局不能执行此操作。');
     const current = await readGame(key);
-    if (current.phase === 'ended') return response(200, { state: await publishLiveGame(current) });
-    if (request.action?.type === 'heartbeat' && (current.phase !== 'play' || current.clock?.paused || current.clock?.since === null)) return response(200, { state: current });
+    if (current.phase === 'ended') return gameResponse(200, { state: await publishLiveGame(current) });
+    if (request.action?.type === 'heartbeat' && (current.phase !== 'play' || current.clock?.paused || current.clock?.since === null)) return gameResponse(200, { state: current });
     const next = transition(current, request);
     const item = (id, state) => ({
       gameId: { S: id }, revision: { N: String(state.revision) }, clockVersion: { N: String(state.clockVersion || 0) }, state: { S: JSON.stringify(state) },
@@ -68,11 +70,11 @@ exports.handler = async event => {
       ExpressionAttributeValues: { ':expected': { N: String(current.revision) }, ':clockVersion': { N: String(current.clockVersion || 0) } },
     };
     await db.send(new PutItemCommand(save));
-    return response(200, { state: next.phase==='ended'&&!archiveId?await publishLiveGame(next):next });
+    return gameResponse(200, { state: next.phase==='ended'&&!archiveId?await publishLiveGame(next):next });
   } catch (error) {
     if (error.name === 'ConditionalCheckFailedException' || error.name === 'TransactionCanceledException' || error.statusCode === 409) {
       if (error.statusCode !== 409 && (event._retry || 0) < 3) return exports.handler({ ...event, _retry: (event._retry || 0) + 1 });
-      return response(409, { message: '棋局已更新，已为你同步最新进度。', state: await readGame(key) });
+      return gameResponse(409, { message: '棋局已更新，已为你同步最新进度。', state: await readGame(key) });
     }
     if (error instanceof GameError) return response(error.statusCode, { message: error.message });
     console.error('Game API failed', { name: error.name, message: error.message });

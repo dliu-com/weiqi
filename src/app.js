@@ -1,6 +1,6 @@
 import './site-shell.js';
 import {BoardView} from './board-view.js';
-import {mountStoneSound,prepareStoneSound,playStoneSound,speakSecond} from './stone-sound.js';
+import {mountStoneSound,prepareStoneSound,playStoneSound,speakSecond,speakText,speechLead,playLongBeep} from './stone-sound.js';
 import {localTimestamp} from './site-time.js';
 import { t, language, setLanguage, translateError } from './i18n.js';
 import { play, opposite, score, gameTree, reviewPosition, gameClock, byoyomiSettings, timeLeft, standardKomi, MIN_LIBRARY_MOVES, MAX_GAME_MOVES } from './engine.js';
@@ -54,7 +54,11 @@ function previewMove(index) {
     render();playStoneSound();
   } catch(error) { notice(translateError(error.message)); }
 }
-let state = null, stateAt = null, boundarySync = {key:'',at:0}, spokenKey = '', busy = false, polling = false, automatic = true, lastActivity = Date.now(), noticeTimer, pendingConfirmation;
+let state = null, stateAt = null, boundarySync = {key:'',at:0}, spokenKey = '', periodSeen = null, periodFlash = null, timeoutSeen = null, clockTimer, busy = false, polling = false, automatic = true, lastActivity = Date.now(), noticeTimer, pendingConfirmation;
+// Clocks use the server's time, estimated from the fastest of the last 10 replies, so a device whose own clock is off still counts down correctly.
+const clockSamples = [];
+let clockOffset = 0;
+const serverNow = () => Date.now() + clockOffset;
 function notice(message) { setText($('notice'),message); $('notice').hidden = false; clearTimeout(noticeTimer); noticeTimer = setTimeout(() => $('notice').hidden = true, 6000); }
 async function request(method = 'GET', payload) {
   const headers = {}, options = { method, cache: 'no-store', signal: AbortSignal.timeout(10000), headers };
@@ -63,7 +67,11 @@ async function request(method = 'GET', payload) {
     const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(options.body));
     headers['x-amz-content-sha256'] = Array.from(new Uint8Array(digest), b => b.toString(16).padStart(2,'0')).join('');
   }
-  const response = await fetch(apiPath, options), data = await response.json();
+  const sent = Date.now(), response = await fetch(apiPath, options), received = Date.now(), data = await response.json();
+  if (Number.isFinite(data.serverTime)) {
+    clockSamples.push({rtt:received - sent, offset:data.serverTime - (sent + received) / 2}); if (clockSamples.length > 10) clockSamples.shift();
+    clockOffset = clockSamples.reduce((best, sample) => sample.rtt < best.rtt ? sample : best).offset;
+  }
   if (!response.ok) { const error = new Error(data.message || t("同步失败，请稍后重试。","Sync failed. Please try again.")); error.state = data.state; error.httpStatus = response.status; throw error; }
   showSyncWarning(false);
   return data.state;
@@ -77,7 +85,7 @@ function adopt(next) {
   if (reviewing !== null && reviewing >= gameTree(next).nodes.length) reviewing = null;
   const freshGame=state&&(state.generation||0)!==(next.generation||0),previousGeneration=state?.generation||0,previousMoves=state?.history.length||0;
   const newStone=state&&!freshGame&&next.history.length===state.history.length+1&&next.history.at(-1)?.type==='move';
-  state = next; stateAt = Date.now(); render();if(newStone)playStoneSound();
+  state = next; stateAt = serverNow(); render();if(newStone)playStoneSound();
   if (pendingSavedGeneration !== null && next.lastSavedGame?.generation === pendingSavedGeneration) {
     pendingSavedGeneration = null; location.assign('/game/' + encodeURIComponent(next.lastSavedGame.id));
   }
@@ -242,15 +250,20 @@ $('review-next').onclick = () => {
 };
 $('review-live').onclick = () => { if (archiveId) { location.href = './'; return; } reviewing = null; trialMoves = []; render(); };
 
+const spokenCount = n => n === 2 ? '两' : n <= 10 ? '一二三四五六七八九十'[n-1] : String(n);
+const periodsSpoken = (n, started) => started ? (n > 1 ? t(`开始读秒，共${spokenCount(n)}次`,`Byo-yomi, ${n} periods`) : t('开始读秒，最后一次','Byo-yomi, last period')) : n > 1 ? t(`还剩${spokenCount(n)}次读秒`,`${n} periods left`) : t('最后一次读秒','Last period');
+const periodsShown = (left, seconds) => left.timeout ? t('读秒已用完','No periods left') : !left.byoyomi ? t(`读秒 ${left.periods}×${seconds}秒`,`Byo-yomi ${left.periods}×${seconds}s`) : left.periods > 1 ? t(`还剩 ${left.periods} 次读秒 · ${seconds}秒`,`Periods left: ${left.periods} × ${seconds}s`) : t(`最后一次读秒 · ${seconds}秒`,`Last period · ${seconds}s`);
 function renderClock() {
   if (!state) return;
+  clearTimeout(clockTimer);
   const saved = reviewing !== null ? gameTree(state).nodes[reviewing]?.[5] : null;
-  const now = Date.now(), clock = reviewing === null ? gameClock(state, now) : {black:saved?.[0] || 0,white:saved?.[1] || 0,paused:true};
+  const now = serverNow(), clock = reviewing === null ? gameClock(state, now) : {black:saved?.[0] || 0,white:saved?.[1] || 0,paused:true};
   const format = ms => { const seconds = Math.floor(ms/1000); return [Math.floor(seconds/3600),Math.floor(seconds/60)%60,seconds%60].map(n=>String(n).padStart(2,'0')).join(':'); };
   const byo = byoyomiSettings(state.timeControl);
   // Time that runs out on this page shows 0 until a sync after that moment, as another device may have just moved.
   const stage = left => [left?.timeout, left?.byoyomi, left?.periods].join();
-  const confirmed = byo && reviewing === null && !archiveId && state.phase === 'play' && stateAt !== null ? timeLeft(state, gameClock(state, Math.min(stateAt, now)), state.turn) : null;
+  const synced = reviewing === null && !archiveId && stateAt !== null ? gameClock(state, Math.min(stateAt, now)) : null;
+  const confirmed = byo && synced && state.phase === 'play' ? timeLeft(state, synced, state.turn) : null;
   const held = confirmed && stage(confirmed) !== stage(timeLeft(state, clock, state.turn)) ? {...confirmed, remaining:0} : null;
   const heldKey = held ? [state.generation || 0, state.history.length, stage(confirmed)].join() : '';
   if (held && (heldKey !== boundarySync.key || now - boundarySync.at >= 3000) && document.visibilityState === 'visible') { boundarySync = {key:heldKey, at:now}; sync(); }
@@ -260,15 +273,34 @@ function renderClock() {
     const left = held && side === state.turn ? held : byo && reviewing === null ? timeLeft(state, clock, side) : null;
     setText($(side + '-time'),reviewing !== null && !saved ? '—' : left?.timeout ? t('超时','Time out') : left ? format(Math.ceil(left.remaining/1000)*1000) : format(clock[side]));
     $(side + '-periods').hidden = !byo;
-    setText($(side + '-periods'),left ? t(`读秒 ${left.periods}×${byo.period/1000}秒`,`Byo-yomi ${left.periods}×${byo.period/1000}s`) : '');
+    setText($(side + '-periods'),left ? periodsShown(left, byo.period/1000) : '');
     $(side + '-box').classList.toggle('byoyomi', !!left?.byoyomi && !left.timeout);
     $(side + '-box').classList.toggle('timeout', !!left?.timeout);
   }
-  // Read the last 10 seconds of each byo-yomi period aloud.
+  // Sounds follow what the server has confirmed: a long beep on a timeout, periods left when main time or a period runs out,
+  // then the last 10 seconds of each period.
+  const visible = document.visibilityState === 'visible';
+  if (synced) {
+    const outKey = synced.timedOut ? [state.generation || 0, synced.timedOut.side, synced.timedOut.move].join() : '';
+    if (outKey && timeoutSeen !== null && outKey !== timeoutSeen && visible) playLongBeep();
+    timeoutSeen = outKey;
+  }
   const running = !held && byo && reviewing === null && !archiveId && state.phase === 'play' && state.clock?.since != null && !state.clock?.paused && !clock.autoPaused && !clock.timedOut ? timeLeft(state, clock, state.turn) : null;
-  const count = running?.byoyomi ? Math.ceil(running.remaining / 1000) : 0, spoken = count > 0 && count <= 10 ? [state.generation || 0, state.history.length, running.periods, count].join() : '';
-  if (spoken && spoken !== spokenKey && document.visibilityState === 'visible') speakSecond(count);
-  spokenKey = spoken;
+  if (running) {
+    const turnKey = [state.generation || 0, gameTree(state).head, state.turn].join(), seen = periodSeen?.key === turnKey ? periodSeen : null;
+    const announce = seen && running.byoyomi && (!seen.byoyomi || running.periods < seen.periods) ? periodsSpoken(running.periods, !seen.byoyomi) : '';
+    if (announce) periodFlash = {side:state.turn, until:now + 5000};
+    periodSeen = {key:turnKey, byoyomi:running.byoyomi, periods:running.periods};
+    if (running.byoyomi) {
+      // Each number starts early by the measured speech delay, so it is heard as that many seconds remain. A late number is skipped.
+      const r = running.remaining, lead = speechLead() + 50, n = Math.ceil((r - lead) / 1000), key = [turnKey, running.periods, n].join();
+      if (announce) { if (visible) speakText(announce); spokenKey = key; }
+      else if (n >= 1 && n <= 10 && n * 1000 - (r - lead) <= 100 && key !== spokenKey && visible) { speakSecond(n); spokenKey = key; }
+      // Wake exactly when the next number is due or the display changes.
+      clockTimer = setTimeout(renderClock, Math.min(r - lead - (n - 1) * 1000, r - (Math.ceil(r / 1000) - 1) * 1000) + 1);
+    }
+  }
+  for (const side of ['black','white']) $(side + '-box').classList.toggle('period-used', reviewing === null && periodFlash?.side === side && now < periodFlash.until);
   $('pause-clock').disabled = !!archiveId || reviewing !== null || state.phase !== 'play' || !!timedOut;
   setText($('pause-clock'),state.clock?.paused ? t('恢复计时','Resume clock') : t('暂停计时','Pause clock'));
   $('pause-clock').dataset.paused = state.clock?.paused ? 'true' : 'false';

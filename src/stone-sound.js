@@ -33,10 +33,31 @@ export function playStoneSound(){
   source.onended=()=>{source.disconnect();gain.disconnect();};source.start();
  }).catch(()=>{});
 }
-// Byo-yomi seconds are read aloud at the same volume setting; speech is quieter than the click, so low settings are raised.
-export function speakSecond(n){
+// Byo-yomi speech uses the same volume setting; speech is quieter than the click, so low settings are raised.
+// Each utterance measures how long speech takes to start, so the countdown can start that much early.
+let speechDelay=150;
+export const speechLead=()=>speechDelay;
+export function speakText(text){
  const speech=window.speechSynthesis;if(!volume||!speech||typeof SpeechSynthesisUtterance!=='function')return;
- try{speech.cancel();const u=new SpeechSynthesisUtterance(String(n));u.lang=t('zh-CN','en-GB');u.rate=1.2;u.volume=Math.sqrt(volume/100);speech.speak(u);}catch{}
+ try{
+  speech.cancel();const u=new SpeechSynthesisUtterance(text),at=performance.now();
+  u.lang=t('zh-CN','en-GB');u.rate=1.2;u.volume=Math.sqrt(volume/100);
+  u.onstart=()=>{const delay=performance.now()-at;if(delay>=0&&delay<2000)speechDelay=Math.round(Math.max(100,Math.min(600,speechDelay*0.7+delay*0.3)));};
+  speech.speak(u);
+ }catch{}
+}
+export const speakSecond=n=>speakText(String(n));
+// A long beep when a player runs out of time.
+export function playLongBeep(){
+ if(!volume||!context)return;
+ try{
+  if(context.state==='suspended')void context.resume().catch(()=>{});
+  const tone=context.createOscillator(),gain=context.createGain(),start=context.currentTime+0.02,level=0.5*Math.sqrt(volume/100);
+  tone.type='sine';tone.frequency.value=880;
+  gain.gain.setValueAtTime(0,start);gain.gain.linearRampToValueAtTime(level,start+0.02);gain.gain.setValueAtTime(level,start+1.4);gain.gain.linearRampToValueAtTime(0,start+1.5);
+  tone.connect(gain);gain.connect(context.destination);tone.onended=()=>{tone.disconnect();gain.disconnect();};
+  tone.start(start);tone.stop(start+1.5);
+ }catch{}
 }
 export function mountStoneSound(container){
  const label=document.createElement('label'),text=document.createElement('span'),slider=document.createElement('input'),value=document.createElement('output');
