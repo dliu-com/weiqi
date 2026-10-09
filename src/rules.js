@@ -71,7 +71,7 @@ const sections = [
         ],
         [
           "全站共用一盘当前棋局，无账号；任何访问者都可操作黑白双方。每台设备可选“我是黑方”“我是白方”或“两人同机”：选黑方或白方后，本机只能下这一方，读秒也只为这一方读；超时提示音双方都会响。这只是本机设置，不限制其他设备。顶部“新棋局”会创建新的一局，并把上一局保存到“历史棋局”。请先与对方确认。",
-          "The site shares one current game, without accounts. Any visitor can operate either color. Each device can choose I play Black, I play White or Shared device. With Black or White, that device only plays that side, and the countdown is read only for that side; the timeout beep sounds for both. This only affects that device. New game at the top creates a fresh game and saves the previous one in Game history. Agree with your opponent before starting another game."
+          "The site shares one current game, without accounts. Any visitor can operate either color. Each device can choose I play Black, I play White or Same device. With Black or White, that device only plays that side, and the countdown is read only for that side; the timeout beep sounds for both. This only affects that device. New game at the top creates a fresh game and saves the previous one in Game history. Agree with your opponent before starting another game."
         ]
       ],
       [
