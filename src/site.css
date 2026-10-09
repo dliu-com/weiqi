@@ -150,7 +150,6 @@ button.is-loading:before{content:'';display:inline-block;width:12px;height:12px;
 .player-box.byoyomi .player-box-time,.player-box.timeout .player-box-time{color:#a12a1f}
 .player-box.timeout .player-box-time{font-weight:650}
 .status-card .clock-note{margin:-4px 0 10px;font-size:13px;color:var(--muted)}
-.status-card .clock-note.timeout{color:#a12a1f;font-weight:600}
 #pause-clock{display:flex;align-items:center;justify-content:center;gap:7px}
 #pause-clock::before{content:"";flex-shrink:0;box-sizing:border-box;width:9px;height:11px;border-left:3px solid currentColor;border-right:3px solid currentColor}
 #pause-clock[data-paused=true]::before{width:0;height:0;border-right:0;border-left:10px solid currentColor;border-top:6px solid transparent;border-bottom:6px solid transparent}

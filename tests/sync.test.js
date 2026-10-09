@@ -94,7 +94,7 @@ test('byo-yomi is set before the first move, counts down, and a timeout only sto
  Object.assign(c.remote().clock,{timedOut:{side:'white',move:2},since:null});
  c.intervals.find(i=>i.ms===3000).fn();while(c.run('polling'))await new Promise(r=>setImmediate(r));c.intervals.find(i=>i.ms===1000).fn();
  assert.equal(c.get('white-time').textContent,'Time out');assert.ok(c.get('white-box').classList.contains('timeout'));
- assert.match(c.get('clock-note').textContent,/White ran out of time/);assert.equal(c.get('pause-clock').disabled,true);assert.equal(c.run('canPlay()'),true);
+ assert.equal(c.get('clock-note').hidden,true);assert.equal(c.get('white-time').textContent,'Time out');assert.equal(c.get('pause-clock').disabled,true);assert.equal(c.run('canPlay()'),true);
 });
 test('sync status shows how long ago the page synced',async()=>{
  const c=await client();assert.equal(c.get('sync').textContent,'0s ago');assert.match(c.get('sync').title,/^Synced · /);
