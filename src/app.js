@@ -1,6 +1,6 @@
 import './site-shell.js';
 import {BoardView} from './board-view.js';
-import {mountStoneSound,prepareStoneSound,playStoneSound,speakSecond,speakText,speechLead,playLongBeep} from './stone-sound.js';
+import {mountStoneSound,prepareStoneSound,playStoneSound,speakSecond,speakText,speechLead,playTimeoutBeep,soundBlocked,unlockSoundOnTap} from './stone-sound.js';
 import {localTimestamp} from './site-time.js';
 import { t, language, setLanguage, translateError } from './i18n.js';
 import { play, opposite, score, gameTree, reviewPosition, gameClock, byoyomiSettings, timeLeft, standardKomi, MIN_LIBRARY_MOVES, MAX_GAME_MOVES } from './engine.js';
@@ -9,6 +9,10 @@ const $ = id => document.getElementById(id);
 function setText(el, value) { value = value == null ? '' : String(value); const node = el.firstChild; if (node && node === el.lastChild && node.nodeType === 3) { if (node.data !== value) node.data = value; } else if (el.textContent !== value) el.textContent = value; }
 mountStoneSound($('play-sound'));
 const names = { get black() { return t('黑方','Black'); }, get white() { return t('白方','White'); } };
+// The side this device plays: its moves and byo-yomi voice only, or both players on one device.
+let mySide = 'both';
+try { const saved = localStorage.getItem('weiqi.my-side'); if (saved === 'black' || saved === 'white') mySide = saved; } catch {}
+const myTurn = () => mySide === 'both' || state?.turn === mySide;
 const archiveId = new URLSearchParams(location.search).get('game');
 const apiPath = archiveId ? '/api/games/' + encodeURIComponent(archiveId) : '/api/game';
 const rulesName = rules => rules==='Japanese'?t('日本规则','Japanese rules'):t('中国规则','Chinese rules');
@@ -124,7 +128,7 @@ async function action(action) {
     catch { showSyncWarning(true); showSyncText(t("连接失败，请同步后重试","Connection failed. Sync and try again.")); }
   } finally { clearTimeout(slowTimer); busy = false; render(); }
 }
-function canPlay() { return state && !archiveId && reviewing === null && state.phase === 'play' && !state.clock?.paused && state.history.length < MAX_GAME_MOVES; }
+function canPlay() { return state && !archiveId && reviewing === null && state.phase === 'play' && !state.clock?.paused && state.history.length < MAX_GAME_MOVES && myTurn(); }
 function render() {
   if (!state) return;
   setText($('game-name'),gameTitle(state));
@@ -148,6 +152,8 @@ function render() {
   setText($('turn'),ended ? (state.result.winner ? names[state.result.winner] + t("胜"," wins") : state.result.reason==='unfinished' ? t('未完成','Unfinished') : t("和棋","Draw")) : scoring ? t("双方数子","Scoring") : t("轮到","To play: ") + names[state.turn]);
   setText($('detail'),ended ? (state.result.reason==='unfinished' ? t('本局未完成。','The game was not finished.') : state.result.reason === 'resign' ? t("对方认输，本局结束。","The opponent resigned. Game over.") : state.result.reason==='agreed'?t('双方约定结果，棋局已保存。','Agreed result; game saved.'):t(`胜差 ${state.result.margin} 目`,`Margin: ${state.result.margin} points`)) : scoring ? t("标记所有死子，然后确认胜负。","Mark all dead stones, then confirm the result.") : (canPlay() ? '' : state.history.length >= MAX_GAME_MOVES ? t(`已达 ${MAX_GAME_MOVES} 手上限，请点击“新一局”选择结果。`,`${MAX_GAME_MOVES}-move limit reached. Select New game to choose the result.`) : t("等待对方落子…","Waiting for the other player…")));
   setText($('game-terms'),gameTerms(state));
+  setText($('my-side-label'),t('我是','I play'));
+  for (const button of $('my-side').querySelectorAll('button')) { setText(button,button.dataset.side === 'both' ? t('两人同机','Both') : names[button.dataset.side]); button.title = button.dataset.side === 'both' ? t('两人用同一设备对弈','Two players on this device') : ''; button.setAttribute('aria-pressed',String(button.dataset.side === mySide)); }
   setText($('black-captures'),displayed.captures.black); setText($('white-captures'),displayed.captures.white);
   for (const side of ['black','white']) { const player = state.players?.[side] || ''; setText($(side + '-box-label'),player || names[side]); $(side + '-box-label').title = names[side] + (player ? ': ' + player : ''); setText($(side + '-box-rank'),state.playerRanks?.[side] || ''); setText($(side + '-captures-label'),t('提子','Captures')); }
   const undoSide = state.history.at(-1)?.side;
@@ -277,12 +283,12 @@ function renderClock() {
     $(side + '-box').classList.toggle('byoyomi', !!left?.byoyomi && !left.timeout);
     $(side + '-box').classList.toggle('timeout', !!left?.timeout);
   }
-  // Sounds follow what the server has confirmed: a long beep on a timeout, periods left when main time or a period runs out,
+  // Sounds follow what the server has confirmed: a beep on any timeout; for this device's side only, periods left when main time or a period runs out,
   // then the last 10 seconds of each period.
-  const visible = document.visibilityState === 'visible';
+  const visible = document.visibilityState === 'visible', voice = visible && myTurn();
   if (synced) {
     const outKey = synced.timedOut ? [state.generation || 0, synced.timedOut.side, synced.timedOut.move].join() : '';
-    if (outKey && timeoutSeen !== null && outKey !== timeoutSeen && visible) playLongBeep();
+    if (outKey && timeoutSeen !== null && outKey !== timeoutSeen && visible) playTimeoutBeep();
     timeoutSeen = outKey;
   }
   const running = !held && byo && reviewing === null && !archiveId && state.phase === 'play' && state.clock?.since != null && !state.clock?.paused && !clock.autoPaused && !clock.timedOut ? timeLeft(state, clock, state.turn) : null;
@@ -294,8 +300,8 @@ function renderClock() {
     if (running.byoyomi) {
       // Each number starts early by the measured speech delay, so it is heard as that many seconds remain. A late number is skipped.
       const r = running.remaining, lead = speechLead() + 50, n = Math.ceil((r - lead) / 1000), key = [turnKey, running.periods, n].join();
-      if (announce) { if (visible) speakText(announce); spokenKey = key; }
-      else if (n >= 1 && n <= 10 && n * 1000 - (r - lead) <= 100 && key !== spokenKey && visible) { speakSecond(n); spokenKey = key; }
+      if (announce) { if (voice) speakText(announce); spokenKey = key; }
+      else if (n >= 1 && n <= 10 && n * 1000 - (r - lead) <= 100 && key !== spokenKey && voice) { speakSecond(n); spokenKey = key; }
       // Wake exactly when the next number is due or the display changes.
       clockTimer = setTimeout(renderClock, Math.min(r - lead - (n - 1) * 1000, r - (Math.ceil(r / 1000) - 1) * 1000) + 1);
     }
@@ -304,13 +310,13 @@ function renderClock() {
   $('pause-clock').disabled = !!archiveId || reviewing !== null || state.phase !== 'play' || !!timedOut;
   setText($('pause-clock'),state.clock?.paused ? t('恢复计时','Resume clock') : t('暂停计时','Pause clock'));
   $('pause-clock').dataset.paused = state.clock?.paused ? 'true' : 'false';
-  setText($('clock-note'),reviewing !== null ? t('该手结束时的累计用时','Total time at this move') : timedOut ? t(names[timedOut.side]+'超时，计时已停止，对局继续',names[timedOut.side]+' ran out of time. The clock has stopped; play on.') : state.clock?.since && state.phase === 'play' && !state.clock?.paused && clock.autoPaused ? t('无人在线，计时自动暂停','No active page · Clock automatically paused') : '');
+  setText($('clock-note'),reviewing !== null ? t('该手结束时的累计用时','Total time at this move') : timedOut ? t(names[timedOut.side]+'超时，计时已停止，对局继续',names[timedOut.side]+' ran out of time. The clock has stopped; play on.') : state.clock?.since && state.phase === 'play' && !state.clock?.paused && clock.autoPaused ? t('无人在线，计时自动暂停','No active page · Clock automatically paused') : byo && !archiveId && state.phase === 'play' && soundBlocked() ? t('轻触页面即可开启读秒声音','Tap the page to turn on the countdown voice.') : '');
   $('clock-note').hidden = !$('clock-note').textContent;
   $('clock-note').classList.toggle('timeout', reviewing === null && !!timedOut);
 }
 $('pause-clock').onclick = () => { if (state) action({type:'clock',paused:!state.clock?.paused}); };
 setInterval(renderClock,250);
-window.addEventListener('pointerdown',()=>prepareStoneSound(),{once:true});
+unlockSoundOnTap();
 const boardView=new BoardView($('board'),{onPoint:i=>{if(busy||!state)return;prepareStoneSound();if(reviewing!==null){previewMove(i);return;}if(archiveId)return;if(state.phase==='scoring')action({type:'dead',index:i});else if(canPlay())action({type:'move',index:i});}});
 const points=boardView.points;
 function confirmAction(title,text,operation,acceptLabel=t('确认','Confirm')) { setText($('accept-confirm'),acceptLabel); $('confirm-title').className=''; const revision = state.revision; pendingConfirmation = () => { if (state.revision !== revision) { notice(t('棋局已更新，请重新确认。','The game has changed. Please confirm again.')); return; } operation(); }; setText($('confirm-title'),title); setText($('confirm-text'),text); $('confirm-dialog').showModal(); }
@@ -385,8 +391,9 @@ $('auto').onchange=()=>{automatic=$('auto').checked; renderAutoSync(); if(automa
 setInterval(()=>{ if(!automatic)return; if(Date.now()-lastActivity>=10*60*1000){automatic=false;$('auto').checked=false;renderAutoSync();showSyncText(t("10 分钟无落子，已暂停同步","Paused: no move in 10 min"));return;} if(document.visibilityState==='visible')sync(); },3000);
 window.addEventListener('focus',()=>{if(automatic)sync();}); window.addEventListener('online',()=>{if(automatic)sync();}); document.addEventListener('visibilitychange',()=>{if(automatic&&document.visibilityState==='visible')sync();});
 if (archiveId) {
-  automatic = false; $('auto').checked = false; $('sync-group').hidden = true;
+  automatic = false; $('auto').checked = false; $('sync-group').hidden = true; $('my-side').hidden = true;
 }
+for (const button of $('my-side').querySelectorAll('button')) button.onclick = () => { mySide = button.dataset.side; try { localStorage.setItem('weiqi.my-side',mySide); } catch {} render(); };
 sync();
 
 let editRevision;

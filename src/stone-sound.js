@@ -7,17 +7,26 @@ try{const saved=localStorage.getItem(key);if(saved!==null&&Number.isFinite(Numbe
 // stone-placement-LICENSE.txt for the original sample and MIT attribution.
 const sampleBytes=fetch(new URL('./stone-placement.mp3',import.meta.url)).then(response=>response.ok?response.arrayBuffer():null).catch(()=>null);
 let decodedSample=null;
-let speechReady=false;
+function audio(){
+ try{const Audio=window.AudioContext||window.webkitAudioContext;if(Audio)context??=new Audio();}catch{}
+ return context;
+}
 export function prepareStoneSound(){
  if(!volume)return;
- // iOS only speaks after speech has started inside a tap.
- if(!speechReady&&window.speechSynthesis&&typeof SpeechSynthesisUtterance==='function'){speechReady=true;try{const u=new SpeechSynthesisUtterance('');u.volume=0;speechSynthesis.speak(u);}catch{}}
+ // iOS only speaks after speech has started inside a tap, so speech is primed on each tap until sound is on.
+ if(!soundOn()&&window.speechSynthesis&&typeof SpeechSynthesisUtterance==='function'){try{const u=new SpeechSynthesisUtterance('');u.volume=0;speechSynthesis.speak(u);}catch{}}
+ if(!audio())return;
  try{
-  const Audio=window.AudioContext||window.webkitAudioContext;if(!Audio)return;
-  context??=new Audio();
   if(context.state==='suspended')void context.resume().catch(()=>{});
   decodedSample??=sampleBytes.then(bytes=>bytes?context.decodeAudioData(bytes):null).catch(()=>null);
  }catch{}
+}
+// Browsers keep a newly loaded page silent until it is tapped (a refresh counts as newly loaded).
+const soundOn=()=>context?.state==='running';
+export const soundBlocked=()=>!!volume&&!!audio()&&!soundOn();
+export function unlockSoundOnTap(){
+ const events=['pointerdown','pointerup','touchend','click','keydown'],unlock=()=>{prepareStoneSound();if(soundOn())for(const e of events)window.removeEventListener(e,unlock,true);};
+ for(const e of events)window.addEventListener(e,unlock,true);
 }
 export function playStoneSound(){
  if(!volume||!context||!decodedSample)return;
@@ -47,16 +56,16 @@ export function speakText(text){
  }catch{}
 }
 export const speakSecond=n=>speakText(String(n));
-// A long beep when a player runs out of time.
-export function playLongBeep(){
- if(!volume||!context)return;
+// One solid beep when a player runs out of time.
+export function playTimeoutBeep(){
+ if(!volume||!audio())return;
  try{
   if(context.state==='suspended')void context.resume().catch(()=>{});
   const tone=context.createOscillator(),gain=context.createGain(),start=context.currentTime+0.02,level=0.5*Math.sqrt(volume/100);
   tone.type='sine';tone.frequency.value=880;
-  gain.gain.setValueAtTime(0,start);gain.gain.linearRampToValueAtTime(level,start+0.02);gain.gain.setValueAtTime(level,start+1.4);gain.gain.linearRampToValueAtTime(0,start+1.5);
+  gain.gain.setValueAtTime(0,start);gain.gain.linearRampToValueAtTime(level,start+0.01);gain.gain.setValueAtTime(level,start+0.79);gain.gain.linearRampToValueAtTime(0,start+0.8);
   tone.connect(gain);gain.connect(context.destination);tone.onended=()=>{tone.disconnect();gain.disconnect();};
-  tone.start(start);tone.stop(start+1.5);
+  tone.start(start);tone.stop(start+0.8);
  }catch{}
 }
 export function mountStoneSound(container){
