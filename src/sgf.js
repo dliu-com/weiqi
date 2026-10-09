@@ -27,8 +27,9 @@ export function parseSgf(source) {
       const props = Object.create(null); space();
       while (/[A-Z]/.test(text[at] || '')) {
         let key = ''; while (/[A-Z]/.test(text[at] || '')) key += text[at++];
-        space(); if (props[key] || text[at] !== '[') fail('Invalid SGF property: ' + key);
-        props[key] = []; while (text[at] === '[') { props[key].push(value()); space(); }
+        space(); if (text[at] !== '[') fail('Invalid SGF property: ' + key);
+        // Some apps repeat a property, e.g. AP[a]AP[b]; merge the values.
+        props[key] ??= []; while (text[at] === '[') { props[key].push(value()); space(); }
       }
       nodes.push(props); space();
     }
@@ -46,7 +47,7 @@ export function readSgfPlayerRanks(source) {
 }
 export function readSgf(source) {
   const parsed = parseSgf(source), root = parsed.nodes[0];
-  const one = (props,key) => { if (props[key]?.length > 1) fail('Invalid SGF property: ' + key); return props[key]?.[0]; };
+  const one = (props,key) => { if (new Set(props[key]).size > 1) fail('Invalid SGF property: ' + key); return props[key]?.[0]; };
   if ((one(root,'GM') || '1') !== '1') fail('Only Go records are supported.');
   if (root.CA && !/^(UTF-?8|ASCII)$/i.test(one(root,'CA'))) fail('Please convert this SGF file to UTF-8.');
   const mainSeconds=Number(one(root,'TM')||0);if(!Number.isFinite(mainSeconds)||mainSeconds<0||mainSeconds>864000)fail('Invalid main time.');
