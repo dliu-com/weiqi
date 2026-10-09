@@ -19,7 +19,7 @@ export function localLibrary(directory,options={}) {
         const games=[];for(const id of ids){try{games.push(JSON.parse(await store.get(gamePrefix(id)+'/metadata.json')));}catch(e){if(e.code!=='ENOENT')throw e;}}
         games.sort((a,b)=>b.uploadedAt.localeCompare(a.uploadedAt)||b.id.localeCompare(a.id));
         const cursor=new URL(request.url,'http://localhost').searchParams.get('cursor')||'0';if(!/^[0-9]+$/.test(cursor))return send(400,{message:'Invalid page cursor.'});const offset=Number(cursor);
-        return send(200,{games:games.slice(offset,offset+5),cursor:games.length>offset+5?String(offset+5):null});
+        return send(200,{games:games.slice(offset,offset+5),cursor:games.length>offset+5?String(offset+5):null,total:games.length});
       }
       const reportId=pathname.match(/^\/api\/library\/([^/]+)\/report$/)?.[1];
       if(request.method==='GET'&&validRecordId(reportId||'')){

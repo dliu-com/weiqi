@@ -63,7 +63,7 @@ test('library lists newest five records and returns a cursor for the next page w
   files.set('library-index/'+stamp+'-'+recordId+'.json',JSON.stringify({id:recordId}));
  }
  const pages=[await call('/api/library')];while(pages.at(-1).cursor)pages.push(await call('/api/library?cursor='+pages.at(-1).cursor));
- assert.deepEqual(pages.map(p=>p.games.length),[5,5,5,5,3]);assert.equal(pages[0].games[0].id,'2026100523');assert.equal(pages[1].games[0].id,'2026100518');
+ assert.deepEqual(pages.map(p=>p.games.length),[5,5,5,5,3]);assert.deepEqual(pages.map(p=>p.total),[23,23,23,23,23]);assert.equal(pages[0].games[0].id,'2026100523');assert.equal(pages[1].games[0].id,'2026100518');
  assert.equal(new Set(pages.flatMap(p=>p.games).map(r=>r.id)).size,23);
 });
 
