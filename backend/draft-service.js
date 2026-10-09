@@ -1,5 +1,5 @@
 import {readSgf} from '../src/sgf.js';
-import {MAX_GAME_MOVES} from '../src/engine.js';
+import {MAX_GAME_MOVES,MIN_LIBRARY_MOVES} from '../src/engine.js';
 import {newRecordingSgf,mainRecordingSgf,recordingTree,validateRecordingDetails,recordingDepth,recordingLimitError} from '../src/recording-tree.js';
 export function createDraft(){return {revision:0,sgf:newRecordingSgf(),selected:0,updatedAt:null};}
 export function draftTransition(current,request){
@@ -18,6 +18,7 @@ export function draftPublication(current,request){
  if(!/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/.test(request.id||''))throw Object.assign(Error('Invalid save request.'),{statusCode:400});
  const source=mainRecordingSgf(current.sgf);const record=recordingTree(source);validateDraftSequence(record);validateRecordingDetails(record);
  const moves=record.mainLine.length-1;if(moves>MAX_GAME_MOVES)throw Object.assign(Error(`A game can have at most ${MAX_GAME_MOVES} moves. This game has ${moves}.`),{statusCode:400});
+ if(moves<MIN_LIBRARY_MOVES)throw Object.assign(Error(`A game needs at least ${MIN_LIBRARY_MOVES} moves to be saved. This game has ${moves}.`),{statusCode:400});
  return {revision:current.revision+1,sgf:source,selected:0,updatedAt:new Date().toISOString(),publication:{id:request.id,status:'pending'}};
 }
 export function freshSavedDraft(pending,gameId){

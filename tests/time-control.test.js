@@ -5,11 +5,12 @@ import {recordingTree,recordingSgf,populateRecordingDetails} from '../src/record
 import {draftPublication} from '../backend/draft-service.js';
 import {readSgf} from '../src/sgf.js';
 import {createState,transition} from '../backend/game-service.js';
+import {withMoves} from './fixtures/long-game.js';
 import {sgf} from '../src/engine.js';
 
 test('optional absolute, Japanese byo-yomi and Fischer controls round-trip through the cloud and SGF',()=>{
  for(const fields of [{type:''},{type:'absolute',minutes:60},{type:'byoyomi',minutes:30,periods:5,seconds:30},{type:'byoyomi',minutes:0,periods:3,seconds:10},{type:'fischer',minutes:10,increment:5}]){
-  const value=timeControlValue(fields),record=recordingTree('(;SZ[19];B[dd])');populateRecordingDetails(record);record.timeControl=value;
+  const value=timeControlValue(fields),record=recordingTree(withMoves('(;SZ[19];B[dd])',50,'W'));populateRecordingDetails(record);record.timeControl=value;
   const published=draftPublication({revision:0,sgf:recordingSgf(record)},{expectedRevision:0,id:'12345678-1234-1234-1234-123456789abc'});
   assert.deepEqual(readSgf(published.sgf).timeControl,value);
   const parsed=timeControlFields(value);assert.equal(parsed.type,fields.type);assert.deepEqual(timeControlValue(parsed),value);
