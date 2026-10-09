@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { play, score, gameTree, reviewPosition, MAX_GAME_MOVES } from '../src/engine.js';
+import { play, score, gameTree, reviewPosition, sgf, MAX_GAME_MOVES } from '../src/engine.js';
+import { readSgf } from '../src/sgf.js';
 import { createState, transition, freshLiveGame } from '../backend/game-service.js';
 const act = (s,action) => transition(s,{expectedRevision:s.revision,action});
 test('capture removes a group with its last liberty filled',()=>{
@@ -98,4 +99,21 @@ test('legacy live branches are pruned and undo permanently removes the active mo
  assert.deepEqual(s.tree.nodes.map(n=>n[0]),[-1,0,1]);
  assert.deepEqual(s.tree.nodes.map(n=>n[2]),[0,1,19]);
  assert.equal(reviewPosition(s,s.tree.head).board,s.board);
+});
+
+test('live handicap sets stones and fixed komi before the first move only',()=>{
+ const meta=(s,extra)=>act(s,{type:'metadata',name:'Handicap game',players:{black:'',white:''},...extra});
+ let s=meta(createState(),{rules:'Japanese',handicap:3,komi:99});
+ assert.equal(s.handicap,3);assert.equal(s.komi,0.5);assert.equal(s.turn,'white');
+ assert.deepEqual([...s.board].flatMap((c,i)=>c==='B'?[i]:[]),[3*19+15,15*19+3,15*19+15].sort((a,b)=>a-b));
+ let record=readSgf(sgf(s));assert.equal(record.nodes[0].board,s.board);assert.equal(record.initialPlayer,'W');assert.match(sgf(s),/HA\[3\]/);
+ s=meta(s,{rules:'Chinese',handicap:0});assert.equal(s.board,'.'.repeat(361));assert.equal(s.turn,'black');assert.equal(s.komi,7.5);assert.ok(!sgf(s).includes('HA['));
+ s=meta(s,{rules:'Japanese',handicap:1});assert.equal(s.board,'.'.repeat(361));assert.equal(s.turn,'black');assert.equal(s.komi,0.5);assert.match(sgf(s),/HA\[1\]/);
+ s=meta(s,{handicap:2});const setup=s.board;s=act(s,{type:'move',index:60});assert.equal(s.history[0].side,'white');
+ assert.throws(()=>meta(s,{handicap:0}),/第一手/);
+ s=meta(s,{rules:'Chinese',handicap:2,komi:7.5});assert.equal(s.komi,0.5);s=meta(s,{rules:'Chinese'});assert.equal(s.handicap,2);
+ record=readSgf(sgf(s));assert.equal(record.nodes[0].board,setup);assert.equal(record.nodes.length,2);
+ s=act(s,{type:'undo'});assert.equal(s.board,setup);assert.equal(s.turn,'white');
+ for(const handicap of [-1,10,1.5,'2'])assert.throws(()=>meta(createState(),{handicap}));
+ assert.equal(meta(createState(),{rules:'Japanese',komi:3}).komi,6.5);
 });

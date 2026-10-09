@@ -130,8 +130,8 @@ const sections = [
           "Names, history and export"
         ],
         [
-          "“编辑名称”可修改棋局名称及黑白棋手姓名；默认棋局名称为日期时间。“历史棋局”可打开已归档棋局。棋谱记录落子时间与累计用时；旧棋步可能没有时间记录。“下载 SGF”导出棋谱分支、姓名、结果及时间备注。",
-          "Edit names changes the game name and both player names. Games default to a date and time label. Game history opens archived games. Moves record timestamps and elapsed totals; older moves may lack timing records. Download SGF exports branches, names, the result and timing comments."
+          "“编辑名称”可修改棋局名称及黑白棋手姓名；默认棋局名称为“现场对弈休闲棋局”。“历史棋局”可打开已归档棋局。棋谱记录落子时间与累计用时；旧棋步可能没有时间记录。“下载 SGF”导出棋谱分支、姓名、结果及时间备注。",
+          "Edit names changes the game name and both player names. The default game name is “Live casual game”. Game history opens archived games. Moves record timestamps and elapsed totals; older moves may lack timing records. Download SGF exports branches, names, the result and timing comments."
         ]
       ],
       [

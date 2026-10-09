@@ -3,16 +3,31 @@ import {BoardView} from './board-view.js';
 import {mountStoneSound,prepareStoneSound,playStoneSound} from './stone-sound.js';
 import {localTimestamp} from './site-time.js';
 import { t, language, setLanguage, translateError } from './i18n.js';
-import { play, opposite, score, gameTree, reviewPosition, gameClock, sgf, MIN_LIBRARY_MOVES, MAX_GAME_MOVES } from './engine.js';
+import { play, opposite, score, gameTree, reviewPosition, gameClock, sgf, standardKomi, MIN_LIBRARY_MOVES, MAX_GAME_MOVES } from './engine.js';
 const $ = id => document.getElementById(id);
 mountStoneSound($('play-sound'));
 const names = { get black() { return t('黑方','Black'); }, get white() { return t('白方','White'); } };
 const archiveId = new URLSearchParams(location.search).get('game');
 const apiPath = archiveId ? '/api/games/' + encodeURIComponent(archiveId) : '/api/game';
-const gameTitle = s => s.gameName || t('现场对弈 · ','Live game · ')+localTimestamp(s.createdAt || s.updatedAt || Date.now(),language);
+const rulesName = rules => rules==='Japanese'?t('日本规则','Japanese rules'):t('中国规则','Chinese rules');
+const komiText = komi => t(`黑贴 ${komi} 目`,`White komi: ${komi} points`);
+const gameTerms = s => [rulesName(s.rules), s.handicap ? t(`让 ${s.handicap} 子`,`Handicap ${s.handicap}`) : '', komiText(s.komi)].filter(Boolean).join(' · ');
+const gameTitle = s => s.gameName || t('现场对弈休闲棋局','Live casual game');
 const letters = 'ABCDEFGHJKLMNOPQRST';
 const coord = i => letters[i % 19] + (19 - Math.floor(i / 19));
 let syncFailed = false;
+let syncedAt = null, syncedSaved = false;
+// Shows how long ago this page last confirmed the cloud game; other messages replace it.
+function showSynced(saved) { syncedAt = Date.now(); syncedSaved = saved; renderSyncAge(); }
+function showSyncText(text) { syncedAt = null; $('sync').textContent = text; $('sync').title = ''; }
+function renderSyncAge() {
+  if (syncedAt === null) return;
+  const s = Math.max(0, Math.floor((Date.now() - syncedAt) / 1000)), m = Math.floor(s / 60), h = Math.floor(m / 60);
+  const ago = s < 1 ? t('刚刚','just now') : s < 60 ? t(`${s} 秒前`,`${s}s ago`) : m < 60 ? t(`${m} 分钟前`,`${m}m ago`) : t(`${h} 小时前`,`${h}h ago`);
+  $('sync').textContent = (syncedSaved ? t('已保存 · ','Saved ') : t('已同步 · ','Synced ')) + ago;
+  $('sync').title = localTimestamp(syncedAt, language);
+}
+setInterval(renderSyncAge, 1000);
 function showSyncWarning(failed) {
   syncFailed = failed;
   $('sync-warning').hidden = !failed;
@@ -67,8 +82,8 @@ function adopt(next) {
 async function sync(manual = false) {
   if (busy || polling) return;
   polling = true;
-  try { adopt(await request(!archiveId && automatic && document.visibilityState === 'visible' ? 'POST' : 'GET', !archiveId && automatic && document.visibilityState === 'visible' ? {action:{type:'heartbeat'}} : undefined)); $('sync').textContent = t("已同步 · ","Synced · ") + localTimestamp(Date.now(),language); }
-  catch { showSyncWarning(true); $('sync').textContent = t("连接失败，请重试","Connection failed. Please retry."); if (manual) notice(t("无法读取云端棋局，请检查网络。","Unable to load the game. Check your connection.")); }
+  try { adopt(await request(!archiveId && automatic && document.visibilityState === 'visible' ? 'POST' : 'GET', !archiveId && automatic && document.visibilityState === 'visible' ? {action:{type:'heartbeat'}} : undefined)); showSynced(false); }
+  catch { showSyncWarning(true); showSyncText(t("连接失败，请重试","Connection failed. Please retry.")); if (manual) notice(t("无法读取云端棋局，请检查网络。","Unable to load the game. Check your connection.")); }
   finally { polling = false; }
 }
 async function action(action) {
@@ -77,13 +92,13 @@ async function action(action) {
   const revision = state.revision;
   const status = moveStatus = action.type === 'move' ? {side:state.turn,phase:'submitting'} : null;
   busy = true;
-  const slowTimer = setTimeout(() => { if (status && moveStatus === status) { status.slow = true; render(); } if (busy) $('sync').textContent = t("正在核对棋局…","Checking the latest position…"); }, 1500);
+  const slowTimer = setTimeout(() => { if (status && moveStatus === status) { status.slow = true; render(); } if (busy) showSyncText(t("正在核对棋局…","Checking the latest position…")); }, 1500);
   try {
     const remote = await request(); adopt(remote);
-    if (remote.revision !== revision) { moveStatus = null; $('sync').textContent = t('已同步最新棋局','Latest position synced'); notice(t("对方已更新棋局，已同步。请重新操作。","The game has changed and is now synced. Please try your move again.")); return; }
+    if (remote.revision !== revision) { moveStatus = null; showSyncText(t('已同步最新棋局','Latest position synced')); notice(t("对方已更新棋局，已同步。请重新操作。","The game has changed and is now synced. Please try your move again.")); return; }
     adopt(await request('POST', { expectedRevision: revision, action }));
     moveStatus = null;
-    $('sync').textContent = t("已保存 · ","Saved · ") + localTimestamp(Date.now(),language);
+    showSynced(true);
   } catch (e) {
     if (!e.httpStatus) showSyncWarning(true);
     if (moveStatus) moveStatus.phase = 'failed';
@@ -91,18 +106,18 @@ async function action(action) {
     if (e.state) adopt(e.state);
     notice(translateError(e.message) || t("保存失败，请重新同步。","Save failed. Please sync again."));
     // Recover an uncertain POST without replaying an action that may already have succeeded.
-    try { adopt(await request()); if (moveStatus && state.revision === revision + 1 && state.history.at(-1)?.index === action.index && state.history.at(-1)?.side === moveStatus.side) moveStatus = null; $('sync').textContent = t("已重新同步，请核对棋局","Synced again. Please check the position."); }
-    catch { showSyncWarning(true); $('sync').textContent = t("连接失败，请同步后重试","Connection failed. Sync and try again."); }
+    try { adopt(await request()); if (moveStatus && state.revision === revision + 1 && state.history.at(-1)?.index === action.index && state.history.at(-1)?.side === moveStatus.side) moveStatus = null; showSyncText(t("已重新同步，请核对棋局","Synced again. Please check the position.")); }
+    catch { showSyncWarning(true); showSyncText(t("连接失败，请同步后重试","Connection failed. Sync and try again.")); }
   } finally { clearTimeout(slowTimer); busy = false; render(); }
 }
 function canPlay() { return state && !archiveId && reviewing === null && state.phase === 'play' && !state.clock?.paused && state.history.length < MAX_GAME_MOVES; }
 function render() {
   if (!state) return;
   $('game-name').textContent = gameTitle(state);
-  $('player-names').textContent = names.black + (state.players?.black ? ': ' + state.players.black : '') + ' · ' + names.white + (state.players?.white ? ': ' + state.players.white : '');
   $('edit-game').textContent=t('编辑棋局信息','Edit game info');
-  for(const [id,zh,en] of [['live-black-rank-label','黑方段级位','Black rank'],['live-white-rank-label','白方段级位','White rank'],['live-date-label','日期','Date'],['live-rules-label','规则','Rules'],['live-komi-label','贴目','Komi']])$(id).textContent=t(zh,en);
-  for(const option of document.querySelectorAll('#live-rules option'))option.textContent=option.value==='Chinese'?t('中国规则','Chinese rules'):t('日本规则','Japanese rules');
+  for(const [id,zh,en] of [['live-black-rank-label','段级位','Rank'],['live-white-rank-label','段级位','Rank'],['live-date-label','日期','Date'],['live-rules-label','规则','Rules'],['live-handicap-label','让子','Handicap'],['live-komi-label','贴目','Komi']])$(id).textContent=t(zh,en);
+  for(const button of document.querySelectorAll('#live-rules-choice button'))button.textContent=rulesName(button.dataset.rules);
+  if($('edit-dialog').open)showLiveKomi();
   $('edit-game').disabled = state.phase==='ended';
   const review = reviewing === null ? null : reviewPosition(state, reviewing);
   const displayed = (review && trialMoves.at(-1)) || review || state;
@@ -116,8 +131,9 @@ function render() {
     el.setAttribute('aria-disabled',String(busy || (!review && (!!archiveId || ended || (!scoring && !canPlay())))));
   }
   $('turn').textContent = ended ? (state.result.winner ? names[state.result.winner] + t("胜"," wins") : state.result.reason==='unfinished' ? t('未完成','Unfinished') : t("和棋","Draw")) : scoring ? t("双方数子","Scoring") : t("轮到","To play: ") + names[state.turn];
-  $('detail').textContent = ended ? (state.result.reason==='unfinished' ? t('本局未完成。','The game was not finished.') : state.result.reason === 'resign' ? t("对方认输，本局结束。","The opponent resigned. Game over.") : state.result.reason==='agreed'?t('双方约定结果，棋局已保存。','Agreed result; game saved.'):t(`胜差 ${state.result.margin} 目 · 黑贴 ${state.komi} 目`,`Margin: ${state.result.margin} points · White komi: ${state.komi}`)) : scoring ? t("标记所有死子，然后确认胜负。","Mark all dead stones, then confirm the result.") : (canPlay() ? '' : state.history.length >= MAX_GAME_MOVES ? t(`已达 ${MAX_GAME_MOVES} 手上限，请点击“新一局”选择结果。`,`${MAX_GAME_MOVES}-move limit reached. Select New game to choose the result.`) : t("等待对方落子…","Waiting for the other player…")) + t(' 黑贴 '+state.komi+' 目。',' White komi: '+state.komi+' points.');
+  $('detail').textContent = ended ? (state.result.reason==='unfinished' ? t('本局未完成。','The game was not finished.') : state.result.reason === 'resign' ? t("对方认输，本局结束。","The opponent resigned. Game over.") : state.result.reason==='agreed'?t('双方约定结果，棋局已保存。','Agreed result; game saved.'):t(`胜差 ${state.result.margin} 目 · ${gameTerms(state)}`,`Margin: ${state.result.margin} points · ${gameTerms(state)}`)) : scoring ? t("标记所有死子，然后确认胜负。","Mark all dead stones, then confirm the result.") : (canPlay() ? '' : state.history.length >= MAX_GAME_MOVES ? t(`已达 ${MAX_GAME_MOVES} 手上限，请点击“新一局”选择结果。`,`${MAX_GAME_MOVES}-move limit reached. Select New game to choose the result.`) : t("等待对方落子…","Waiting for the other player…")) + t(' '+gameTerms(state)+'。',' '+gameTerms(state)+'.');
   $('black-captures').textContent = displayed.captures.black; $('white-captures').textContent = displayed.captures.white;
+  for (const side of ['black','white']) { const player = state.players?.[side] || ''; $(side + '-box-label').textContent = player || names[side]; $(side + '-box-label').title = names[side] + (player ? ': ' + player : ''); $(side + '-box-rank').textContent = state.playerRanks?.[side] || ''; $(side + '-captures-label').textContent = t('提子','Captures'); }
   const undoSide = state.history.at(-1)?.side;
   $('undo').textContent = undoSide ? t('悔棋（' + names[undoSide] + '）', 'Undo ' + names[undoSide]) : t('悔棋','Undo');
   for (const side of ['black','white']) {
@@ -148,6 +164,10 @@ function render() {
   $('new').textContent=t('新一局','New game');$('end-game-cancel').textContent=t('取消','Cancel');
   renderResultDialog();
   if (review) $('turn').className = 'turn-label turn-' + displayed.turn;
+  // The highlighted player box shows whose turn it is, so the plain heading is kept for screen readers only.
+  if (!archiveId && !review && !pendingMove && state.phase === 'play') $('turn').className = 'turn-label sr-only';
+  const activeSide = archiveId && !review ? null : review ? displayed.turn : state.phase === 'play' ? state.turn : null;
+  for (const side of ['black','white']) $(side + '-box').classList.toggle('active', side === activeSide);
   $('trial-controls').hidden = !review;
   $('trial-undo').disabled = !trialMoves.length;
   $('trial-reset').disabled = !trialMoves.length;
@@ -219,8 +239,8 @@ function renderClock() {
   const saved = reviewing !== null ? gameTree(state).nodes[reviewing]?.[5] : null;
   const clock = reviewing === null ? gameClock(state) : {black:saved?.[0] || 0,white:saved?.[1] || 0,paused:true};
   const format = ms => { const seconds = Math.floor(ms/1000); return [Math.floor(seconds/3600),Math.floor(seconds/60)%60,seconds%60].map(n=>String(n).padStart(2,'0')).join(':'); };
-  $('black-time').textContent = names.black + ' ' + (reviewing !== null && !saved ? '—' : format(clock.black));
-  $('white-time').textContent = names.white + ' ' + (reviewing !== null && !saved ? '—' : format(clock.white));
+  $('black-time').textContent = reviewing !== null && !saved ? '—' : format(clock.black);
+  $('white-time').textContent = reviewing !== null && !saved ? '—' : format(clock.white);
   $('pause-clock').disabled = !!archiveId || reviewing !== null || state.phase !== 'play';
   $('pause-clock').textContent = state.clock?.paused ? t('恢复计时','Resume clock') : t('暂停计时','Pause clock');
   $('clock-note').textContent = reviewing !== null ? t('该手结束时的累计用时','Total time at this move') : !state.clock?.since ? '' : state.phase !== 'play' ? t('计时已停止','Clock stopped') : state.clock?.paused ? t('计时已暂停','Clock paused') : clock.autoPaused ? t('无人在线，计时自动暂停','No active page · Clock automatically paused') : t('所有页面离线 1 分钟后自动暂停','Auto-pauses after all pages are inactive for 1 minute');
@@ -301,7 +321,7 @@ for (const side of ['black','white']) $('resign-' + side).onclick=()=>chooseGame
 $('pass').onclick=()=>action({type:'pass'}); $('resume').onclick=()=>action({type:'resume'});
 $('confirm-score').onclick=()=>chooseGameResult(true);
 $('auto').onchange=()=>{automatic=$('auto').checked; if(automatic){lastActivity=Date.now();sync(true);}};
-setInterval(()=>{ if(!automatic)return; if(Date.now()-lastActivity>=10*60*1000){automatic=false;$('auto').checked=false;$('sync').textContent=t("10 分钟无落子，已暂停自动同步","Auto-sync paused after 10 minutes without a move");return;} if(document.visibilityState==='visible')sync(); },5000);
+setInterval(()=>{ if(!automatic)return; if(Date.now()-lastActivity>=10*60*1000){automatic=false;$('auto').checked=false;showSyncText(t("10 分钟无落子，已暂停自动同步","Auto-sync paused after 10 minutes without a move"));return;} if(document.visibilityState==='visible')sync(); },5000);
 window.addEventListener('focus',()=>{if(automatic)sync();}); window.addEventListener('online',()=>{if(automatic)sync();}); document.addEventListener('visibilitychange',()=>{if(automatic&&document.visibilityState==='visible')sync();});
 if (archiveId) {
   automatic = false; $('auto').checked = false; document.querySelector('.sync-card').hidden = true;
@@ -316,21 +336,29 @@ $('edit-game').onclick = () => {
   $('black-input').value = state.players?.black || '';
   $('white-input').value = state.players?.white || '';
   $('black-rank-input').value=state.playerRanks?.black||'';$('white-rank-input').value=state.playerRanks?.white||'';
-  $('live-date').value=state.date||state.createdAt?.slice(0,10)||'';$('live-rules').value=state.rules||'Chinese';$('live-komi').value=state.komi;
+  $('live-date').value=state.date||state.createdAt?.slice(0,10)||'';$('live-handicap').value=String(state.handicap||0);$('live-handicap').disabled=state.history.length>0||state.phase!=='play';setLiveRules(state.rules||'Chinese');
   $('edit-error').textContent = '';
   $('edit-dialog').showModal();
 };
 $('cancel-edit').onclick = () => $('edit-dialog').close();
-$('live-rules').onchange = () => { $('live-komi').value = $('live-rules').value === 'Japanese' ? 6.5 : 7.5; };
+// Komi follows the rules and handicap; it cannot be edited.
+const showLiveKomi = () => { $('live-komi').textContent = komiText(standardKomi($('live-rules').value, Number($('live-handicap').value))); };
+function setLiveRules(rules){
+  $('live-rules').value=rules;
+  for(const button of document.querySelectorAll('#live-rules-choice button'))button.setAttribute('aria-pressed',String(button.dataset.rules===rules));
+  showLiveKomi();
+}
+for(const button of document.querySelectorAll('#live-rules-choice button'))button.onclick=()=>setLiveRules(button.dataset.rules);
+$('live-handicap').onchange=showLiveKomi;
 $('edit-form').onsubmit = async event => {
   event.preventDefault();
   if (busy) return;
   if (editRevision !== state.revision) { $('edit-error').textContent = t('棋局已更新，请关闭后重新编辑。','The game changed. Close and reopen this editor.'); return; }
   const name = $('name-input').value.trim(), players = { black:$('black-input').value.trim(), white:$('white-input').value.trim() };
   const playerRanks={black:$('black-rank-input').value.trim(),white:$('white-rank-input').value.trim()};
-  await action({type:'metadata', name, players, playerRanks, date:$('live-date').value,rules:$('live-rules').value,komi:Number($('live-komi').value)});
+  await action({type:'metadata', name, players, playerRanks, date:$('live-date').value,rules:$('live-rules').value,handicap:Number($('live-handicap').value)});
   if (state.gameName === name && state.players?.black === players.black && state.players?.white === players.white && state.playerRanks?.black===playerRanks.black && state.playerRanks?.white===playerRanks.white) $('edit-dialog').close();
   else $('edit-error').textContent = t('保存失败，请关闭后重试。','Not saved. Close and try again.');
 };
 
-window.addEventListener('site-language-change',()=>{ showSyncWarning(syncFailed); $('notice').hidden=true; $('sync').textContent=t('语言已切换','Language updated'); render();});
+window.addEventListener('site-language-change',()=>{ showSyncWarning(syncFailed); $('notice').hidden=true; if (syncedAt === null) showSyncText(t('语言已切换','Language updated')); else renderSyncAge(); render();});

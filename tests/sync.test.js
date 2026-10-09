@@ -4,14 +4,14 @@ import vm from 'node:vm';
 import { readFileSync } from 'node:fs';
 import { webcrypto } from 'node:crypto';
 import { createState, transition, freshLiveGame } from '../backend/game-service.js';
-import { play, opposite, score, gameTree, reviewPosition, gameClock, sgf, MIN_LIBRARY_MOVES, MAX_GAME_MOVES } from '../src/engine.js';
+import { play, opposite, score, gameTree, reviewPosition, gameClock, sgf, standardKomi, MIN_LIBRARY_MOVES, MAX_GAME_MOVES } from '../src/engine.js';
 
 // Exercise the actual client with an isolated DOM/network/clock, never the live game.
 async function client({publish=false}={}) {
   const elements = new Map(), intervals = [], timers = [], calls = [];
   class Element {
     parentElement = {append(){},querySelectorAll(){return [];}}; style = {}; dataset = {}; children = []; attrs = {}; hidden = false; checked = true;
-    classList = { toggle() {}, contains() { return false; } };
+    classes = new Set(); classList = { toggle:(c,on=!this.classes.has(c))=>{on?this.classes.add(c):this.classes.delete(c);return on;}, contains:c=>this.classes.has(c) };
     setAttribute(k,v) { this.attrs[k]=v; }
     append(...nodes) { this.children.push(...nodes); }
     replaceChildren(...nodes) { this.children=nodes; }
@@ -22,7 +22,7 @@ async function client({publish=false}={}) {
   const get = id => { if(!elements.has(id)) elements.set(id,new Element()); return elements.get(id); };
   let remote = createState(), failAfterSave = false, failGet = false, now = Date.now();
   const context = vm.createContext({
-    mountTimeControl(){let current=null;return {render(){},fill(value){current=value;},value(){return current;}};},mountStoneSound(){},prepareStoneSound(){},playStoneSound(){},localTimestamp:()=> 'test · UTC+1', play, opposite, score, gameTree, reviewPosition, gameClock, sgf, MIN_LIBRARY_MOVES, MAX_GAME_MOVES, language:'en', t: (zh,en)=>en, translateError:s=>s, setLanguage(){},
+    mountTimeControl(){let current=null;return {render(){},fill(value){current=value;},value(){return current;}};},mountStoneSound(){},prepareStoneSound(){},playStoneSound(){},localTimestamp:()=> 'test · UTC+1', play, opposite, score, gameTree, reviewPosition, gameClock, sgf, standardKomi, MIN_LIBRARY_MOVES, MAX_GAME_MOVES, language:'en', t: (zh,en)=>en, translateError:s=>s, setLanguage(){},
     location:{search:'',assign(url){calls.push('NAVIGATE '+url);}},URLSearchParams,
     document: {querySelector:s=>{const m=s.match(/input\[value="([^"]+)"\]/);if(m)return radios.find(r=>r.value===m[1]);if(s.includes(':checked'))return radios.find(r=>r.checked)||null;if(!selected.has(s))selected.set(s,new Element());return selected.get(s);},getElementById:get,createElement:()=>new Element(),createElementNS:()=>new Element(),
       createDocumentFragment:()=>new Element(),querySelectorAll:s=>s.includes('name="result"')?radios:[],addEventListener(){},visibilityState:'visible',body:new Element()},
@@ -57,6 +57,31 @@ test('visible idle page polls every 5 seconds without a focus event',async()=>{
  const c=await client();assert.equal(c.intervals.find(i=>i.ms===5000).ms,5000);c.move(180);
  c.intervals.find(i=>i.ms===5000).fn();while(c.run('polling'))await new Promise(r=>setImmediate(r));
  assert.equal(c.run('state.board[180]'),'B');assert.match(c.get('turn').textContent,/White/);
+});
+test('player boxes show names, captures and time, and highlight the side to play',async()=>{
+ const c=await client();
+ assert.ok(c.get('black-box').classList.contains('active'));assert.ok(!c.get('white-box').classList.contains('active'));
+ assert.match(c.get('turn').className,/sr-only/);assert.equal(c.get('black-box-label').textContent,'Black');assert.equal(c.get('black-time').textContent,'00:00:00');
+ await c.run("action({type:'metadata',name:'Box test',players:{black:'Dewei Liu',white:''},playerRanks:{black:'5d',white:''}})");
+ await c.run("action({type:'move',index:180})");
+ assert.ok(c.get('white-box').classList.contains('active'));assert.ok(!c.get('black-box').classList.contains('active'));
+ assert.equal(c.get('black-box-label').textContent,'Dewei Liu');assert.equal(c.get('black-box-rank').textContent,'5d');assert.equal(c.get('white-box-label').textContent,'White');
+ assert.equal(c.get('black-captures').textContent,0);assert.equal(c.get('black-captures-label').textContent,'Captures');
+});
+test('the edit dialog sets handicap before the first move and only states komi',async()=>{
+ const c=await client();c.run("$('edit-game').onclick()");
+ assert.equal(c.get('live-komi').textContent,'White komi: 7.5 points');assert.equal(c.get('live-handicap').disabled,false);
+ c.get('live-handicap').value='3';c.get('live-handicap').onchange();assert.equal(c.get('live-komi').textContent,'White komi: 0.5 points');
+ await c.get('edit-form').onsubmit({preventDefault(){}});
+ assert.equal(c.remote().handicap,3);assert.equal(c.remote().komi,0.5);assert.equal(c.remote().turn,'white');
+ assert.ok(c.get('white-box').classList.contains('active'));assert.match(c.get('detail').textContent,/Handicap 3 · White komi: 0.5 points/);
+ await c.run("action({type:'move',index:180})");c.run("$('edit-game').onclick()");assert.equal(c.get('live-handicap').disabled,true);
+});
+test('sync status shows how long ago the page synced',async()=>{
+ const c=await client();assert.equal(c.get('sync').textContent,'Synced just now');
+ const tick=c.intervals.find(i=>i.ms===1000).fn;c.advance(3000);tick();assert.equal(c.get('sync').textContent,'Synced 3s ago');
+ c.advance(120000);tick();assert.equal(c.get('sync').textContent,'Synced 2m ago');
+ await c.run("action({type:'move',index:180})");assert.equal(c.get('sync').textContent,'Saved just now');
 });
 test('preflight rejects a stale move without submitting POST',async()=>{
  const c=await client();c.move(180);await c.run("action({type:'move',index:181})");
