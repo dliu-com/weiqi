@@ -131,21 +131,17 @@ export class WeiqiSiteStack extends Stack {
     const recordRoutes=new cloudfront.Function(this,'RecordRoutes',{code:cloudfront.FunctionCode.fromInline(fs.readFileSync(path.join(root,'src/routes.cjs'),'utf8'))});
     // Overwrites any client-supplied value, so the API can give each connection a fair share of public limits.
     const apiViewer=new cloudfront.Function(this,'ApiViewer',{code:cloudfront.FunctionCode.fromInline("function handler(event){var request=event.request;request.headers['x-weiqi-viewer']={value:event.viewer.ip};return request;}")});
-    // Central traffic monitoring (dliu-com/traffic-monitor): access logs + shared visitor cookie.
-    const trafficLogBucket = s3.Bucket.fromBucketAttributes(this, 'TrafficLogs', {
-      bucketName: Fn.importValue('TrafficLogBucketName'),
-      region: 'eu-west-1',
-    });
+    // Central traffic monitoring (dliu-com/traffic-monitor): shared visitor cookie; TrafficMonitor
+    // creates this distribution's access-log delivery (CloudFront standard logging v2).
     const visitorIdFunction = cloudfront.Function.fromFunctionAttributes(this, 'VisitorId', {
       functionArn: Fn.importValue('TrafficVisitorFunctionArn'),
       functionName: 'dliu-visitor-id',
     });
+    // Makes CloudFront add CloudFront-Viewer-City so the visitor function can log the city.
+    const trafficGeoPolicy = cloudfront.OriginRequestPolicy.fromOriginRequestPolicyId(
+      this, 'TrafficGeo', Fn.importValue('TrafficGeoOriginRequestPolicyId'));
 
     const distribution = new cloudfront.Distribution(this, 'SiteDistribution', {
-      enableLogging: true,
-      logBucket: trafficLogBucket,
-      logFilePrefix: 'raw/weiqi/',
-      logIncludesCookies: true,
       defaultBehavior: {
         functionAssociations:[{eventType:cloudfront.FunctionEventType.VIEWER_REQUEST,function:recordRoutes},{ eventType: cloudfront.FunctionEventType.VIEWER_RESPONSE, function: visitorIdFunction }],
         origin: origins.S3BucketOrigin.withOriginAccessControl(bucket),
@@ -153,6 +149,7 @@ export class WeiqiSiteStack extends Stack {
         cachedMethods: cloudfront.CachedMethods.CACHE_GET_HEAD,
         viewerProtocolPolicy: cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
         cachePolicy,
+        originRequestPolicy: trafficGeoPolicy,
         responseHeadersPolicy: headers,
         compress: true,
       },
@@ -176,6 +173,10 @@ export class WeiqiSiteStack extends Stack {
         { httpStatus: 404, responseHttpStatus: 404, responsePagePath: '/404.html', ttl: Duration.seconds(30) },
       ],
     });
+
+    // IncludeCookies is the only legacy logging setting v2 honours: it puts the dl_vid cookie in the logs.
+    (distribution.node.defaultChild as cloudfront.CfnDistribution)
+      .addPropertyOverride('DistributionConfig.Logging', { IncludeCookies: true });
 
     // New function URLs require both invoke permissions. CDK adds InvokeFunctionUrl.
     gameHandler.addPermission('CloudFrontInvokeFunction', {
