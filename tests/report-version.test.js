@@ -5,7 +5,7 @@ import {readFile} from 'node:fs/promises';
 import {REPORT_VERSION,REPORT_LOGIC_FINGERPRINT} from '../src/report-version.js';
 
 // Files that decide report content or layout. Changing any of them needs a new report version.
-const REPORT_LOGIC_FILES=['src/report-data.js','src/report-insights.js','src/report-highlights.js','src/report-render.js','src/report-stat-charts.js','src/report-game-record.js','src/report-document.js','src/board-diagram.js','src/report.css','backend/report-renderer/render.mjs','backend/report-renderer/render.html','backend/report-renderer/finish-pdf.mjs'];
+const REPORT_LOGIC_FILES=['src/report-data.js','src/report-insights.js','src/report-highlights.js','src/report-render.js','src/report-stat-charts.js','src/report-game-record.js','src/report-document.js','src/board-diagram.js','src/report-math.js','src/time-control.js','src/report.css','backend/report-renderer/render.mjs','backend/report-renderer/render.html','backend/report-renderer/finish-pdf.mjs'];
 
 test('report version has a positive number and an ISO date',()=>{
  assert.ok(Number.isInteger(REPORT_VERSION.number)&&REPORT_VERSION.number>0);
