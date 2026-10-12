@@ -1,5 +1,5 @@
 // Game phases by move number, and short facts computed from the saved report.
-export const GAME_PHASES=[{key:'opening',from:1,to:50},{key:'middle',from:51,to:150},{key:'endgame',from:151,to:Infinity}];
+export const GAME_PHASES=[{key:'opening',from:1,to:60},{key:'middle',from:61,to:150},{key:'endgame',from:151,to:Infinity}];
 const rated=m=>['best','good','inaccuracy','mistake','blunder'].includes(m.quality)&&Number.isFinite(m.pointLoss)&&m.pointLoss>=0;
 const sum=values=>values.reduce((a,b)=>a+b,0);
 export function gamePhases(moves){
