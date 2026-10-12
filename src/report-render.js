@@ -108,13 +108,13 @@ function graphTakeaway(title){
   ['典型损失与较大失误','Typical loss and bigger errors','条形越短，损失越小。平均值明显高于中位数时，优先复盘大失误。','Shorter bars mean less loss. A high average beside a low median points to a few costly mistakes.'],
   ['各阶段的平均目数损失','Average point loss in each phase','最长的条形提示最值得复盘的阶段。','Your longest bar shows the phase to review first.'],
   ['每手损失在哪里发生？','Where did each move lose points?','尖峰越高，损失越大。标出的手数是关键时刻，后文有棋盘详解。','Taller spikes mean bigger losses. Labelled moves are key moments with board reviews later.'],
-  ['目差：正为黑方领先，负为白方领先','Point advantage: positive Black, negative White','穿过零线表示预计领先方改变；圆点标出后文详解的关键时刻。','Crossing zero changes the estimated leader. Dots mark key moments reviewed on later board pages.']
+  ['目差：正为黑方领先，负为白方领先','Point advantage: positive Black, negative White','穿过零线表示预计领先方改变。','Crossing zero changes the estimated leader.']
  ];
  const entry=guides.find(g=>g[0]===title||g[1]===title);return entry?t(entry[2],entry[3]):'';
 }
 function statisticGraph(title,visual,formula,zh,en,insight){
  const figure=node('figure',undefined,'report-stat-card'),caption=node('figcaption',undefined,'report-graph-maths');
- figure.append(node('h3',title),visual);if(insight)caption.append(node('h4',t('AI 分析','AI analysis'),'report-insight-heading'),insight);const reading=graphTakeaway(title);if(reading)caption.append(node('p',reading,'report-graph-reading'));if(caption.childNodes.length)figure.append(caption);
+ figure.append(node('h3',title),...[visual].flat());const reading=graphTakeaway(title);if(reading)figure.append(node('p',reading,'report-graph-reading'));if(insight){caption.append(node('h4',t('AI 分析','AI analysis'),'report-insight-heading'),insight);figure.append(caption);}
  // Formulas and definitions are collected for the calculation appendix.
  methods.push({title,formula,note:t(zh,en)});return figure;
 }
@@ -126,7 +126,7 @@ function addStatistics(sheet){
  const moves=report.game.moves,phases=phaseLosses(report.reviews,moves),phaseName=key=>({opening:t('开局','opening'),middle:t('中盘','middle game'),endgame:t('收官','endgame')})[key],capital=text=>text[0].toUpperCase()+text.slice(1);
  const leadText=v=>Math.abs(v)<.05?t('持平','even'):sideName(v>0?'B':'W')+' +'+number(Math.abs(v)),percent=v=>Math.round(v)+'%',join=parts=>parts.join(t('；','; '));
  const phaseLabel=p=>capital(phaseName(p.key))+' '+p.from+'–'+p.to;
- const analysis=(rows,after)=>{const e=node('div',undefined,'report-graph-insight');if(rows)e.append(rows);if(after)e.append(node('p',after));return e;};
+ const analysis=(rows,after,note)=>{const e=node('div',undefined,'report-graph-insight');if(rows)e.append(rows);if(note)e.append(node('p',note,'report-note'));if(after)e.append(node('p',after));return e;};
  const scoreInsight=()=>{
   const ends=phaseLeads(report.chart,moves),lead=leadChanges(report.chart);
   const second=!lead.leader?t('双方领先均未超过 1 目。','Neither side led by more than 1 point.'):!lead.changes?t('只有'+sideName(lead.leader)+'曾领先超过 1 目，从第 '+lead.since+' 手开始。','Only '+sideName(lead.leader)+' led by more than 1 point, first at move '+lead.since+'.'):t('领先超过 1 目的一方共变化 '+lead.changes+' 次；最后一次在第 '+lead.since+' 手，变为'+sideName(lead.leader)+'。','The side leading by more than 1 point changed '+lead.changes+(lead.changes===1?' time':' times')+'; the last change was at move '+lead.since+', to '+sideName(lead.leader)+'.');
@@ -148,7 +148,7 @@ function addStatistics(sheet){
   const loss=(p,side)=>number(p[side].totalPointLoss)+(totals[side]>0?t('（'+percent(100*p[side].totalPointLoss/totals[side])+'）',' ('+percent(100*p[side].totalPointLoss/totals[side])+')'):'');
   const rows=table([t('阶段','Phase'),t('黑方失误','Black mistakes'),t('白方失误','White mistakes'),t('黑方损失目数','Black points lost'),t('白方损失目数','White points lost')],phases.map(p=>[phaseLabel(p),String(p.B.errors),String(p.W.errors),loss(p,'B'),loss(p,'W')]));
   ['B','W'].forEach((side,column)=>{if(!(totals[side]>0))return;const most=Math.max(...phases.map(p=>p[side].totalPointLoss));phases.forEach((p,row)=>{if(p[side].totalPointLoss===most)rows.tBodies[0].rows[row].cells[3+column].classList.add('report-table-max');});});
-  return analysis(rows,t('失误包括严重失误（单手损失超过 2 目）。括号内为占该方总损失的比例；粗体为该方损失最多的阶段。','Mistakes include blunders (over 2 points each). Brackets show the share of all points that player lost; bold marks the phase where each player lost most.'));
+  return analysis(rows,null,t('失误包括严重失误（单手损失超过 2 目）。括号内为占该方总损失的比例；粗体为该方损失最多的阶段。','Mistakes include blunders (over 2 points each). Brackets show the share of all points that player lost; bold marks the phase where each player lost most.'));
  };
  const context=sheet(t('全局目差走势：谁领先？','Game-wide point advantage'));
  graph(context,t('目差：正为黑方领先，负为白方领先','Point advantage: positive Black, negative White'),contextChart('score'),'Displayed point advantage = S(position), from Black\'s perspective',
@@ -159,10 +159,9 @@ function addStatistics(sheet){
  'P 为 AI 预计黑方获胜概率；相邻局面的变化不等于单手损失。',
  'P is the estimated Black win probability. Changes between positions are not the loss of one move.',winInsight());
  const quality=sheet(t('着法质量：一眼看清双方表现','Move quality: compare the whole game'));
- graph(quality,t('各类着法占比','Share of each move quality'),compositionChart(t('着法质量占比','Move-quality composition'),['B','W','all'].map(side=>({label:side==='all'?t('全局','Whole game'):sideName(side),counts:(side==='all'?report.overall:report.players[side]).counts})),{keys,names,emptyLabel:t('无已评定着法','No rated moves')}),'Share = 100 × category count / N',
+ graph(quality,t('各类着法占比','Share of each move quality'),[compositionChart(t('着法质量占比','Move-quality composition'),['B','W','all'].map(side=>({label:side==='all'?t('全局','Whole game'):sideName(side),counts:(side==='all'?report.overall:report.players[side]).counts})),{keys,names,emptyLabel:t('无已评定着法','No rated moves')}),qualityLegend(names,{best:t('坐标匹配','coordinate match'),good:'≤ 0.5',inaccuracy:'0.5 < L ≤ 2',mistake:'2 < L ≤ 5',blunder:'> 5'})],'Share = 100 × category count / N',
  'N 为已评定着法数；首选按坐标匹配，其余按损失目数分类（L 的单位为目）。全局合并双方着法。',
  'N counts rated moves. AI first choice matches the coordinate; other categories use point loss. Whole game pools both sides.',analysis(table([t('着法类别','Move quality'),sideName('B'),sideName('W')],keys.map(key=>[names[key],report.players.B.counts[key],report.players.W.counts[key]]))));
- quality.querySelector('.report-stat-card').insertBefore(qualityLegend(names,{best:t('坐标匹配','coordinate match'),good:'≤ 0.5',inaccuracy:'0.5 < L ≤ 2',mistake:'2 < L ≤ 5',blunder:'> 5'}),quality.querySelector('.report-graph-maths'));
  methods.push({title:t('统计范围','What is counted'),formula:'',note:t('统计包含所有已评定着法。没有评估的着法不计为零损失；估计评估会在具体着法页标明。','Statistics include every rated move. Missing evaluations are left out, not treated as zero loss; estimates are labelled on detailed move pages.')});
  const loss=sheet(t('目数损失：典型表现与大失误','Point loss: typical play and large errors'));
  graph(loss,t('典型损失与较大失误','Typical loss and bigger errors'),compare(t('目数损失分位比较','Point-loss comparison'),[['meanPointLoss','平均损失','Average'],['medianPointLoss','一半着法不超过','Half of moves ≤'],['p90PointLoss','九成着法不超过','90% of moves ≤']],{digits:2}),'L_i = max(0, s_i * (S_best - S_played)); mean = sum(L_i) / N\nh = (N - 1) * q; Q(q) = x[floor(h)] + (h - floor(h)) * (x[ceil(h)] - x[floor(h)])',
@@ -178,6 +177,11 @@ function addStatistics(sheet){
  graph(moments,t('每手损失在哪里发生？','Where did each move lose points?'),reportPlot(t('逐手目数损失','Point loss by move'),series,{yMax:Math.max(1,...series.flatMap(s=>s.points.map(p=>p.y))),decided:scope.mode==='decided'?decided:null}),'Each stem = L_i = max(0, s_i * (S_best - S_played))',
  '损失比较同一局面的首选与实战；无评估的着法不计入。',
  'Loss compares best and played choices from the same position. Unrated moves are excluded.');
+ const both=t('损失超过 2 目、且胜率下降至少 5 个百分点','lost over 2 points and at least 5 percentage points of win chance');
+ const rule=scope.mode==='decided'?t('关键时刻是第 '+decided.move+' 手及之前'+both+'的着法；从第 '+decided.move+' 手起'+sideName(decided.side)+'胜率一直不低于 90%，胜负已定。按目数损失 × 胜率损失排序。','Key moments are moves up to move '+decided.move+' that '+both+'. From move '+decided.move+', '+sideName(decided.side)+' stayed at 90% or higher, so the result was decided. They are ranked by points × percentage points.')
+  :scope.mode==='early'?t('从第 '+decided.move+' 手起'+sideName(decided.side)+'胜率一直不低于 90%，胜率几乎不变，因此关键时刻按目数损失排序（超过 2 目）。','From move '+decided.move+', '+sideName(decided.side)+' stayed at 90% or higher and win chances barely moved, so key moments are the largest point losses over 2 points.')
+  :t('关键时刻是'+both+'的着法，按目数损失 × 胜率损失排序。','Key moments are moves that '+both+', ranked by points × percentage points.');
+ moments.append(node('p',rule+t('每方最多五手，前三手在后文配有棋盘图；点击手数可回到棋局。',' Up to five per side are listed and the first three have board reviews later; select a move number to replay it.'),'report-note'));
  for(const side of ['B','W']){
   const moves=report.keyMoves[side],reviewed=new Set(report.problems.filter(m=>m.side===side).map(m=>m.nodeId));
   moments.append(node('h3',sideName(side)+' · '+t('关键时刻','Key moments')));
@@ -189,11 +193,7 @@ function addStatistics(sheet){
   }
   moments.append(grid);
  }
- const both=t('损失超过 2 目、且胜率下降至少 5 个百分点','lost over 2 points and at least 5 percentage points of win chance');
- const rule=scope.mode==='decided'?t('关键时刻是第 '+decided.move+' 手及之前'+both+'的着法；从第 '+decided.move+' 手起'+sideName(decided.side)+'胜率一直不低于 90%，胜负已定。按目数损失 × 胜率损失排序。','Key moments are moves up to move '+decided.move+' that '+both+'. From move '+decided.move+', '+sideName(decided.side)+' stayed at 90% or higher, so the result was decided. They are ranked by points × percentage points.')
-  :scope.mode==='early'?t('从第 '+decided.move+' 手起'+sideName(decided.side)+'胜率一直不低于 90%，胜率几乎不变，因此关键时刻按目数损失排序（超过 2 目）。','From move '+decided.move+', '+sideName(decided.side)+' stayed at 90% or higher and win chances barely moved, so key moments are the largest point losses over 2 points.')
-  :t('关键时刻是'+both+'的着法，按目数损失 × 胜率损失排序。','Key moments are moves that '+both+', ranked by points × percentage points.');
- moments.append(node('p',rule+t('每方最多五手，前三手在后文配有棋盘图；点击手数可回到棋局。“≈”表示采用落子后局面估计。',' Up to five per side are listed and the first three have board reviews later; select a move number to replay it. "≈" marks an estimate from the following position.'),'report-note'));
+ if(['B','W'].some(side=>report.keyMoves[side].some(m=>m.estimated)))moments.append(node('p',t('“≈”表示采用落子后局面估计。','"≈" marks an estimate from the following position.'),'report-note'));
  methods.push({title:t('关键时刻','Key moments'),formula:'Key moment: L > 2 and W ≥ 5 and move ≤ D; rank by L × W',note:t('L 为目数损失，W 为胜率损失（百分点），D 为胜负已定的一手：从这一手起胜方胜率一直不低于 90%。只损失一两目却让胜率大幅变化的着法常见于细棋，不计入；D 之后损失再多也不改变结果。若 D 在开局（前 60 手），胜率几乎不变，改为只按 L 排序。','L is point loss, W is win-chance loss in percentage points and D is the decided move: from D on, the winner stayed at 90% or higher. Moves losing only a point or two can swing win chances a lot in close games, so they are left out; losses after D do not change the result. If D falls in the opening (first 60 moves), win chances barely move, so moves are ranked by L alone.')});
 }
 function addGameRecord(sheet){
@@ -215,10 +215,10 @@ function addSummary(sheet){
  rows.forEach(([,value,,better],index)=>{const [b,w]=['B','W'].map(value);if(!Number.isFinite(b)||!Number.isFinite(w)||b===w)return;grid.tBodies[0].rows[index].cells[(b-w)*better>0?1:2].classList.add('report-table-max');});
  const keyRow=node('tr');keyRow.append(node('td',t('关键时刻（后文详解）','Key moments (reviewed later)')));
  for(const side of ['B','W']){const cell=node('td'),moves=report.problems.filter(m=>m.side===side);if(!moves.length)cell.textContent='—';moves.forEach((m,i)=>{if(i)cell.append(document.createTextNode(t('、',', ')));const link=node('a',t('第 '+m.move+' 手','Move '+m.move));link.dataset.reviewMove=String(m.move);link.dataset.reviewSide=side;link.dataset.keepText='true';cell.append(link);});keyRow.append(cell);}
- grid.tBodies[0].append(keyRow);page.append(grid);
- page.append(node('p',t('粗体为表现更好的一方。关键时刻按重要性排序，点击可跳到棋盘详解。','Bold marks the better side. Key moments are in order of importance; select one to jump to its board review.'),'report-note'));
  const decided=decidedFrom(report.chart);
  page.append(node('p',decided?t('从第 '+decided.move+' 手起，'+sideName(decided.side)+'胜率一直不低于 90%，胜负已定。','From move '+decided.move+', '+sideName(decided.side)+' stayed at 90% or higher: the result was decided.'):t('终局时双方胜率都未达到 90%。','Neither side reached 90% by the end.')));
+ grid.tBodies[0].append(keyRow);page.append(grid);
+ page.append(node('p',t('粗体为表现更好的一方。关键时刻按重要性排序，点击可跳到棋盘详解。','Bold marks the better side. Key moments are in order of importance; select one to jump to its board review.'),'report-note'));
 }
 function addMovePages(sheet){
  for(const side of ['B','W'])for(const [index,m] of report.problems.filter(m=>m.side===side).slice(0,3).entries()){
