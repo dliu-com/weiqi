@@ -1,4 +1,4 @@
 // Shown on every report. When tests/report-version.test.js reports a new logic fingerprint,
 // increase the number, set today's date and paste the new fingerprint.
-export const REPORT_VERSION={number:3,date:'2026-10-12'};
-export const REPORT_LOGIC_FINGERPRINT='b4dccee64da6f0c5';
+export const REPORT_VERSION={number:4,date:'2026-10-12'};
+export const REPORT_LOGIC_FINGERPRINT='da59b66599fadfdb';

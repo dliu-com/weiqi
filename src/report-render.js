@@ -23,6 +23,10 @@ const qualities=()=>({inaccuracy:t('不精确','Inaccuracy'),mistake:t('失误',
 function table(headers,rows){const e=node('table',undefined,'report-table'),head=node('thead'),h=node('tr');for(const text of headers)h.append(node('th',text));head.append(h);e.append(head);const body=node('tbody');for(const cells of rows){const row=node('tr');for(const text of cells)row.append(node('td',text));body.append(row);}e.append(body);return e;}
 function diagram(board,caption,{labels=[],marks=[]}={}){const f=node('figure',undefined,'report-board');const svg=boardDiagram(board,{labels,marks});svg.setAttribute('aria-label',t('十九路围棋图','19 × 19 Go diagram'));f.append(svg,node('figcaption',caption));return f;}
 const sideName=side=>side==='B'?t('黑方','Black'):t('白方','White');
+const sideBadge=(text,side)=>{const e=node('span',text,'report-side-badge report-side-'+side);e.setAttribute('aria-label',(side==='even'?t('均势','Even'):sideName(side==='black'?'B':'W'))+' '+text);return e;};
+const leadBadge=v=>Math.abs(v)<.05?sideBadge('0.0','even'):sideBadge(number(Math.abs(v)),v>0?'black':'white');
+const winBadge=v=>{const black=Math.max(0,Math.min(1,v))*100;return Math.abs(black-50)<.05?sideBadge('50.0%','even'):sideBadge(number(Math.max(black,100-black))+'%',black>50?'black':'white');};
+const sideChange=(before,after)=>{const e=node('span',undefined,'report-side-change');e.append(before,document.createTextNode(' → '),after);return e;};
 function reportPlot(label,series,{xMax=report.game.moves,yMax=1,decided=null}={}){
  const wrap=node('div',undefined,'report-chart'),ns='http://www.w3.org/2000/svg',svg=document.createElementNS(ns,'svg');
  svg.setAttribute('viewBox','0 0 760 300');svg.setAttribute('role','img');svg.setAttribute('aria-label',label);svg.setAttribute('class','report-plot');
@@ -116,7 +120,7 @@ function statisticGraph(title,visual,formula,zh,en,insight){
  const figure=node('figure',undefined,'report-stat-card'),caption=node('figcaption',undefined,'report-graph-maths');
  figure.append(node('h3',title),...[visual].flat());const reading=graphTakeaway(title);if(reading)figure.append(node('p',reading,'report-graph-reading'));if(insight){caption.append(node('h4',t('AI 分析','AI analysis'),'report-insight-heading'),insight);figure.append(caption);}
  // Formulas and definitions are collected for the calculation appendix.
- methods.push({title,formula,note:t(zh,en)});return figure;
+ methods.push({title,formula,note:t(zh,en),at:figure});return figure;
 }
 function addStatistics(sheet){
  const keys=['best','good','inaccuracy','mistake','blunder'],names={best:t('AI 首选','AI first choice'),good:t('好棋','Good'),...qualities()},sides={B:sideName('B'),W:sideName('W')};
@@ -162,7 +166,7 @@ function addStatistics(sheet){
  graph(quality,t('各类着法占比','Share of each move quality'),[compositionChart(t('着法质量占比','Move-quality composition'),['B','W','all'].map(side=>({label:side==='all'?t('全局','Whole game'):sideName(side),counts:(side==='all'?report.overall:report.players[side]).counts})),{keys,names,emptyLabel:t('无已评定着法','No rated moves')}),qualityLegend(names,{best:t('坐标匹配','coordinate match'),good:'≤ 0.5',inaccuracy:'0.5 < L ≤ 2',mistake:'2 < L ≤ 5',blunder:'> 5'})],'Share = 100 × category count / N',
  'N 为已评定着法数；首选按坐标匹配，其余按损失目数分类（L 的单位为目）。全局合并双方着法。',
  'N counts rated moves. AI first choice matches the coordinate; other categories use point loss. Whole game pools both sides.',analysis(table([t('着法类别','Move quality'),sideName('B'),sideName('W')],keys.map(key=>[names[key],report.players.B.counts[key],report.players.W.counts[key]]))));
- methods.push({title:t('统计范围','What is counted'),formula:'',note:t('统计包含所有已评定着法。没有评估的着法不计为零损失；估计评估会在具体着法页标明。','Statistics include every rated move. Missing evaluations are left out, not treated as zero loss; estimates are labelled on detailed move pages.')});
+ methods.push({title:t('统计范围','What is counted'),formula:'',note:t('统计包含所有已评定着法。没有评估的着法不计入，而不是当作零损失。','Statistics include every rated move. Moves without an evaluation are left out, not counted as zero loss.')},{title:t('估计值','Estimated values'),formula:'',note:t('AI 分析时若很少考虑实战着法，就改用落子后局面的评估；这类数值为估计。','When the AI barely considered the played move, the report uses its evaluation of the position after the move instead. These values are estimates.')});
  const loss=sheet(t('目数损失：典型表现与大失误','Point loss: typical play and large errors'));
  graph(loss,t('典型损失与较大失误','Typical loss and bigger errors'),compare(t('目数损失分位比较','Point-loss comparison'),[['meanPointLoss','平均损失','Average'],['medianPointLoss','一半着法不超过','Half of moves ≤'],['p90PointLoss','九成着法不超过','90% of moves ≤']],{digits:2}),'L_i = max(0, s_i * (S_best - S_played)); mean = sum(L_i) / N\nh = (N - 1) * q; Q(q) = x[floor(h)] + (h - floor(h)) * (x[ceil(h)] - x[floor(h)])',
  'S 为黑方视角的目差（单位：目）；黑 s=+1，白 s=−1；x 为排序后的损失目数，q=0.5 或 0.9。首选损失为 0，估计值取下一实战局面。',
@@ -186,15 +190,16 @@ function addStatistics(sheet){
   const moves=report.keyMoves[side],reviewed=new Set(report.problems.filter(m=>m.side===side).map(m=>m.nodeId));
   moments.append(node('h3',sideName(side)+' · '+t('关键时刻','Key moments')));
   if(!moves.length){moments.append(node('p',t('没有符合条件的着法。','No moves met the rule.'),'report-note'));continue;}
-  const grid=table([t('手数','Move'),t('实战','Played'),t('目数损失（目）','Point loss'),t('胜率损失','Win loss'),t('后续复盘','Follow-up review')],moves.map(m=>[m.move,m.played,(m.estimated?'≈ ':'')+number(m.pointLoss),number(m.winrateLoss)+t(' 个百分点',' pp'),reviewed.has(m.nodeId)?t('后文棋盘详解','Detailed board review'):t('棋局回放','Game replay')]));
+  const grid=table([t('手数','Move'),t('落点','Played at'),t('目数损失','Point loss'),t('胜率损失','Win loss'),t('后续复盘','Follow-up review')],moves.map(m=>[m.move,m.played,number(m.pointLoss),Number.isFinite(m.winrateLoss)?number(m.winrateLoss)+t(' 个百分点',' pp'):'—',reviewed.has(m.nodeId)?t('后文棋盘详解','Detailed board review'):t('棋局回放','Game replay')]));
   for(const [index,row] of [...grid.tBodies[0].rows].entries()){
    const m=moves[index],link=node('a',String(m.move));row.className='report-key-move'+(reviewed.has(m.nodeId)?' report-key-reviewed':'');link.href='https://weiqi.dliu.com/game/'+id+'?move='+m.nodeId;row.cells[0].replaceChildren(link);
+   for(const [cell,key,badge] of [[2,'blackLead',leadBadge],[3,'blackWinrate',winBadge]]){const before=m.bestEvaluation?.[key],after=m.playedEvaluation?.[key];if(Number.isFinite(before)&&Number.isFinite(after))row.cells[cell].append(sideChange(badge(before),badge(after)));}
    if(reviewed.has(m.nodeId)){const detail=node('a',t('后文棋盘详解','Detailed board review'));detail.dataset.reviewMove=String(m.move);detail.dataset.reviewSide=side;row.cells[4].replaceChildren(detail);}
   }
   moments.append(grid);
  }
- if(['B','W'].some(side=>report.keyMoves[side].some(m=>m.estimated)))moments.append(node('p',t('“≈”表示采用落子后局面估计。','"≈" marks an estimate from the following position.'),'report-note'));
- methods.push({title:t('关键时刻','Key moments'),formula:'Key moment: L > 2 and W ≥ 5 and move ≤ D; rank by L × W',note:t('L 为目数损失，W 为胜率损失（百分点），D 为胜负已定的一手：从这一手起胜方胜率一直不低于 90%。只损失一两目却让胜率大幅变化的着法常见于细棋，不计入；D 之后损失再多也不改变结果。若 D 在开局（前 60 手），胜率几乎不变，改为只按 L 排序。','L is point loss, W is win-chance loss in percentage points and D is the decided move: from D on, the winner stayed at 90% or higher. Moves losing only a point or two can swing win chances a lot in close games, so they are left out; losses after D do not change the result. If D falls in the opening (first 60 moves), win chances barely move, so moves are ranked by L alone.')});
+ if(['B','W'].some(side=>report.keyMoves[side].length))moments.append(node('p',t('方框为落子前 → 落子后：黑底是黑方领先的目数或胜率，白底是白方的。','Boxes show before → after the move: a black box is Black\'s lead or win chance, a white box is White\'s.'),'report-note'));
+ methods.push({title:t('关键时刻','Key moments'),at:moments,formula:'Key moment: L > 2 and W ≥ 5 and move ≤ D; rank by L × W',note:t('L 为目数损失，W 为胜率损失（百分点），D 为胜负已定的一手：从这一手起胜方胜率一直不低于 90%。只损失一两目却让胜率大幅变化的着法常见于细棋，不计入；D 之后损失再多也不改变结果。若 D 在开局（前 60 手），胜率几乎不变，改为只按 L 排序。','L is point loss, W is win-chance loss in percentage points and D is the decided move: from D on, the winner stayed at 90% or higher. Moves losing only a point or two can swing win chances a lot in close games, so they are left out; losses after D do not change the result. If D falls in the opening (first 60 moves), win chances barely move, so moves are ranked by L alone.')});
 }
 function addGameRecord(sheet){
  const record=fullGameRecord(report.overview,report.reviews);if(!record)return;
@@ -221,6 +226,7 @@ function addSummary(sheet){
  page.append(node('p',t('粗体为表现更好的一方。关键时刻按重要性排序，点击可跳到棋盘详解。','Bold marks the better side. Key moments are in order of importance; select one to jump to its board review.'),'report-note'));
 }
 function addMovePages(sheet){
+ const lines=[];
  for(const side of ['B','W'])for(const [index,m] of report.problems.filter(m=>m.side===side).slice(0,3).entries()){
   const quality=qualities()[m.quality]||t('未评定','Unrated');
   const answer=sheet(sideName(side)+' '+(index+1)+' · '+t('第 '+m.move+' 手','Move '+m.move)+' · '+quality+' · '+t('损失 '+number(m.pointLoss)+' 目',number(m.pointLoss)+' points lost'));answer.dataset.side=m.side;answer.dataset.move=m.move;
@@ -231,20 +237,21 @@ function addMovePages(sheet){
   const bestIndex=Number.isInteger(m.bestLine?.moves?.[0]?.index)?m.bestLine.moves[0].index:null,bestMark=bestIndex===null?[]:[{index:bestIndex,colour:markColours.best,kind:'best'}];
   pair.append(diagram(m.actualBoard,t('实战（红圈）与 AI 首选点（绿圈）','Played move (red) and AI choice (green)'),{marks:[...(m.playedIndex===null?[]:[{index:m.playedIndex,colour:markColours.played,kind:'played'}]),...bestMark]}));
   if(m.bestLine)pair.append(diagram(m.bestLine.board,t('AI 首选变化（绿圈为第 1 手）','AI best continuation (green = move 1)'),{labels:numbers(m.bestLine),marks:bestMark}));
-  answer.append(pair);
-  answer.append(node('p',t('右图数字从 AI 首选的第 1 手开始；停一手不标在棋盘上。最多显示 12 手，为引擎推荐变化，不是实际棋谱。','On the right, numbers start with the AI choice; passes have no label. Up to 12 moves are shown; they are engine suggestions, not the recorded game.'),'report-note'));
-  if(m.estimated)answer.append(node('p',t('实战着法的搜索不足，其评估来自落子后的局面；数值为估计。','The played move had insufficient search; its evaluation comes from the following position and is estimated.'),'report-note'));
+  answer.append(pair);if(m.bestLine)lines.push(answer);
   if(m.bestLine?.truncated)answer.append(node('p',t('无法合法复现的变化已截断。','A continuation that could not be replayed legally has been truncated.'),'report-note'));
   const link=node('a',t('在棋局中复盘这一步','Review this move in the game'));link.href='/game/'+id+'?move='+m.nodeId;answer.append(link);
  }
+ if(lines.length)methods.push({title:t('AI 推荐变化','AI suggested continuation'),at:lines,formula:'',note:t('棋盘详解的右图是 AI 推荐的后续下法，不是实战棋谱。数字是推荐顺序，1 为 AI 首选点；最多显示 12 手，停一手不标出。','On each board review, the right-hand board shows the moves the AI suggests next, not the game record. Numbers give the order, with 1 at the AI choice. Up to 12 moves are shown; passes are not marked.')});
 }
 function addAppendices(sheet){
  const page=sheet(t('附录：计算方法','Appendix: calculation methods'));
- for(const m of methods){const item=node('section',undefined,'report-method');item.append(node('h3',m.title));if(m.formula)item.append(node('p',m.formula,'report-formula'));item.append(node('p',m.note,'report-note'));page.append(item);}
+ const links=[];
+ for(const m of methods){const item=node('section',undefined,'report-method'),heading=node('h3',undefined,'report-method-title');heading.append(node('span',m.title));if(m.at){const link=node('a',undefined,'report-method-page');links.push({link,at:[m.at].flat()});heading.append(link);}item.append(heading);if(m.formula)item.append(node('p',m.formula,'report-formula'));item.append(node('p',m.note,'report-note'));page.append(item);}
  const p=report.provenance,c=p.compute||{},duration=Number.isFinite(p.endToEndMs)?Math.round(p.endToEndMs/60000)+t(' 分钟',' min'):'—';
  const info=sheet(t('附录：分析信息','Appendix: analysis details'));
  info.append(metadata([[t('引擎','Engine'),p.engine],[t('每个局面的访问量','Visits per position'),p.visits?.toLocaleString(locale())],[t('模型','Model'),p.model,true],[t('模型 SHA-256','Model SHA-256'),p.modelSha256,true],[t('计算资源','Compute'),[c.gpu,c.instanceType,c.vCpu?c.vCpu+' vCPUs':'',c.memoryGB?c.memoryGB+' GB RAM':''].filter(Boolean).join(' · '),true],[t('总分析时间（含排队与准备）','Analysis total including queue/setup'),duration],[t('报告语言','Report language'),t('中文','English')],[t('分析完成时间','Analysis completed'),p.completedAt?timestamp(p.completedAt):'—',true],[t('报告生成时间','Report prepared'),timestamp(report.generatedAt),true],[t('报告版本','Report version'),REPORT_VERSION.number+' · '+REPORT_VERSION.date,true]]));
  info.append(node('p',t('报告版本在报告内容或计算方法改变时更新。','The report version changes whenever report content or calculation methods change.'),'report-note'));
+ return links;
 }
 function renderLanguage(value){
  reportLanguage=value;methods=[];
@@ -256,7 +263,7 @@ function renderLanguage(value){
  addGameRecord(sheet);
  addStatistics(sheet);
  addMovePages(sheet);
- addAppendices(sheet);
+ const methodLinks=addAppendices(sheet);
  const plan=reportPagination(sheets.map(s=>s.querySelector('h2').textContent));
  for(const [index,s] of sheets.entries()){s.id=plan.contents[index].target;s.dataset.reportTitle=plan.contents[index].title;s.prepend(node('p','DL Weiqi','report-running-header'));}
  for(const link of fragment.querySelectorAll('[data-review-move]')){
@@ -270,7 +277,7 @@ function renderLanguage(value){
  for(const side of ['B','W']){const card=node('div',undefined,'report-cover-player report-cover-player-'+side);card.append(node('span',sideName(side),'report-cover-side'),node('strong',game.players[side==='B'?'black':'white']||'—'));playerCards.append(card);}
  cover.append(playerCards,node('p',result?t(result.zh,result.en):game.result||t('结果未记录','Result not recorded'),'report-cover-result'));
  const gameAddress='https://weiqi.dliu.com/game/'+id,gameLinkBox=node('p',undefined,'report-cover-link'),coverLink=node('a',gameAddress);coverLink.href=gameAddress;gameLinkBox.append(node('span',t('在线棋局','ONLINE GAME')),coverLink);cover.append(gameLinkBox);
- const gameDetails=metadata([[t('棋局 ID','Game ID'),id],[t('棋局日期','Game date'),game.date],[t('规则','Rules'),rules],[t('棋盘','Board'),'19 × 19'],[t('贴目','Komi'),String(game.komi)],[t('实战手数','Recorded moves'),String(game.moves)]]);gameDetails.classList.add('report-cover-game-details');cover.append(gameDetails);
+ const gameDetails=metadata([[t('棋局 ID','Game ID'),id],[t('棋局日期','Game date'),game.date],[t('规则','Rules'),rules],[t('棋盘','Board'),'19 × 19'],[t('贴目','Komi'),String(game.komi)],[t('实战手数','Recorded moves'),String(game.moves)],[t('引擎','Engine'),report.provenance?.engine],[t('每个局面的访问量','Visits per position'),report.provenance?.visits?.toLocaleString(locale())],[t('报告生成时间','Report prepared'),timestamp(report.generatedAt),true]]);gameDetails.classList.add('report-cover-game-details');cover.append(gameDetails);
  const credit=node('p',undefined,'report-cover-credit');credit.append(document.createTextNode(t('由 DL 围棋制作 · ','Produced by DL Weiqi · ')));const creditLink=node('a','dliu.com');creditLink.href='https://dliu.com';credit.append(creditLink);cover.append(credit,node('p',versionText(),'report-cover-version'));
  const contents=front('contents');contents.id='report-page-2';contents.dataset.reportTitle=t('目录','Table of contents');
  contents.append(node('p','DL Weiqi','report-running-header'),node('h2',t('目录','Table of contents')),node('p',t('依次为对局总结、总谱、全局统计、关键时刻详解和附录。点击条目即可跳转。','The summary, full game record and statistics come first, then the key-moment reviews and appendices. Select an entry to jump to its page.'),'report-note'));
@@ -278,6 +285,11 @@ function renderLanguage(value){
  for(const entry of plan.contents){const item=node('li'),link=node('a');link.href=location.pathname+location.search+'#'+entry.target;link.dataset.reportPage=String(entry.page);link.append(node('span',entry.title,'report-contents-title'),node('span',undefined,'report-contents-leader'),node('span',String(entry.page),'report-contents-page'));item.append(link);list.append(item);}
  contents.append(list);fragment.prepend(cover,contents);sheets.unshift(cover,contents);
  for(const [index,s] of sheets.entries()){s.dataset.reportPage=String(index+1);const footer=node('footer',undefined,'report-footer'),gameLink=node('a','weiqi.dliu.com/game/'+id);gameLink.href='https://weiqi.dliu.com/game/'+id;footer.append(gameLink,node('span',t('中文','English')+' · '+(index+1)+' / '+plan.pageCount));s.append(footer);}
+ for(const {link,at} of methodLinks){
+  const pages=at.map(e=>e.closest('.report-sheet')).filter(Boolean),numbers=pages.map(s=>Number(s.dataset.reportPage));if(!numbers.length){link.remove();continue;}
+  const first=Math.min(...numbers),last=Math.max(...numbers),range=first===last?String(first):first+'–'+last;
+  link.href=location.pathname+location.search+'#'+pages[numbers.indexOf(first)].id;link.dataset.reportPage=String(first);link.textContent=first===last?t('第 '+range+' 页','p. '+range):t('第 '+range+' 页','pp. '+range);
+ }
  return fragment;
 }
 function render(){
