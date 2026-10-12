@@ -119,13 +119,18 @@ export class WeiqiSiteStack extends Stack {
     gameHandler.addToRolePolicy(new iam.PolicyStatement({actions:['lambda:InvokeFunction'],resources:[`arn:${this.partition}:lambda:${this.region}:${this.account}:function:WeiqiPositionRecognition`,`arn:${this.partition}:lambda:${this.region}:${this.account}:function:WeiqiPositionEngine`]}));
     gameHandler.addToRolePolicy(new iam.PolicyStatement({actions:['dynamodb:PutItem','dynamodb:UpdateItem'],resources:[`arn:${this.partition}:dynamodb:${this.region}:${this.account}:table/weiqi-position-usage`]}));
     reportQueue.grantSendMessages(gameHandler);
-    bucket.grantPut(gameHandler,'share/*');
+    gameHandler.addToRolePolicy(new iam.PolicyStatement({actions:['s3:PutObject'],resources:[bucket.arnForObjects('share/*')]}));
     gameHandler.addToRolePolicy(new iam.PolicyStatement({actions:['batch:DescribeJobs','batch:ListJobs'],resources:['*']}));
     new events.Rule(this,'CompletedGameReport',{
       eventPattern:{source:['aws.batch'],detailType:['Batch Job State Change'],detail:{status:['SUCCEEDED'],jobName:[{prefix:'weiqi-'}]}},
       targets:[new eventTargets.LambdaFunction(gameHandler,{retryAttempts:2,maxEventAge:Duration.hours(1)})],
     });
-    libraryBucket.grantReadWrite(gameHandler);
+    // Only the prefixes the API uses, and no delete: library writes are create-only or conditional.
+    // ListBucket keeps a missing key as NoSuchKey instead of AccessDenied.
+    const apiLibraryPrefixes=['games/*','library-index/*','uploads/*','reservations/*','daily-analysis/*'];
+    gameHandler.addToRolePolicy(new iam.PolicyStatement({actions:['s3:GetObject','s3:PutObject'],resources:apiLibraryPrefixes.map(p=>libraryBucket.arnForObjects(p))}));
+    gameHandler.addToRolePolicy(new iam.PolicyStatement({actions:['s3:GetObject'],resources:[libraryBucket.arnForObjects('control/ai-spending.json')]}));
+    gameHandler.addToRolePolicy(new iam.PolicyStatement({actions:['s3:ListBucket'],resources:[libraryBucket.bucketArn]}));
     analysisQueue.grantSendMessages(gameHandler);
     gameTable.grant(gameHandler, 'dynamodb:GetItem', 'dynamodb:PutItem', 'dynamodb:Scan');
     const functionUrl = gameHandler.addFunctionUrl({ authType: lambda.FunctionUrlAuthType.AWS_IAM });

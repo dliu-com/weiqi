@@ -131,6 +131,8 @@ function securityExtra(f){
   [['多 IP 机器人用完公开额度','Many-IP bot uses up public limits'],['高 · 接受','High · accepted'],['全站每日上限、费用保护；读取与流量费用仍可能增加','Site-wide daily caps, spending guard; read and transfer charges remain']],
   [['一个客户端刷修改或 AI','One client floods edits or AI'],['低 · 本次已修复','Low · fixed in this review'],['每个连接：修改 60 次 / 分钟，棋谱库读取 120 次 / 分钟，每天保存 10 局、深度 AI 3 局、AI 分析 500 次','Per connection: 60 edits and 120 library reads / min; 10 saved games, 3 deep AI games and 500 AI analyses / day']],
   [['伪造请求占用棋局 ID','Forged request takes a game ID'],['低 · 本次已修复','Low · fixed in this review'],['没有公开上传接口；保存 ID 由服务器生成','No public upload; the server picks save IDs']],
+  [['API 漏洞被利用','API bug is exploited'],['低 · 本次已收紧','Low · tightened in this review'],['API 只能读取和新建棋谱文件，不能删除','The API can only read and create game files, not delete them']],
+  [['AI 模型下载被篡改','Tampered AI model download'],['低 · 本次已修复','Low · fixed in this review'],['固定官方模型和 SHA-256；不一致就不分析','Pinned official model and SHA-256; no analysis on a mismatch']],
   [['大量读取请求','Flood of read requests'],['中 · 接受','Medium · accepted'],['每个连接的读取限额；API 最多同时运行 20 个','Per-connection read limit; the API runs at most 20 at once']],
   [['SGF 名称或注释注入脚本','SGF name/comment script injection'],['较低 · 已测试','Lower · tested'],['文本节点、输入限额、CSP 禁止内联脚本','Text nodes, bounded input, CSP blocks inline script']],
   [['绕过网站访问私有资源','Bypass site to reach private AWS'],['较低 · 测试中被拒绝','Lower · denied in tests'],['私有 S3、IAM Lambda URL、OAC、GPU 无入站','Private S3, IAM function URL, OAC, no GPU inbound']],

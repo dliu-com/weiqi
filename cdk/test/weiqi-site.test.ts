@@ -121,3 +121,12 @@ test('game status may read Batch queue state without submitting or cancelling an
 test('the public API function has a concurrency ceiling, so a request flood cannot scale cost without limit',()=>{
  template.hasResourceProperties('AWS::Lambda::Function',{Handler:'index.handler',MemorySize:256,ReservedConcurrentExecutions:20});
 });
+test('the public API may read and create library records but never delete them',()=>{
+ const policies=Object.values(template.findResources('AWS::IAM::Policy'));const game=policies.find((policy:any)=>JSON.stringify(policy.Properties.Roles).includes('GameHandler')) as any;
+ const statements=game.Properties.PolicyDocument.Statement,actions=statements.flatMap((statement:any)=>Array.isArray(statement.Action)?statement.Action:[statement.Action]);
+ expect(actions.filter((action:string)=>/^s3:/.test(action)).sort()).toEqual(['s3:GetObject','s3:GetObject','s3:ListBucket','s3:PutObject','s3:PutObject']);
+ expect(actions.some((action:string)=>action.includes('*'))).toBe(false);
+ const objects=JSON.stringify(statements.filter((statement:any)=>([] as string[]).concat(statement.Action).includes('s3:PutObject')).map((statement:any)=>statement.Resource));
+ for(const prefix of ['games/*','library-index/*','uploads/*','reservations/*','daily-analysis/*','share/*'])expect(objects).toContain(prefix);
+ expect(objects).not.toContain('control/');
+});
