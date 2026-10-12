@@ -35,3 +35,6 @@ __pycache__/
 # Standalone photo feature assets are rebuilt from pinned dependencies.
 /src/photo-assets/
 /photo-analysis/.source-stage/
+
+# CDK context lookups name the AWS account.
+/cdk/cdk.context.json

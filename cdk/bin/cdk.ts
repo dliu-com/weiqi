@@ -10,7 +10,13 @@ import { WeiqiSiteStack } from '../lib/weiqi-site-stack';
 const app = new App();
 const profilePath=path.join(__dirname,'../../cloud/deployment-config.json');
 const profile=fs.existsSync(profilePath)?JSON.parse(fs.readFileSync(profilePath,'utf8')):{};
-const context=(name:string)=>app.node.tryGetContext(name)??profile[name];
+// The public config writes {account} instead of the AWS account ID; the CDK CLI supplies the real one.
+const context=(name:string)=>{
+ const value=app.node.tryGetContext(name)??profile[name];
+ if(typeof value!=='string'||!value.includes('{account}'))return value;
+ if(!process.env.CDK_DEFAULT_ACCOUNT)throw Error(`Sign in to AWS so ${name} can use the current account.`);
+ return value.split('{account}').join(process.env.CDK_DEFAULT_ACCOUNT);
+};
 if((process.env.CDK_DEFAULT_REGION||'eu-west-1')!=='eu-west-1')throw Error('Weiqi resources must be provisioned in Ireland (eu-west-1).');
 const storage=new WeiqiStorageStack(app,'WeiqiStorage',{terminationProtection:true,tags:{service:'weiqi'},env:{account:process.env.CDK_DEFAULT_ACCOUNT,region:process.env.CDK_DEFAULT_REGION||'eu-west-1'}});
 new WeiqiSiteStack(app, 'WeiqiSite', {storage,

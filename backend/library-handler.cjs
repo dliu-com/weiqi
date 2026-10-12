@@ -65,16 +65,9 @@ async function libraryHandler(event) {
       if(!['ready','limited','paused'].includes(metadata.analysis.status)&&await libraryStore.analysisPaused())metadata.analysis={...metadata.analysis,status:'paused',reason:'monthly_budget',quick:metadata.analysis.quick?.status==='ready'?metadata.analysis.quick:undefined,deep:undefined};
       return response(200,{metadata,sgf,analysis});
     }
-    if (method!=='POST' || path!=='/api/library') return response(404,{message:'Record not found.'});
-    if(event.headers?.origin && event.headers.origin!==process.env.SITE_ORIGIN)return response(403,{message:'Invalid request origin.'});
-    if(!event.headers?.['content-type']?.startsWith('application/json'))return response(415,{message:'Use JSON.'});
-    const raw=event.isBase64Encoded?Buffer.from(event.body || '', 'base64').toString('utf8'):event.body || '';
-    if(Buffer.byteLength(raw)>1600000)return response(413,{message:'Upload too large.'});
-    let request;try{request=JSON.parse(raw);}catch{return response(400,{message:'Invalid upload request.'});}
-    const metadata=await uploadRecord(libraryStore,request.sgf,request.filename,request.id);
-    await enqueueSavedRecord(metadata);
-    await saveSharePreview(request.sgf,metadata);
-    return response(200,{id:metadata.id});
+    // Records are only created by the live game and the shared draft, never by a public upload.
+    if(path==='/api/library')return response(405,{message:'Method not allowed.'});
+    return response(404,{message:'Record not found.'});
   } catch(e) {
     if(e.name==='NoSuchKey')return response(404,{message:'Record not found.'});
     if(e.statusCode)return response(e.statusCode,{message:e.message});

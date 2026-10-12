@@ -13,13 +13,18 @@ export function draftTransition(current,request){
  if(new TextEncoder().encode(JSON.stringify(next)).length>350000)throw Object.assign(Error('The draft is too large.'),{statusCode:413});
  return next;
 }
-export function draftPublication(current,request){
+// The server picks uploadId so a client cannot aim a save at another game's upload slot.
+export function draftPublication(current,request,uploadId){
  if(!request||request.expectedRevision!==current.revision)throw Object.assign(Error('The public draft changed on another device. Reload it before saving.'),{statusCode:409});
  if(!/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/.test(request.id||''))throw Object.assign(Error('Invalid save request.'),{statusCode:400});
  const source=mainRecordingSgf(current.sgf);const record=recordingTree(source);validateDraftSequence(record);validateRecordingDetails(record);
  const moves=record.mainLine.length-1;if(moves>MAX_GAME_MOVES)throw Object.assign(Error(`A game can have at most ${MAX_GAME_MOVES} moves. This game has ${moves}.`),{statusCode:400});
  if(moves<MIN_LIBRARY_MOVES)throw Object.assign(Error(`A game needs at least ${MIN_LIBRARY_MOVES} moves to be saved. This game has ${moves}.`),{statusCode:400});
- return {revision:current.revision+1,sgf:source,selected:0,updatedAt:new Date().toISOString(),publication:{id:request.id,status:'pending'}};
+ return {revision:current.revision+1,sgf:source,selected:0,updatedAt:new Date().toISOString(),publication:{id:request.id,uploadId,status:'pending'}};
+}
+// Used when the daily save limit is reached after the save began: editing continues with the main line.
+export function draftWithoutPublication(pending){
+ return {revision:pending.revision+1,sgf:pending.sgf,selected:0,updatedAt:new Date().toISOString()};
 }
 export function freshSavedDraft(pending,gameId){
  return {...createDraft(),revision:pending.revision+1,updatedAt:new Date().toISOString(),publication:{id:pending.publication.id,status:'ready',gameId}};

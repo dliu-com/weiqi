@@ -118,3 +118,6 @@ test('game status may read Batch queue state without submitting or cancelling an
  const actions=game.Properties.PolicyDocument.Statement.flatMap((statement:any)=>Array.isArray(statement.Action)?statement.Action:[statement.Action]);
  expect(actions).toContain('batch:ListJobs');expect(actions).toContain('batch:DescribeJobs');expect(actions).not.toContain('batch:SubmitJob');expect(actions).not.toContain('batch:CancelJob');
 });
+test('the public API function has a concurrency ceiling, so a request flood cannot scale cost without limit',()=>{
+ template.hasResourceProperties('AWS::Lambda::Function',{Handler:'index.handler',MemorySize:256,ReservedConcurrentExecutions:20});
+});

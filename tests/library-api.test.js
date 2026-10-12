@@ -2,11 +2,13 @@ import {gamePrefix} from '../backend/library-service.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import vm from 'node:vm';
-import {createHash} from 'node:crypto';
+import {createHash,randomUUID} from 'node:crypto';
 import {readFileSync} from 'node:fs';
 import {padMoves} from './fixtures/long-game.js';
 import {deflateSync} from 'node:zlib';
-function api(){
+// Records are created only by the server's own publish path; tests seed them through it.
+let publish;
+function api(env={}){
  const files=new Map(),messages=[],invocations=[],batchJobs=new Map();let batchFailure=false;
  class GetObjectCommand{constructor(input){this.input=input;}}
  class PutObjectCommand{constructor(input){this.input=input;}}
@@ -23,29 +25,30 @@ function api(){
  class PutItemCommand{constructor(input){this.input=input;}}
  class UpdateItemCommand{constructor(input){this.input=input;}}
  const rows=new Map();class DynamoDBClient{async send(c){if(c instanceof UpdateItemCommand){const key=c.input.Key.id.S,used=rows.get(key)||0;if(used>=Number(c.input.ExpressionAttributeValues[':limit'].N))throw Object.assign(Error(),{name:'ConditionalCheckFailedException'});rows.set(key,used+1);return {};}if(c instanceof GetItemCommand)return {Item:rows.get(c.input.Key.gameId.S)};const old=rows.get(c.input.Item.gameId.S),v=c.input.ExpressionAttributeValues;if(old&&v){const ok=v[':m']?old.minute.N===v[':m'].N&&old.count.N===v[':n'].N:v[':r']?old.revision.N===v[':r'].N:old.revision.N===v[':expected'].N&&(old.clockVersion?.N||'0')===v[':clockVersion'].N;if(!ok)throw Object.assign(Error(),{name:'ConditionalCheckFailedException'});}rows.set(c.input.Item.gameId.S,c.input.Item);return {};}}
- const exports={},source=['src/engine.js','backend/game-service.js','src/sgf.js','src/recording-tree.js','backend/draft-service.js','src/ai-review.js','src/report-insights.js','src/report-data.js','backend/library-service.js','src/queue-estimate.js','backend/share-preview.cjs','backend/library-handler.cjs','backend/queue-status.cjs','backend/client-limit.cjs','backend/handler.cjs'].map(file=>readFileSync(new URL('../'+file,import.meta.url),'utf8').replace(/^import .*;\n/gm,'').replace(/^export /gm,'').replace(/^module.exports=.*;$/gm,'')).join('\n');
- vm.runInNewContext(source,{exports,require:name=>name==='node:zlib'?{deflateSync}:name.includes('client-s3')?{S3Client,GetObjectCommand,PutObjectCommand,ListObjectsV2Command}:name.includes('client-sqs')?{SQSClient,SendMessageCommand}:name.includes('client-batch')?{BatchClient,DescribeJobsCommand,ListJobsCommand}:name.includes('client-lambda')?{LambdaClient,InvokeCommand}:name==='node:crypto'?{createHash}:{DynamoDBClient,GetItemCommand,PutItemCommand,UpdateItemCommand},process:{env:{POSITION_USAGE_TABLE:'usage',LIBRARY_BUCKET:'test',AI_CONTROL_KEY:'control/ai-spending.json',ANALYSIS_QUEUE:'testqueue',SITE_ORIGIN:'https://test.invalid',SITE_BUCKET:'site',REPORT_QUEUE:'reportqueue'}},structuredClone,TextEncoder,Buffer,console});
+ const exports={},source=['src/engine.js','backend/game-service.js','src/sgf.js','src/recording-tree.js','backend/draft-service.js','src/ai-review.js','src/report-insights.js','src/report-data.js','backend/library-service.js','src/queue-estimate.js','backend/share-preview.cjs','backend/library-handler.cjs','backend/queue-status.cjs','backend/client-limit.cjs','backend/handler.cjs'].map(file=>readFileSync(new URL('../'+file,import.meta.url),'utf8').replace(/^import .*;\n/gm,'').replace(/^export /gm,'').replace(/^module.exports=.*;$/gm,'')).join('\n')+'\nexports.upload=async request=>{try{const m=await uploadRecord(libraryStore,request.sgf,request.filename,request.id);await enqueueSavedRecord(m);await saveSharePreview(request.sgf,m);return {status:200,id:m.id};}catch(e){return {status:e.statusCode||500,message:e.message};}};';
+ vm.runInNewContext(source,{exports,require:name=>name==='node:zlib'?{deflateSync}:name.includes('client-s3')?{S3Client,GetObjectCommand,PutObjectCommand,ListObjectsV2Command}:name.includes('client-sqs')?{SQSClient,SendMessageCommand}:name.includes('client-batch')?{BatchClient,DescribeJobsCommand,ListJobsCommand}:name.includes('client-lambda')?{LambdaClient,InvokeCommand}:name==='node:crypto'?{createHash,randomUUID}:{DynamoDBClient,GetItemCommand,PutItemCommand,UpdateItemCommand},process:{env:{POSITION_USAGE_TABLE:'usage',LIBRARY_BUCKET:'test',AI_CONTROL_KEY:'control/ai-spending.json',ANALYSIS_QUEUE:'testqueue',SITE_ORIGIN:'https://test.invalid',SITE_BUCKET:'site',REPORT_QUEUE:'reportqueue',...env}},structuredClone,TextEncoder,Buffer,console});
  const call=async(path,body,headers={})=>{const result=await exports.handler({rawPath:new URL(path,'https://test.invalid').pathname,queryStringParameters:Object.fromEntries(new URL(path,'https://test.invalid').searchParams),requestContext:{http:{method:body?'POST':'GET'}},headers:{'content-type':'application/json',origin:'https://test.invalid',...headers},body:body?JSON.stringify(body):undefined});return {status:result.statusCode,...JSON.parse(result.body)};};
- return {call,files,messages,invocations,batchJobs,failBatch:()=>batchFailure=true,event:exports.handler};
+ publish=exports.upload;
+ return {call,publish:exports.upload,files,messages,invocations,batchJobs,failBatch:()=>batchFailure=true,event:exports.handler};
 }
 const id='12345678-1234-1234-1234-123456789abc',sgf='(;GM[1]SZ[19]KM[7.5]GN[API test];B[dd];W[pp])';
 test('the monthly pause preserves uploads/replay without reserving paid daily slots or sending jobs',async()=>{
- const h=api();h.files.set('control/ai-spending.json',JSON.stringify({paused:true}));const saved=await h.call('/api/library',{id,sgf,filename:'test.sgf'});assert.equal(saved.status,200);assert.equal(h.messages.length,0);assert.equal([...h.files.keys()].some(k=>k.startsWith('daily-analysis/')),false);const game=await h.call('/api/library/'+saved.id);assert.equal(game.sgf,sgf);assert.equal(game.metadata.analysis.status,'paused');assert.equal((await h.call('/api/library')).games[0].analysis.status,'paused');
+ const h=api();h.files.set('control/ai-spending.json',JSON.stringify({paused:true}));const saved=await h.publish({id,sgf,filename:'test.sgf'});assert.equal(saved.status,200);assert.equal(h.messages.length,0);assert.equal([...h.files.keys()].some(k=>k.startsWith('daily-analysis/')),false);const game=await h.call('/api/library/'+saved.id);assert.equal(game.sgf,sgf);assert.equal(game.metadata.analysis.status,'paused');assert.equal((await h.call('/api/library')).games[0].analysis.status,'paused');
 });
 test('deployed library handler allocates a short ID, stores portable files, queues analysis and immediately serves the original record',async()=>{
- const {call,files,messages}=api();const uploaded=await call('/api/library',{id,sgf,filename:'test.sgf'});assert.equal(uploaded.status,200);const recordId=uploaded.id;assert.match(recordId,/^[0-9]{8}00$/);assert.match(files.get('share/'+recordId+'.html'),new RegExp('og:image" content="https://weiqi.dliu.com/share/'+recordId+'.png"'));assert.equal(files.get('share/'+recordId+'.png').subarray(1,4).toString(),'PNG');assert.equal(messages.length,1);assert.equal(messages[0].MessageBody,JSON.stringify({id:recordId}));
+ const {call,files,messages}=api();const uploaded=await publish({id,sgf,filename:'test.sgf'});assert.equal(uploaded.status,200);const recordId=uploaded.id;assert.match(recordId,/^[0-9]{8}00$/);assert.match(files.get('share/'+recordId+'.html'),new RegExp('og:image" content="https://weiqi.dliu.com/share/'+recordId+'.png"'));assert.equal(files.get('share/'+recordId+'.png').subarray(1,4).toString(),'PNG');assert.equal(messages.length,1);assert.equal(messages[0].MessageBody,JSON.stringify({id:recordId}));
  const record=await call('/api/library/'+recordId);assert.equal(record.sgf,sgf);assert.equal(record.metadata.analysis.status,'queued');assert.ok(Number.isFinite(Date.parse(record.metadata.analysis.enqueuedAt)));assert.equal(record.analysis,null);assert.equal((await call('/api/library')).games.length,1);
  files.set(gamePrefix(recordId)+'/analysis.json',JSON.stringify({positions:[{move:0,blackLead:2,blackWinrate:.9}]}));const meta=JSON.parse(files.get(gamePrefix(recordId)+'/metadata.json'));meta.analysis.status='ready';files.set(gamePrefix(recordId)+'/metadata.json',JSON.stringify(meta));assert.equal((await call('/api/library/'+recordId)).analysis.positions[0].blackWinrate,.9);
 });
-test('deployed library rejects wrong origin, unsupported sizes, malformed files, missing records and overwrite attempts',async()=>{
- const {call,files}=api();assert.equal((await call('/api/library',{id,sgf,filename:'x.sgf'},{origin:'https://evil.invalid'})).status,403);
- assert.equal((await call('/api/library',{id,sgf:'(;SZ[9])',filename:'x.sgf'})).status,400);assert.equal(files.size,0);
- assert.equal((await call('/api/library',{id,sgf:'garbage',filename:'x.sgf'})).status,400);assert.equal((await call('/api/library/'+id)).status,404);
- await call('/api/library',{id,sgf,filename:'x.sgf'});assert.equal((await call('/api/library',{id,sgf:'(;SZ[19])',filename:'x.sgf'})).status,409);
+test('public uploads are refused; malformed files, missing records and overwrite attempts are rejected',async()=>{
+ const {call,files}=api();assert.equal((await call('/api/library',{id,sgf,filename:'x.sgf'},{origin:'https://evil.invalid'})).status,403);assert.equal((await call('/api/library',{id,sgf,filename:'x.sgf'})).status,405);assert.equal(files.size,0);
+ assert.equal((await publish({id,sgf:'(;SZ[9])',filename:'x.sgf'})).status,400);assert.equal(files.size,0);
+ assert.equal((await publish({id,sgf:'garbage',filename:'x.sgf'})).status,400);assert.equal((await call('/api/library/'+id)).status,404);
+ await publish({id,sgf,filename:'x.sgf'});assert.equal((await publish({id,sgf:'(;SZ[19])',filename:'x.sgf'})).status,409);
  assert.equal((await call('/api/library/../../etc')).status,404);
 });
 test('quick results are served during deeper work, then the API switches to deeper results',async()=>{
- const {call,files}=api(),uploaded=await call('/api/library',{id,sgf,filename:'test.sgf'}),prefix=gamePrefix(uploaded.id)+'/';
+ const {call,files}=api(),uploaded=await publish({id,sgf,filename:'test.sgf'}),prefix=gamePrefix(uploaded.id)+'/';
  const meta=JSON.parse(files.get(prefix+'metadata.json'));
  meta.analysis={status:'running',available:'quick',quick:{status:'ready'},deep:{status:'running'}};
  files.set(prefix+'metadata.json',JSON.stringify(meta));files.set(prefix+'analysis-quick.json',JSON.stringify({phase:'quick',visits:1}));
@@ -69,7 +72,7 @@ test('library lists newest five records and returns a cursor for the next page w
 });
 
 test('report reads never generate artifacts or invoke document workers',async()=>{
- const {call,files,messages,invocations,event}=api(),upload=await call('/api/library',{id,sgf,filename:'report.sgf'}),prefix=gamePrefix(upload.id)+'/';
+ const {call,files,messages,invocations,event}=api(),upload=await publish({id,sgf,filename:'report.sgf'}),prefix=gamePrefix(upload.id)+'/';
  const meta=JSON.parse(files.get(prefix+'metadata.json'));meta.analysis={status:'ready',available:'deep',deep:{status:'ready',jobId:'job'}};files.set(prefix+'metadata.json',JSON.stringify(meta));
  const a={phase:'deep',visits:3000,completedAt:'2026-10-06T00:00:00Z',sgfSha256:createHash('sha256').update(sgf).digest('hex'),modelSha256:'abc',positions:[0,1,2].map(n=>({nodeId:n,move:n,blackLead:0,blackWinrate:.5,candidates:[{move:n===0?'Q16':'D4',order:0,blackLead:2,blackWinrate:.6,visits:100,pv:[n===0?'Q16':'D4']}]}))};files.set(prefix+'analysis.json',JSON.stringify(a));
  assert.equal((await call('/api/library/'+upload.id+'/report')).status,409);assert.equal(invocations.length,0);assert.equal([...files.keys()].filter(k=>k.includes('/reports/')).length,0);
@@ -79,13 +82,13 @@ test('report reads never generate artifacts or invoke document workers',async()=
  files.set(prefix+'analysis.json',JSON.stringify({...a,visits:1000}));assert.equal((await call('/api/library/'+upload.id+'/report')).status,409);assert.equal(invocations.length,0);assert.equal(messages.length,2);
 });
 test('report API rejects analysis for another SGF and incomplete positions',async()=>{
- const {call,files}=api(),upload=await call('/api/library',{id,sgf,filename:'report.sgf'}),prefix=gamePrefix(upload.id)+'/';const meta=JSON.parse(files.get(prefix+'metadata.json'));meta.analysis={status:'ready',available:'deep'};files.set(prefix+'metadata.json',JSON.stringify(meta));
+ const {call,files}=api(),upload=await publish({id,sgf,filename:'report.sgf'}),prefix=gamePrefix(upload.id)+'/';const meta=JSON.parse(files.get(prefix+'metadata.json'));meta.analysis={status:'ready',available:'deep'};files.set(prefix+'metadata.json',JSON.stringify(meta));
  files.set(prefix+'analysis.json',JSON.stringify({phase:'deep',sgfSha256:'wrong',positions:[]}));assert.equal((await call('/api/library/'+upload.id+'/report')).status,409);
  files.set(prefix+'analysis.json',JSON.stringify({phase:'deep',sgfSha256:createHash('sha256').update(sgf).digest('hex'),positions:[]}));assert.equal((await call('/api/library/'+upload.id+'/report')).status,409);
 });
 
 test('successful production completion prepares the report before viewing, deduplicates repeats and ignores stale jobs',async()=>{
- const {call,files,messages,event}=api(),upload=await call('/api/library',{id,sgf,filename:'automatic-report.sgf'}),prefix=gamePrefix(upload.id)+'/';
+ const {call,files,messages,event}=api(),upload=await publish({id,sgf,filename:'automatic-report.sgf'}),prefix=gamePrefix(upload.id)+'/';
  const meta=JSON.parse(files.get(prefix+'metadata.json'));meta.analysis={status:'ready',available:'deep',deep:{status:'ready',jobId:'completed-job'}};files.set(prefix+'metadata.json',JSON.stringify(meta));
  files.set(prefix+'analysis.json',JSON.stringify({phase:'deep',visits:3000,completedAt:'2026-10-06T00:00:00Z',sgfSha256:createHash('sha256').update(sgf).digest('hex'),modelSha256:'model',positions:[0,1,2].map(n=>({nodeId:n,move:n,blackLead:0,blackWinrate:.5,candidates:[{move:n===0?'Q16':'D4',order:0,blackLead:2,blackWinrate:.6,visits:100,pv:[n===0?'Q16':'D4']}]}))}));
  const notice=jobId=>({source:'aws.batch','detail-type':'Batch Job State Change',detail:{status:'SUCCEEDED',jobName:'weiqi-'+upload.id+'-a1-1234abcd',jobId}});
@@ -97,11 +100,11 @@ test('successful production completion prepares the report before viewing, dedup
 });
 
 test('queued record reads expose a stable queue forecast without changing records or scheduling jobs',async()=>{
- const h=api(),upload=await h.call('/api/library',{id,sgf,filename:'queue.sgf'}),key=gamePrefix(upload.id)+'/metadata.json',m=JSON.parse(h.files.get(key));
+ const h=api(),upload=await h.publish({id,sgf,filename:'queue.sgf'}),key=gamePrefix(upload.id)+'/metadata.json',m=JSON.parse(h.files.get(key));
  m.analysis={status:'queued',backend:'primary',jobId:'job',quick:{status:'queued',estimatedSeconds:60},deep:{status:'queued',estimatedSeconds:3000}};h.files.set(key,JSON.stringify(m));
  h.batchJobs.set('job',{jobId:'job',jobName:'weiqi-'+upload.id+'-a1-1234abcd',jobQueue:'gpu-queue',status:'RUNNABLE',createdAt:Date.now()});
 test('a pending quick pass forecasts its own T4 quick job, not the deep A10G job',async()=>{
- const h=api(),upload=await h.call('/api/library',{id,sgf,filename:'quick.sgf'}),key=gamePrefix(upload.id)+'/metadata.json',m=JSON.parse(h.files.get(key));
+ const h=api(),upload=await h.publish({id,sgf,filename:'quick.sgf'}),key=gamePrefix(upload.id)+'/metadata.json',m=JSON.parse(h.files.get(key));
  m.analysis={status:'queued',backend:'primary',attempt:1,token:'main',jobId:'deep',quickJob:{attempt:1,token:'quick',jobId:'quick'},quick:{status:'queued',estimatedSeconds:60},deep:{status:'queued',estimatedSeconds:900}};h.files.set(key,JSON.stringify(m));
  h.batchJobs.set('other',{jobId:'other',jobName:'weiqi-'+upload.id+'-a1-9999abcd',jobQueue:'a10',status:'RUNNABLE',createdAt:Date.now()-60000});
  h.batchJobs.set('deep',{jobId:'deep',jobName:'weiqi-'+upload.id+'-a1-1234abcd',jobQueue:'a10',status:'RUNNABLE',createdAt:Date.now()});
@@ -118,18 +121,18 @@ test('a pending quick pass forecasts its own T4 quick job, not the deep A10G job
 
  test('public draft API persists edits, rejects stale writes, prunes variations and retries saving idempotently',async()=>{const h=api(),initial=await h.call('/api/draft');assert.equal(initial.draft.revision,0);const source='(;SZ[19]GN[Draft test];B[dd](;W[pp]'+padMoves()+')(;W[dp]))',edit=await h.call('/api/draft',{action:'update',expectedRevision:0,sgf:source,selected:1});assert.equal(edit.status,200);assert.equal((await h.call('/api/draft')).draft.sgf,source);assert.equal((await h.call('/api/draft',{action:'update',expectedRevision:0,sgf:source,selected:0})).status,409);const save={action:'save',expectedRevision:1,id},first=await h.call('/api/draft',save),again=await h.call('/api/draft',save);assert.equal(first.status,200);assert.equal(again.id,first.id);assert.equal([...h.files.keys()].filter(k=>k.endsWith('/original.sgf')).length,1);const saved=await h.call('/api/library/'+first.id);assert.equal(saved.metadata.moves,52);assert.equal(saved.metadata.result,'0');assert.ok(!saved.sgf.includes('W[dp]'));assert.equal((await h.call('/api/draft')).draft.publication.status,'ready');});
  test('one connection can use only half of the site edit allowance',async()=>{const h=api(),one={'x-weiqi-viewer':'203.0.113.5'};for(let n=0;n<60;n++)assert.equal((await h.call('/api/draft',{action:'invalid'},one)).status,400);const blocked=await h.call('/api/draft',{action:'invalid'},one);assert.equal(blocked.status,429);assert.match(blocked.message,/connection/);for(let n=0;n<60;n++)assert.equal((await h.call('/api/draft',{action:'invalid'},{'x-weiqi-viewer':'198.51.100.'+(n%50)})).status,400);assert.equal((await h.call('/api/draft',{action:'invalid'},{'x-weiqi-viewer':'192.0.2.1'})).status,429);});
- test('site mutation limiter uses bounded state and refuses excess requests before new records',async()=>{const h=api();for(let n=0;n<120;n++)assert.equal((await h.call('/api/draft',{action:'invalid'})).status,400);assert.equal((await h.call('/api/library',{id,sgf,filename:'over-limit.sgf'})).status,429);assert.equal(h.files.size,0);});
+ test('site mutation limiter uses bounded state and refuses excess requests before new records',async()=>{const h=api();for(let n=0;n<120;n++)assert.equal((await h.call('/api/draft',{action:'invalid'})).status,400);assert.equal((await h.call('/api/draft',{action:'save',expectedRevision:0,id})).status,429);assert.equal(h.files.size,0);});
 
 
 test('a different game cannot reuse an upload ID, mutate saved files or enqueue another analysis',async()=>{
  const {call,files,messages,event}=api();
- const saved=await call('/api/library',{id,sgf,filename:'original.sgf'}),prefix=gamePrefix(saved.id)+'/';
+ const saved=await publish({id,sgf,filename:'original.sgf'}),prefix=gamePrefix(saved.id)+'/';
  const original=[...files].filter(([key])=>key.startsWith(prefix)),slots=[...files].filter(([key])=>key.startsWith('daily-analysis/'));
  const replacements=['(;SZ[19]GN[Different game];B[pp];W[dd])',sgf.replace('GN[API test]','GN[Changed name]'),sgf.replace('KM[7.5]','KM[6.5]')];
  for(const replacement of replacements){
-  assert.equal((await call('/api/library',{id,sgf:replacement,filename:'replacement.sgf'})).status,409);
+  assert.equal((await publish({id,sgf:replacement,filename:'replacement.sgf'})).status,409);
  }
- assert.equal((await call('/api/library',{id:saved.id,sgf:replacements[0],filename:'replacement.sgf'})).status,400);
+ assert.equal((await publish({id:saved.id,sgf:replacements[0],filename:'replacement.sgf'})).status,400);
  for(const method of ['POST','PUT','PATCH','DELETE']){
   const denied=await event({rawPath:'/api/library/'+saved.id,requestContext:{http:{method}},headers:{'content-type':'application/json',origin:'https://test.invalid'},body:JSON.stringify({id,sgf:replacements[0],name:'Changed name',action:'update'})});
   assert.ok(denied.statusCode>=400);
@@ -141,7 +144,7 @@ test('a different game cannot reuse an upload ID, mutate saved files or enqueue 
 
 test('library exposes imported ranks for new and legacy immutable games without writes or new jobs',async()=>{
  const h=api(),source='(;SZ[19]PB[Alice]PW[Bob]BR[3d]WR[1k];B[dd])';
- const saved=await h.call('/api/library',{id,sgf:source,filename:'ranked.sgf'});
+ const saved=await h.publish({id,sgf:source,filename:'ranked.sgf'});
  assert.equal(saved.status,200);const key=gamePrefix(saved.id)+'/metadata.json';
  const listed=await h.call('/api/library');assert.equal(listed.games[0].playerRanks.black,'3d');assert.equal(listed.games[0].playerRanks.white,'1k');
  const old=JSON.parse(h.files.get(key));delete old.playerRanks;h.files.set(key,JSON.stringify(old));
@@ -149,4 +152,18 @@ test('library exposes imported ranks for new and legacy immutable games without 
  const legacyList=await h.call('/api/library'),legacyGame=await h.call('/api/library/'+saved.id);
  assert.equal(legacyList.games[0].playerRanks.black,'3d');assert.equal(legacyGame.metadata.playerRanks.white,'1k');
  assert.deepEqual(h.files,before);assert.equal(h.messages.length,jobs);
+});
+test('one connection gets a bounded number of library reads per minute',async()=>{
+ const h=api({CLIENT_READS_PER_MINUTE:'2'}),one={'x-weiqi-viewer':'203.0.113.5'};
+ assert.equal((await h.call('/api/library',undefined,one)).status,200);assert.equal((await h.call('/api/library?limit=1',undefined,one)).status,200);
+ const blocked=await h.call('/api/library',undefined,one);assert.equal(blocked.status,429);assert.match(blocked.message,/one minute/);
+ assert.equal((await h.call('/api/library',undefined,{'x-weiqi-viewer':'198.51.100.7'})).status,200);assert.equal((await h.call('/api/game',undefined,one)).status,200);
+});
+test('one connection gets a bounded number of saves and deep analyses per day',async()=>{
+ const h=api({CLIENT_SAVES_PER_DAY:'2',CLIENT_DEEP_PER_DAY:'1'}),one={'x-weiqi-viewer':'203.0.113.5'},results=[];
+ for(let n=0;n<3;n++){const {draft}=await h.call('/api/draft'),edit=await h.call('/api/draft',{action:'update',expectedRevision:draft.revision,sgf:'(;SZ[19]GN[Limit '+n+'];B[dd];W[pp]'+padMoves()+')',selected:0},one);assert.equal(edit.status,200);results.push(await h.call('/api/draft',{action:'save',expectedRevision:edit.draft.revision,id:randomUUID()},one));}
+ assert.deepEqual(results.map(r=>r.status),[200,200,429]);assert.equal(results[2].reason,'daily-save-limit');
+ assert.notEqual((await h.call('/api/library/'+results[0].id)).metadata.analysis.deep?.status,'limited');assert.equal((await h.call('/api/library/'+results[1].id)).metadata.analysis.deep.status,'limited');
+ const kept=(await h.call('/api/draft')).draft;assert.equal(kept.publication,undefined);assert.ok(kept.sgf.includes('Limit 2'));
+ assert.equal((await h.call('/api/draft',{action:'save',expectedRevision:kept.revision,id:randomUUID()},{'x-weiqi-viewer':'198.51.100.7'})).status,200);
 });

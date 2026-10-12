@@ -31,8 +31,7 @@ export async function saveRecord(store, source, filename, id, analysisAllowed=tr
 export async function uploadRecord(store,source,filename,uploadId,now=new Date(),options={}) {
   if (!/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/.test(uploadId)) throw Object.assign(new Error('Invalid upload request.'),{statusCode:400});
   recordMetadata(source,filename,uploadId);
-  const parts=new Intl.DateTimeFormat('en-GB',{timeZone:'Europe/London',year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(now);
-  const date=['year','month','day'].map(type=>parts.find(p=>p.type===type).value).join('');
+  const date=uploadDay(now);
   const mapping='uploads/'+uploadId+'.json';
   let existing;try{existing=JSON.parse(await store.get(mapping));}catch(e){if(e.code!=='ENOENT'&&e.name!=='NoSuchKey')throw e;}
   // Mappings saved before quick-only games have no deepAllowed; analysisAllowed then meant both passes.
@@ -42,12 +41,22 @@ export async function uploadRecord(store,source,filename,uploadId,now=new Date()
   for(let n=0;n<DAILY_UPLOAD_CAP;n++) {
     const id=date+String(n).padStart(2,'0'),key='reservations/'+id+'.json';
     if(await store.create(key,JSON.stringify({uploadId}),'application/json') || JSON.parse(await store.get(key)).uploadId===uploadId) {
-      const analysisAllowed=!analysisPaused&&options.analysis!==false,deepAllowed=analysisAllowed&&await reserveAnalysis(store,date,uploadId);
+      const analysisAllowed=!analysisPaused&&options.analysis!==false,deepAllowed=analysisAllowed&&options.deep!==false&&await reserveAnalysis(store,date,uploadId);
       await store.create(mapping,JSON.stringify({id,analysisAllowed,deepAllowed,analysisPaused}),'application/json');
       return replay(JSON.parse(await store.get(mapping)));
     }
   }
   throw Object.assign(new Error('Daily upload limit reached.'),{statusCode:429});
+}
+
+function uploadDay(now){
+  const parts=new Intl.DateTimeFormat('en-GB',{timeZone:'Europe/London',year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(now);
+  return ['year','month','day'].map(type=>parts.find(p=>p.type===type).value).join('');
+}
+// Slots fill in order, so the last slot existing means today's uploads are used up.
+export async function dailyUploadsFull(store,now=new Date()){
+  try{await store.get('reservations/'+uploadDay(now)+String(DAILY_UPLOAD_CAP-1).padStart(2,'0')+'.json');return true;}
+  catch(e){if(e.code==='ENOENT'||e.name==='NoSuchKey')return false;throw e;}
 }
 
 async function reserveAnalysis(store,date,uploadId){

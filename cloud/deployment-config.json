@@ -4,8 +4,8 @@
   "gpuProduction": "true",
   "gpuDispatch": "true",
   "libraryBucket": "weiqisite-recordlibrary34c28f86-bfnqhy6739na",
-  "analysisQueueArn": "arn:aws:sqs:eu-west-1:215103618564:WeiqiGpuBenchmark-ProductionUploads7A5169A4-qnArg73Mau1c",
-  "analysisQueueArnOverride": "arn:aws:sqs:eu-west-1:215103618564:WeiqiGpuBenchmark-ProductionUploads7A5169A4-qnArg73Mau1c",
+  "analysisQueueArn": "arn:aws:sqs:eu-west-1:{account}:WeiqiGpuBenchmark-ProductionUploads7A5169A4-qnArg73Mau1c",
+  "analysisQueueArnOverride": "arn:aws:sqs:eu-west-1:{account}:WeiqiGpuBenchmark-ProductionUploads7A5169A4-qnArg73Mau1c",
   "keepLegacyAnalysisQueue": "false",
   "spendingGuard": "true",
   "positionAnalysis": "true"
