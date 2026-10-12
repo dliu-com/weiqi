@@ -12,6 +12,11 @@ export function compositionLayout(groups,keys){
   return {...group,total,segments:keys.map(key=>{const count=finite(group.counts[key])?group.counts[key]:0,fraction=total?count/total:0,result={key,count,fraction,offset};offset+=fraction;return result;})};
  });
 }
+// Round axis ticks: steps of 1, 2 or 5 × 10^k, about five intervals, ending at or above the maximum.
+export function niceTicks(maximum,target=5){
+ const max=Number.isFinite(maximum)&&maximum>0?maximum:1,raw=max/target,power=10**Math.floor(Math.log10(raw)),step=[1,2,5,10].map(f=>f*power).find(v=>v>=raw*(1-1e-9)),count=Math.ceil(max/step-1e-9);
+ return Array.from({length:count+1},(_,i)=>Number((i*step).toFixed(10)));
+}
 const ns='http://www.w3.org/2000/svg';
 const element=(tag,attrs={},text)=>{const e=document.createElementNS(ns,tag);for(const [key,value] of Object.entries(attrs))e.setAttribute(key,value);if(text!==undefined)e.textContent=text;return e;};
 export const reportChartColours={black:'#28323a',white:'#f9fafb',grid:'#a0adb5',axis:'#687984',ink:'#23343d',line:'#435466'};
@@ -37,8 +42,13 @@ export function compositionChart(label,groups,{keys,names,emptyLabel}={}){
  for(const tick of [0,25,50,75,100]){const x=left+tick/100*width;svg.append(element('line',{x1:x,x2:x,y1:top-12,y2:height-60,stroke:tick===0?reportChartColours.axis:reportChartColours.grid}),element('text',{x,y:height-8,'text-anchor':'middle','font-size':18,fill:reportChartColours.ink},tick+'%'));}
  layout.forEach((group,index)=>{const y=top+index*step;svg.append(element('text',{x:4,y:y+14,'font-size':19,fill:'#26343d'},group.label),element('text',{x:4,y:y+36,'font-size':15,fill:reportChartColours.ink},'N = '+group.total));
   if(!group.total){svg.append(element('text',{x:left,y:y+22,'font-size':18,fill:'#56626a'},emptyLabel));return;}
+  const outside=[-Infinity,-Infinity];
   for(const segment of group.segments){if(!segment.count)continue;const rect=element('rect',{x:left+segment.offset*width,y,width:segment.fraction*width,height:32,fill:qualityColours[segment.key],'data-quality':segment.key,'data-count':segment.count});rect.append(element('title',{},group.label+' · '+names[segment.key]+': '+segment.count+' ('+(segment.fraction*100).toFixed(1)+'%)'));svg.append(rect);
-   if(segment.fraction>=.12)svg.append(element('text',{x:left+(segment.offset+segment.fraction/2)*width,y:y+22,'text-anchor':'middle','font-size':18,fill:['best','blunder'].includes(segment.key)?'white':'#202629'},Math.round(segment.fraction*100)+'%'));
+   const centre=left+(segment.offset+segment.fraction/2)*width,share=Math.round(segment.fraction*100)?Math.round(segment.fraction*100)+'%':'<1%';
+   if(segment.fraction>=.12){svg.append(element('text',{x:centre,y:y+22,'text-anchor':'middle','font-size':18,fill:['best','blunder'].includes(segment.key)?'white':'#202629'},share));continue;}
+   // Narrow segments are labelled above the bar, or below it when the label above would overlap.
+   const side=centre-20>outside[0]?0:centre-20>outside[1]?1:0,labelX=Math.max(centre,outside[side]+20);outside[side]=labelX+20;
+   svg.append(element('line',{x1:centre,x2:labelX,y1:side?y+32:y,y2:side?y+36:y-4,stroke:reportChartColours.line,'stroke-width':.8}),element('text',{x:labelX,y:side?y+50:y-7,'text-anchor':'middle','font-size':15,fill:'#202629','data-outside-label':segment.key},share));
   }
  });
  return svg;

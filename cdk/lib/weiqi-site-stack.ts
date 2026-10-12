@@ -85,7 +85,7 @@ export class WeiqiSiteStack extends Stack {
     const engineSource = fs.readFileSync(path.join(root, 'src/engine.js'), 'utf8').replace(/^export /gm, '');
     const serviceSource = fs.readFileSync(path.join(root, 'backend/game-service.js'), 'utf8')
       .replace(/^import .*;\n/gm, '').replace(/^export /gm, '');
-    const sharedLibrarySource = ['src/sgf.js','src/recording-tree.js','backend/draft-service.js','src/ai-review.js','src/report-data.js','backend/library-service.js'].map(file => fs.readFileSync(path.join(root,file),'utf8').replace(/^import .*;\n/gm,'').replace(/^export /gm,'')).join('\n');
+    const sharedLibrarySource = ['src/sgf.js','src/recording-tree.js','backend/draft-service.js','src/ai-review.js','src/report-insights.js','src/report-data.js','backend/library-service.js'].map(file => fs.readFileSync(path.join(root,file),'utf8').replace(/^import .*;\n/gm,'').replace(/^export /gm,'')).join('\n');
     const queueEstimateSource=fs.readFileSync(path.join(root,'src/queue-estimate.js'),'utf8').replace(/^export /gm,'');
     const queueStatusSource=fs.readFileSync(path.join(root,'backend/queue-status.cjs'),'utf8');
     const libraryHandlerSource = fs.readFileSync(path.join(root,'backend/library-handler.cjs'),'utf8');

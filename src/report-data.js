@@ -1,8 +1,9 @@
 import {readSgf} from './sgf.js';
 import {reviewMove,recommendedLine,moveCoordinate} from './ai-review.js';
+import {keyMoments} from './report-insights.js';
 
 // Shared by the report API and local preview. Metrics reuse the replay ratings.
-export const REPORT_SCHEMA_VERSION=6;
+export const REPORT_SCHEMA_VERSION=7;
 const badRatings=new Set(['inaccuracy','mistake','blunder']);
 const average=values=>values.length?values.reduce((a,b)=>a+b,0)/values.length:null;
 const percentile=(values,fraction)=>{if(!values.length)return null;const sorted=[...values].sort((a,b)=>a-b),position=(sorted.length-1)*fraction,lower=Math.floor(position);return sorted[lower]+(sorted[Math.ceil(position)]-sorted[lower])*(position-lower);};
@@ -44,17 +45,17 @@ export function buildAiReport(source,analysis,metadata,now=new Date()) {
   return {nodeId:id,move:node.depth,side,played,quality:r.quality,pointLoss:r.quality==='best'?0:r.loss,estimated:r.estimated,best:r.best,bestEvaluation:r.best?{blackLead:r.best.blackLead,blackWinrate:r.best.blackWinrate}:null,alternatives:r.alternatives,playedEvaluation:{blackLead:!r.estimated?playedCandidate?.blackLead:after?.blackLead,blackWinrate:playedWin},winrateLoss:r.quality==='best'?0:Number.isFinite(playedWin)&&Number.isFinite(r.best?.blackWinrate)?Math.max(0,sign*(r.best.blackWinrate-playedWin)*100):null};
  });
  const players={};for(const side of ['B','W']){const own=reviews.filter(m=>m.side===side);players[side]={name:record.players[side==='B'?'black':'white'],...summariseLosses(own)};}
- const eligible=reviews.filter(m=>m.best&&Number.isFinite(m.pointLoss)&&m.pointLoss>.5&&badRatings.has(m.quality)).sort((a,b)=>b.pointLoss-a.pointLoss||a.move-b.move);
- const ids=new Set([...eligible.filter(m=>m.side==='B').slice(0,5),...eligible.filter(m=>m.side==='W').slice(0,5)].map(m=>m.nodeId));
+ const chart=analysis.positions.map(({nodeId,move,blackLead,blackWinrate})=>({nodeId,move,blackLead,blackWinrate}));
+ const eligible=reviews.filter(m=>m.best&&Number.isFinite(m.pointLoss)&&m.pointLoss>.5&&badRatings.has(m.quality)),key=keyMoments(eligible,chart);
  const lineData=(anchor,candidate)=>{
   if(!candidate)return null;const line=recommendedLine(record,anchor,candidate),last=line.frames.at(-1);
   return {board:last.board,moves:line.frames.slice(1).map(f=>f.move),truncated:line.truncated};
  };
- const problems=eligible.filter(m=>ids.has(m.nodeId)).map(m=>{
+ const problems=[...key.B,...key.W].map(m=>{
   const node=record.nodes[m.nodeId],anchor=node.parent,played=evaluations.get(anchor)?.candidates?.find(c=>c.move===m.played);
   return {...m,beforeBoard:record.nodes[anchor].board,actualBoard:node.board,playedIndex:node.move.index,playedCandidate:played||null,bestLine:lineData(anchor,m.best),playedLine:lineData(anchor,played)};
  });
  const full=record.nodes[record.mainLine.at(-1)],numbers=[];
  for(const id of record.mainLine.slice(1)){const n=record.nodes[id];if(n.move.index!==null&&full.board[n.move.index]===n.move.side)numbers.push({index:n.move.index,side:n.move.side,label:String(n.depth)});}
- return {schemaVersion:REPORT_SCHEMA_VERSION,availableLanguages:['en','zh'],id:metadata.id,name:metadata.name,generatedAt:now.toISOString(),game:{players:record.players,result:record.result,date:record.date,rules:analysis.rules,komi:record.komi,moves:record.mainLine.length-1},provenance:{model:analysis.model,modelSha256:analysis.modelSha256,engine:analysis.engineVersion,visits:analysis.visits,compute:analysis.compute,completedAt:analysis.completedAt,endToEndMs:analysis.endToEndMs},players,overall:summariseLosses(reviews),chart:analysis.positions.map(({nodeId,move,blackLead,blackWinrate})=>({nodeId,move,blackLead,blackWinrate})),overview:{board:full.board,numbers},reviews:reviews.map(({best,alternatives,...m})=>m),problems};
+ return {schemaVersion:REPORT_SCHEMA_VERSION,availableLanguages:['en','zh'],id:metadata.id,name:metadata.name,generatedAt:now.toISOString(),game:{players:record.players,result:record.result,date:record.date,rules:analysis.rules,komi:record.komi,moves:record.mainLine.length-1},provenance:{model:analysis.model,modelSha256:analysis.modelSha256,engine:analysis.engineVersion,visits:analysis.visits,compute:analysis.compute,completedAt:analysis.completedAt,endToEndMs:analysis.endToEndMs},players,overall:summariseLosses(reviews),chart,overview:{board:full.board,numbers},reviews:reviews.map(({best,alternatives,...m})=>m),problems};
 }
