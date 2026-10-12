@@ -89,14 +89,13 @@ function graphTakeaway(title){
   ['典型损失与较大失误','Typical loss and bigger errors','条形越短，损失越小。平均值明显高于中位数时，优先复盘大失误。','Shorter bars mean less loss. A high average beside a low median points to a few costly mistakes.'],
   ['各阶段的平均目数损失','Average point loss in each phase','最长的条形提示最值得复盘的阶段。','Your longest bar shows the phase to review first.'],
   ['每手损失在哪里发生？','Where did each move lose points?','尖峰越高，损失越大。标出的手数可在后文棋盘详解中复盘。','Taller spikes mean bigger losses. The labelled moves have detailed board reviews later.'],
-  ['黑方胜率','Black win probability','50% 表示机会均等；例如黑方 80% = 白方 20%。胜率不是目差。','50% means equal chances. Black 80% = White 20%; this is probability, not a point lead.'],
   ['目差：正为黑方领先，负为白方领先','Point advantage: positive Black, negative White','穿过零线表示预计领先方改变；圆点标出后文详解的失误。','Crossing zero changes the estimated leader. Dots mark errors reviewed on the later board pages.']
  ];
  const entry=guides.find(g=>g[0]===title||g[1]===title);return entry?t(entry[2],entry[3]):'';
 }
 function statisticGraph(title,visual,formula,zh,en,insight){
  const figure=node('figure',undefined,'report-stat-card'),caption=node('figcaption',undefined,'report-graph-maths');
- figure.append(node('h3',title),visual);if(insight)caption.append(node('h4',t('AI 分析','AI analysis'),'report-insight-heading'),insight);caption.append(node('p',graphTakeaway(title),'report-graph-reading'),node('h4',t('计算细节','Calculation details')),node('p',formula,'report-formula'),node('p',t(zh,en),'report-note'));figure.append(caption);return figure;
+ figure.append(node('h3',title),visual);if(insight)caption.append(node('h4',t('AI 分析','AI analysis'),'report-insight-heading'),insight);const reading=graphTakeaway(title);if(reading)caption.append(node('p',reading,'report-graph-reading'));caption.append(node('h4',t('计算细节','Calculation details')),node('p',formula,'report-formula'),node('p',t(zh,en),'report-note'));figure.append(caption);return figure;
 }
 function addStatistics(sheet){
  const keys=['best','good','inaccuracy','mistake','blunder'],names={best:t('AI 首选','AI first choice'),good:t('好棋','Good'),...qualities()},sides={B:sideName('B'),W:sideName('W')};
