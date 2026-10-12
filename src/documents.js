@@ -93,7 +93,7 @@ function costDetails(f){
 }
 function table(headers,rows){const wrapper=document.createElement('div');wrapper.className='document-table';const table=document.createElement('table'),head=document.createElement('tr');for(const [zh,en]of headers){const th=document.createElement('th');th.textContent=t(zh,en);head.append(th);}table.append(head);for(const row of rows){const tr=document.createElement('tr');for(const cell of row){const td=document.createElement('td');td.textContent=say(cell);tr.append(td);}table.append(tr);}wrapper.append(table);return wrapper;}
 function securityOverview(f){
- f.append(callout('shield',t('2026 年 10 月 8 日审查，并测试了线上网站；这不是安全认证。这是公开网站：在设定限额内被滥用，是可接受的设计选择。','Reviewed and tested on the live site on 8 October 2026; this is not a certification. This is a public site: abuse within the set limits is an accepted design choice.')));
+ f.append(callout('shield',t('2026 年 10 月 8 日审查并测试了线上网站，10 月 12 日更新；这不是安全认证。这是公开网站：在设定限额内被滥用，是可接受的设计选择。','Reviewed and tested on the live site on 8 October 2026, updated 12 October; this is not a certification. This is a public site: abuse within the set limits is an accepted design choice.')));
  f.append(tiers({title:t('信任边界','Trust boundaries'),rows:[
   {badge:t('不可信','Untrusted'),label:t('互联网','Internet'),tone:'untrusted',nodes:[{icon:'user',title:t('访客','Visitors'),text:t('无须登录','No sign-in')},{icon:'bot',title:t('机器人 / 攻击者','Bots / attackers'),text:t('同样的公开权限','Same public access')}]},
   {link:'HTTPS',badge:t('边缘','Edge'),label:'CloudFront',tone:'edge',nodes:[{icon:'cloudfront',title:'CloudFront',text:t('仅 HTTPS · HSTS · CSP','HTTPS only · HSTS · CSP')},{icon:'filter',title:'ApiViewer',text:t('标记连接网络，不保存 IP','Tags the network; IP not stored')},{icon:'lock',title:'OAC',text:t('签名访问源站','Signs requests to origins')}]},
@@ -101,7 +101,7 @@ function securityOverview(f){
   {link:'IAM',badge:t('私有','Private'),label:t('数据与计算','Data and compute'),tone:'private',nodes:[{icon:'dynamodb',title:'DynamoDB',text:t('条件写入 · 时间点恢复','Conditional writes · PITR')},{icon:'s3',title:'S3',text:t('禁止公开访问 · 版本','No public access · versions')},{icon:'gpu',title:'Batch GPU',text:t('没有入站端口','No inbound ports')},{icon:'report',title:t('报告渲染','Report renderer'),text:t('阻止外部网络请求','Blocks outside requests')}]}
  ],note:t('公开源码不含 AWS 密钥；所有 AWS 权限来自服务器 IAM 角色。','Public code holds no AWS keys; all AWS access comes from server IAM roles.')}));
  const h=document.createElement('h2');h.textContent=t('公开限额','Public limits');f.append(h);
- f.append(stats([[t('60 次 / 分钟','60 / min'),t('每个连接的修改','edits per connection'),'gauge'],[t('120 次 / 分钟','120 / min'),t('全站修改','edits, site-wide'),'gauge'],[t('500 次 / 天','500 / day'),t('每个连接的 AI 分析','AI analyses per connection'),'katago'],[t('2,000 次 / 天','2,000 / day'),t('全站 AI 分析','AI analyses, site-wide'),'katago'],[t('10 局 / 天','10 / day'),t('深度 AI 棋局','deep AI games'),'gpu'],[t('100 局 / 天','100 / day'),t('新棋谱','new records'),'library']]));
+ f.append(stats([[t('60 次 / 分钟','60 / min'),t('每个连接的修改','edits per connection'),'gauge'],[t('120 次 / 分钟','120 / min'),t('每个连接的棋谱库读取','library reads per connection'),'library'],[t('500 次 / 天','500 / day'),t('每个连接的 AI 分析','AI analyses per connection'),'katago'],[t('10 局 / 天','10 / day'),t('每个连接保存的棋谱','saved games per connection'),'library'],[t('3 局 / 天','3 / day'),t('每个连接的深度 AI 棋局','deep AI games per connection'),'gpu'],[t('120 次 / 分钟','120 / min'),t('全站修改','edits, site-wide'),'gauge'],[t('2,000 次 / 天','2,000 / day'),t('全站 AI 分析','AI analyses, site-wide'),'katago'],[t('10 局 / 天','10 / day'),t('全站深度 AI 棋局','deep AI games, site-wide'),'gpu'],[t('100 局 / 天','100 / day'),t('全站新棋谱','new records, site-wide'),'library']]));
  const p=document.createElement('p');p.className='dg-note';p.textContent=t('“连接”指一个 IPv4 地址或一个 IPv6 /64 网络；只保存哈希桶编号，不保存 IP。','A “connection” is one IPv4 address or one IPv6 /64 network. Only a hashed bucket number is stored, never the IP.');f.append(p);
 }
 function securityExtra(f){
@@ -122,13 +122,16 @@ function securityExtra(f){
   [['一个客户端突发 70 次修改','One client sends 70 edits'],['之前：全站修改暂停。现在：60 次后只限制该连接','Before: paused edits for everyone. Now: only that connection is limited after 60'],fixed],
   [['并行修改','Parallel edits'],['之前：误报“网站繁忙”。现在：原子计数','Before: false “busy” errors. Now: atomic counter'],fixed],
   [['错误的棋谱库翻页参数','Bad library page cursor'],['之前：500。现在：400','Before: 500. Now: 400'],fixed],
+  [['伪造保存请求','Forged save request'],['之前：可抢先占用现场棋局的保存 ID。现在：没有公开上传接口（405），ID 由服务器生成','Before: could take the live game\'s save ID first. Now: no public upload (405); the server picks IDs'],fixed],
   [['依赖','Dependencies'],['线上运行 0 个告警；CDK 构建工具 1 个（不在线上运行）','0 runtime advisories; 1 in the CDK build tool (not run live)'],pass]
  ]));
  heading('威胁模型','Threat model');
  f.append(table([['场景','Scenario'],['剩余风险','Residual risk'],['防护 / 限制','Controls / limits']],[
   [['访客清空共享草稿','Visitor clears shared draft'],['高 · 设计允许','High · allowed by design'],['公开协作、版本冲突检查、S3 版本；没有个人所有权','Public collaboration, revision checks, S3 versions; no ownership']],
   [['多 IP 机器人用完公开额度','Many-IP bot uses up public limits'],['高 · 接受','High · accepted'],['全站每日上限、费用保护；读取与流量费用仍可能增加','Site-wide daily caps, spending guard; read and transfer charges remain']],
-  [['一个客户端刷修改或 AI','One client floods edits or AI'],['低 · 本次已修复','Low · fixed in this review'],['每个连接：修改 60 次 / 分钟，AI 分析 500 次 / 天','Per connection: 60 edits / min, 500 AI analyses / day']],
+  [['一个客户端刷修改或 AI','One client floods edits or AI'],['低 · 本次已修复','Low · fixed in this review'],['每个连接：修改 60 次 / 分钟，棋谱库读取 120 次 / 分钟，每天保存 10 局、深度 AI 3 局、AI 分析 500 次','Per connection: 60 edits and 120 library reads / min; 10 saved games, 3 deep AI games and 500 AI analyses / day']],
+  [['伪造请求占用棋局 ID','Forged request takes a game ID'],['低 · 本次已修复','Low · fixed in this review'],['没有公开上传接口；保存 ID 由服务器生成','No public upload; the server picks save IDs']],
+  [['大量读取请求','Flood of read requests'],['中 · 接受','Medium · accepted'],['每个连接的读取限额；API 最多同时运行 20 个','Per-connection read limit; the API runs at most 20 at once']],
   [['SGF 名称或注释注入脚本','SGF name/comment script injection'],['较低 · 已测试','Lower · tested'],['文本节点、输入限额、CSP 禁止内联脚本','Text nodes, bounded input, CSP blocks inline script']],
   [['绕过网站访问私有资源','Bypass site to reach private AWS'],['较低 · 测试中被拒绝','Lower · denied in tests'],['私有 S3、IAM Lambda URL、OAC、GPU 无入站','Private S3, IAM function URL, OAC, no GPU inbound']],
   [['报告渲染访问外部网址','Report renderer fetches outside URLs'],['较低 · 已测试','Lower · tested'],['拦截所有外部请求，只读取本地文件','All outside requests blocked; local files only']],
@@ -136,7 +139,7 @@ function securityExtra(f){
  ]));
  heading('接受的剩余风险','Accepted residual risks');
  const list=document.createElement('ul');
- for(const [zh,en]of [['多 IP 分布式滥用仍可用完全站额度；AI 暂停到第二天。','Distributed abuse from many IPs can still use up site-wide limits; AI then pauses until the next day.'],['任何人都可以修改或清空现场棋局和草稿。棋局链接不保密，棋谱库公开。请不要上传私人信息。','Anyone can change or clear the live game and draft. Game links are not secret, and the library is public. Do not upload private information.'],['对弈同步、读取和流量费用没有硬上限（见网站运行成本）；没有 WAF 或验证码。','No hard cap on live-play, read or transfer charges (see Site running costs); no WAF or CAPTCHA.'],['大范围分享前，应考虑增加登录或邀请，以及 WAF 或验证码。','Before sharing widely, consider sign-in or invitations, and WAF or CAPTCHA.']]){const li=document.createElement('li');li.textContent=t(zh,en);list.append(li);}
+ for(const [zh,en]of [['多 IP 分布式滥用仍可用完全站额度；AI 暂停到第二天。','Distributed abuse from many IPs can still use up site-wide limits; AI then pauses until the next day.'],['任何人都可以修改或清空现场棋局和草稿。棋局链接不保密，棋谱库公开。请不要上传私人信息。','Anyone can change or clear the live game and draft. Game links are not secret, and the library is public. Do not upload private information.'],['API 最多同时运行 20 个，但对弈同步、读取和流量费用仍没有硬上限（见网站运行成本）；没有 WAF 或验证码。','The API runs at most 20 requests at once, but live-play, read and transfer charges still have no hard cap (see Site running costs); no WAF or CAPTCHA.'],['大范围分享前，应考虑增加登录或邀请，以及 WAF 或验证码。','Before sharing widely, consider sign-in or invitations, and WAF or CAPTCHA.']]){const li=document.createElement('li');li.textContent=t(zh,en);list.append(li);}
  f.append(list);
 }
 function photoSections(f){f.append(

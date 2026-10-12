@@ -94,8 +94,11 @@ function adopt(next) {
     pendingSavedGeneration = null; location.assign('/game/' + encodeURIComponent(next.lastSavedGame.id));
   }
   const ended=freshGame&&next.lastResult?.generation===previousGeneration?next.lastResult:null,savedId=freshGame&&next.lastSavedGame?.generation===previousGeneration?next.lastSavedGame.id:null;
-  if(ended?.reason==='resign'&&ended.winner&&endedGeneration!==previousGeneration){showResigned(opposite(ended.winner),savedId);return;}
-  if(freshGame)notice(next.lastSavedGame?.generation===previousGeneration?t('棋局已保存到棋谱库，新一局已准备好。','Game saved to the library. A new game is ready.'):previousMoves>MAX_GAME_MOVES?t(`超过 ${MAX_GAME_MOVES} 手，本局未保存。新一局已准备好。`,`Over ${MAX_GAME_MOVES} moves, so the game was not saved. A new game is ready.`):t(`不足 ${MIN_LIBRARY_MOVES} 手，本局未保存。新一局已准备好。`,`Under ${MIN_LIBRARY_MOVES} moves, so the game was not saved. A new game is ready.`));
+  if(ended?.reason==='resign'&&ended.winner&&endedGeneration!==previousGeneration){showResigned(opposite(ended.winner),savedId,unsavedNotice(next,previousGeneration,previousMoves));return;}
+  if(freshGame)notice(next.lastSavedGame?.generation===previousGeneration?t('棋局已保存到棋谱库，新一局已准备好。','Game saved to the library. A new game is ready.'):unsavedNotice(next,previousGeneration,previousMoves));
+}
+function unsavedNotice(next,generation,moves){
+  return next.lastSaveLimited?.generation===generation?t('今天的保存名额已用完，本局未保存。新一局已准备好。','Today\'s save limit was reached, so the game was not saved. A new game is ready.'):moves>MAX_GAME_MOVES?t(`超过 ${MAX_GAME_MOVES} 手，本局未保存。新一局已准备好。`,`Over ${MAX_GAME_MOVES} moves, so the game was not saved. A new game is ready.`):t(`不足 ${MIN_LIBRARY_MOVES} 手，本局未保存。新一局已准备好。`,`Under ${MIN_LIBRARY_MOVES} moves, so the game was not saved. A new game is ready.`);
 }
 async function sync(manual = false) {
   if (busy || polling) return;
@@ -322,9 +325,9 @@ unlockSoundOnTap();
 const boardView=new BoardView($('board'),{onPoint:i=>{if(busy||!state)return;prepareStoneSound();if(reviewing!==null){previewMove(i);return;}if(archiveId)return;if(state.phase==='scoring')action({type:'dead',index:i});else if(canPlay())action({type:'move',index:i});}});
 const points=boardView.points;
 function confirmAction(title,text,operation,acceptLabel=t('确认','Confirm')) { setText($('accept-confirm'),acceptLabel); $('confirm-title').className=''; const revision = state.revision; pendingConfirmation = () => { if (state.revision !== revision) { notice(t('棋局已更新，请重新确认。','The game has changed. Please confirm again.')); return; } operation(); }; setText($('confirm-title'),title); setText($('confirm-text'),text); $('confirm-dialog').showModal(); }
-function showResigned(side,savedId){
+function showResigned(side,savedId,unsavedText){
   setText($('resigned-title'),t(names[side]+'认输',names[side]+' resigned'));
-  setText($('resigned-text'),savedId?t('棋局已保存到棋谱库。新一局已准备好。','The game is saved in the library. A new game is ready.'):t(`不足 ${MIN_LIBRARY_MOVES} 手，本局未保存。新一局已准备好。`,`Under ${MIN_LIBRARY_MOVES} moves, so the game was not saved. A new game is ready.`));
+  setText($('resigned-text'),savedId?t('棋局已保存到棋谱库。新一局已准备好。','The game is saved in the library. A new game is ready.'):unsavedText);
   setText($('resigned-close'),t('关闭','Close'));setText($('resigned-open'),t('打开棋谱','Open game'));
   $('resigned-open').hidden=!savedId;$('resigned-open').onclick=()=>location.assign('/game/'+encodeURIComponent(savedId));
   for(const id of ['end-game-dialog','confirm-dialog'])if($(id).open)$(id).close();

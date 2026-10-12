@@ -2,15 +2,15 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import vm from 'node:vm';
 import {readFileSync} from 'node:fs';
-import {createHash} from 'node:crypto';
+import {createHash,randomUUID} from 'node:crypto';
 import {createState,transition,GameError,freshLiveGame} from '../backend/game-service.js';
-import {createDraft,draftTransition,draftPublication,freshSavedDraft} from '../backend/draft-service.js';
+import {createDraft,draftTransition,draftPublication,draftWithoutPublication,freshSavedDraft} from '../backend/draft-service.js';
 import {mainRecordingSgf,newRecordingSgf} from '../src/recording-tree.js';
 import {sgf,score,MIN_LIBRARY_MOVES,MAX_GAME_MOVES} from '../src/engine.js';
 import {padMoves,withMoves} from './fixtures/long-game.js';
 import {readSgf} from '../src/sgf.js';
 function api(){
- const rows=new Map(),saved=new Map();let fail=false;
+ const rows=new Map(),saved=new Map(),uploads=[];let fail=false,full=false;
  class GetItemCommand{constructor(input){this.input=input;}}
  class PutItemCommand{constructor(input){this.input=input;}}
  class DynamoDBClient{async send(c){
@@ -19,11 +19,11 @@ function api(){
   if(key!=='mutation-budget'&&old&&(Number(old.revision.N)!==Number((v[':expected']||v[':r']).N)||(v[':clockVersion']||v[':c'])&&Number(old.clockVersion?.N||0)!==Number((v[':clockVersion']||v[':c']).N))){const e=new Error();e.name='ConditionalCheckFailedException';throw e;}
   rows.set(key,structuredClone(p.Item));return {};
  }}
- const exports={};vm.runInNewContext(readFileSync(new URL('../backend/client-limit.cjs',import.meta.url),'utf8')+'\n'+readFileSync(new URL('../backend/handler.cjs',import.meta.url),'utf8'),{exports,require:()=>({DynamoDBClient,GetItemCommand,PutItemCommand}),Buffer,console,process:{env:{}},createState,transition,GameError,freshLiveGame,MIN_LIBRARY_MOVES,MAX_GAME_MOVES,createDraft,draftTransition,draftPublication,freshSavedDraft,mainRecordingSgf,newRecordingSgf,sgf,reportHash:createHash,libraryStore:{},uploadRecord:async(store,source,name,id)=>{if(fail)throw Error('Save failed');if(!saved.has(id))saved.set(id,{id:'2026100601',sgf:source});return saved.get(id);},enqueueSavedRecord:async()=>{}});
+ const exports={};vm.runInNewContext(readFileSync(new URL('../backend/client-limit.cjs',import.meta.url),'utf8')+'\n'+readFileSync(new URL('../backend/handler.cjs',import.meta.url),'utf8'),{exports,require:()=>({DynamoDBClient,GetItemCommand,PutItemCommand,randomUUID}),Buffer,console,process:{env:{}},createState,transition,GameError,freshLiveGame,MIN_LIBRARY_MOVES,MAX_GAME_MOVES,createDraft,draftTransition,draftPublication,draftWithoutPublication,freshSavedDraft,mainRecordingSgf,newRecordingSgf,sgf,reportHash:createHash,libraryStore:{},dailyUploadsFull:async()=>full,saveSharePreview:async()=>{},uploadRecord:async(store,source,name,id,now,options)=>{if(fail==='limit')throw Object.assign(Error('Daily upload limit reached.'),{statusCode:429});if(fail)throw Error('Save failed');uploads.push({id,options});if(!saved.has(id))saved.set(id,{id:'2026100601',sgf:source});return saved.get(id);},enqueueSavedRecord:async()=>{}});
  async function call(path,body){const r=await exports.handler({rawPath:path,requestContext:{http:{method:body?'POST':'GET'}},headers:{'content-type':'application/json'},body:body?JSON.stringify(body):undefined});return {status:r.statusCode,...JSON.parse(r.body)};}
  // Stones on rows 0, 2 and 4 keep a liberty below, so the seed never captures.
  const seed=async(s,n=MIN_LIBRARY_MOVES)=>{for(let k=0;k<n;k++)s=(await call('/api/game',{expectedRevision:s.revision,action:{type:'move',index:38*Math.floor(k/19)+k%19}})).state;return s;};
- return {call,seed,rows,saved,fail:value=>{fail=value;}};
+ return {call,seed,rows,saved,uploads,fail:value=>{fail=value;},full:value=>{full=value;}};
 }
 test('finish saves the live game, then starts a clean game with a new revision',async()=>{
  const {call,seed,saved}=api();let s=(await call('/api/game')).state;
@@ -115,4 +115,25 @@ test('result dialog reasons are validated and written to the SGF result',()=>{
  assert.equal(re({type:'result',winner:'white'}),'W+');
  for(const margin of [0,-1,3.3,400.5,'3',null])assert.throws(()=>finish({type:'result',winner:'black',reason:'score',margin}),GameError);
  assert.throws(()=>finish({type:'result',winner:'nobody',reason:'resign'}),GameError);
+});
+test('draft saves use a server-chosen upload ID, so a client cannot aim at another game',async()=>{
+ const a=api(),id='12345678-1234-1234-1234-123456789abc';let d=(await a.call('/api/draft',{action:'update',expectedRevision:0,sgf:withMoves('(;SZ[19];B[dd])',50,'W'),selected:1})).draft;
+ const first=await a.call('/api/draft',{action:'save',expectedRevision:d.revision,id});assert.equal(first.status,200);assert.equal(a.uploads.length,1);
+ assert.notEqual(a.uploads[0].id,id);assert.match(a.uploads[0].id,/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/);assert.equal(a.uploads[0].options.deep,true);
+});
+test('a full day refuses a draft save before the draft changes',async()=>{
+ const a=api(),id='12345678-1234-1234-1234-123456789abc';const d=(await a.call('/api/draft',{action:'update',expectedRevision:0,sgf:withMoves('(;SZ[19];B[dd])',50,'W'),selected:1})).draft;a.full(true);
+ const refused=await a.call('/api/draft',{action:'save',expectedRevision:d.revision,id});assert.equal(refused.status,429);assert.equal(refused.reason,'daily-save-limit');
+ const after=(await a.call('/api/draft')).draft;assert.equal(after.revision,d.revision);assert.equal(after.publication,undefined);assert.equal(a.uploads.length,0);
+});
+test('a save limit reached during a draft save unlocks the draft for editing',async()=>{
+ const a=api(),id='12345678-1234-1234-1234-123456789abc';const d=(await a.call('/api/draft',{action:'update',expectedRevision:0,sgf:withMoves('(;SZ[19];B[dd])',50,'W'),selected:1})).draft;a.fail('limit');
+ const refused=await a.call('/api/draft',{action:'save',expectedRevision:d.revision,id});assert.equal(refused.status,429);assert.equal(refused.reason,'daily-save-limit');assert.equal(refused.draft.publication,undefined);
+ const after=(await a.call('/api/draft')).draft;assert.deepEqual(after,refused.draft);assert.equal(readSgf(after.sgf).nodes.length,52);
+ assert.equal((await a.call('/api/draft',{action:'update',expectedRevision:after.revision,sgf:after.sgf,selected:0})).status,200);
+});
+test('a live game over the save limit resets without saving and says why',async()=>{
+ const a=api();let s=await a.seed((await a.call('/api/game')).state);const generation=s.generation||0;a.fail('limit');
+ const done=await a.call('/api/game',{expectedRevision:s.revision,action:{type:'resign',side:'black'}});assert.equal(done.status,200);
+ const next=(await a.call('/api/game')).state;assert.equal(next.phase,'play');assert.equal(next.history.length,0);assert.equal(next.lastSaveLimited?.generation,generation);assert.equal(next.lastSavedGame,undefined);assert.equal(a.saved.size,0);
 });

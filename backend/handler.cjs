@@ -1,6 +1,7 @@
 // The CDK stack prepends the shared engine and game-service code to this handler.
 const { DynamoDBClient, GetItemCommand, PutItemCommand, ScanCommand, TransactWriteItemsCommand } = require('@aws-sdk/client-dynamodb');
 const db = new DynamoDBClient({});
+const {randomUUID:draftUploadId}=require('node:crypto');
 const response = (statusCode, body) => ({
   statusCode,
   headers: { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store', 'x-content-type-options': 'nosniff' },
@@ -25,6 +26,8 @@ exports.handler = async event => {
   if(method==='POST'){const headers=event.headers||{};if(headers.origin&&headers.origin!==process.env.SITE_ORIGIN)return response(403,{message:'Invalid request origin.'});if(!headers['content-type']?.toLowerCase().startsWith('application/json'))return response(415,{message:'Use JSON.'});}
   if(requestPath.startsWith('/api/position/'))return positionHandler(event);
   if(method==='POST'&&!event._retry){try{const minute=Math.floor(Date.now()/60000);if(!(await clientAllowance(event,'edit',minute,Number(process.env.CLIENT_EDITS_PER_MINUTE||60),120)))return response(429,{message:'Too many edits from this connection. Please wait one minute and retry.'});if(!(await usageAllowance('site#edit#'+minute,Number(process.env.SITE_EDITS_PER_MINUTE||120),120)))return response(429,{message:'Too many edits. Please wait one minute and retry.'});}catch{return response(503,{message:'The service is busy. Please retry.'});}}
+  // Library and archive reads list and fetch many objects, so each connection gets a per-minute budget.
+  if(method==='GET'&&(requestPath==='/api/games'||requestPath==='/api/library'||requestPath.startsWith('/api/library/'))){try{if(!(await clientAllowance(event,'read',Math.floor(Date.now()/60000),Number(process.env.CLIENT_READS_PER_MINUTE||120),120)))return response(429,{message:'Too many requests from this connection. Please wait one minute and retry.'});}catch(e){console.error('Read limit unavailable',{name:e.name});}}
   if(requestPath==='/api/draft')return draftHandler(event);
   if (requestPath === '/api/library' || requestPath.startsWith('/api/library/')) return libraryHandler(event);
   const archiveId = requestPath.startsWith('/api/games/') ? requestPath.slice('/api/games/'.length) : null;
@@ -58,6 +61,7 @@ exports.handler = async event => {
     if (current.phase === 'ended') return gameResponse(200, { state: await publishLiveGame(current) });
     if (request.action?.type === 'heartbeat' && (current.phase !== 'play' || current.clock?.paused || current.clock?.since === null)) return gameResponse(200, { state: current });
     const next = transition(current, request);
+    if (next.phase === 'ended' && !archiveId && liveGameSavable(next)) next.librarySave = await saveAllowance(event);
     const item = (id, state) => ({
       gameId: { S: id }, revision: { N: String(state.revision) }, clockVersion: { N: String(state.clockVersion || 0) }, state: { S: JSON.stringify(state) },
       gameName: { S: state.gameName || '' }, createdAt: { S: state.createdAt || state.updatedAt || next.updatedAt },
@@ -84,16 +88,27 @@ exports.handler = async event => {
 
 // Save completed live games through the same idempotent library pipeline as uploads.
 async function publishLiveGame(state){
- let libraryId=state.libraryId;
- if(!libraryId&&state.history.length>=MIN_LIBRARY_MOVES&&state.history.length<=MAX_GAME_MOVES){
+ let libraryId=state.libraryId,limited=state.librarySave?.save===false;
+ if(!libraryId&&!limited&&liveGameSavable(state)){
   const hash=reportHash('sha256').update('live|'+state.createdAt+'|'+(state.generation||0)).digest('hex');
   const uploadId=hash.slice(0,8)+'-'+hash.slice(8,12)+'-'+hash.slice(12,16)+'-'+hash.slice(16,20)+'-'+hash.slice(20,32);
-  const source=mainRecordingSgf(sgf(state)),metadata=await uploadRecord(libraryStore,source,'live-game.sgf',uploadId);
-  await enqueueSavedRecord(metadata);libraryId=metadata.id;
+  const source=mainRecordingSgf(sgf(state));
+  // A full day or a clashing record must not leave the shared board stuck on the ended game.
+  try{const metadata=await uploadRecord(libraryStore,source,'live-game.sgf',uploadId,new Date(),{deep:state.librarySave?.deep!==false});await enqueueSavedRecord(metadata);await saveSharePreview(source,metadata);libraryId=metadata.id;}
+  catch(e){if(e.statusCode!==429&&e.statusCode!==409)throw e;console.error('Live game not saved',{statusCode:e.statusCode});limited=e.statusCode===429;}
  }
- const fresh=freshLiveGame(state,libraryId);
+ const fresh=freshLiveGame(state,libraryId);if(limited)fresh.lastSaveLimited={generation:state.generation||0};
  try{await db.send(new PutItemCommand({TableName:process.env.TABLE_NAME,Item:{gameId:{S:'current'},revision:{N:String(fresh.revision)},clockVersion:{N:'0'},state:{S:JSON.stringify(fresh)}},ConditionExpression:'#r = :r AND #c = :c',ExpressionAttributeNames:{'#r':'revision','#c':'clockVersion'},ExpressionAttributeValues:{':r':{N:String(state.revision)},':c':{N:String(state.clockVersion||0)}}}));}catch(e){if(e.name!=='ConditionalCheckFailedException')throw e;return readGame();}
  return fresh;
+}
+const liveGameSavable=state=>state.history.length>=MIN_LIBRARY_MOVES&&state.history.length<=MAX_GAME_MOVES;
+const SAVE_LIMIT_MESSAGE='Today\'s save limit has been reached. Try again tomorrow.';
+// Each connection may save a few games a day, and only some get deep analysis.
+// A live game stores this choice with its ended state, so a racing read cannot skip it.
+async function saveAllowance(event){
+ const day=new Date().toISOString().slice(0,10),allow=(scope,limit)=>clientAllowance(event,scope,day,limit,172800);
+ try{if(!(await allow('save',Number(process.env.CLIENT_SAVES_PER_DAY||10))))return {save:false};return {save:true,deep:await allow('deep',Number(process.env.CLIENT_DEEP_PER_DAY||3))};}
+ catch(e){console.error('Save limit unavailable',{name:e.name});return {save:true,deep:true};}
 }
 async function readDraft(){
  for(let attempt=0;attempt<3;attempt++){
@@ -115,9 +130,20 @@ async function draftHandler(event){
   if(request.action==='save'){
    let pending;
    if(current.publication?.id===request.id)pending=current;
-   else {if(current.publication?.status==='pending')return response(409,{message:'Another save is still in progress. Reload the draft.'});pending=draftPublication(current,request);await writeDraft(pending,current.revision);}
+   else {
+    if(current.publication?.status==='pending')return response(409,{message:'Another save is still in progress. Reload the draft.'});
+    pending=draftPublication(current,request,draftUploadId());
+    if(await dailyUploadsFull(libraryStore))return response(429,{message:SAVE_LIMIT_MESSAGE,reason:'daily-save-limit'});
+    const allowance=await saveAllowance(event);if(!allowance.save)return response(429,{message:SAVE_LIMIT_MESSAGE,reason:'daily-save-limit'});
+    if(!allowance.deep)pending.publication.deep=false;
+    await writeDraft(pending,current.revision);
+   }
    if(pending.publication.status==='ready')return response(200,{draft:pending,id:pending.publication.gameId});
-   const metadata=await uploadRecord(libraryStore,pending.sgf,'recorded-game.sgf',pending.publication.id);await enqueueSavedRecord(metadata);
+   let metadata;
+   // Drafts saved before server-chosen upload IDs keep using their original ID.
+   try{metadata=await uploadRecord(libraryStore,pending.sgf,'recorded-game.sgf',pending.publication.uploadId||pending.publication.id,new Date(),{deep:pending.publication.deep!==false});}
+   catch(e){if(e.statusCode!==429)throw e;const reverted=draftWithoutPublication(pending);await writeDraft(reverted,pending.revision);return response(429,{message:SAVE_LIMIT_MESSAGE,reason:'daily-save-limit',draft:reverted});}
+   await enqueueSavedRecord(metadata);await saveSharePreview(pending.sgf,metadata);
    const finished=freshSavedDraft(pending,metadata.id);await writeDraft(finished,pending.revision);return response(200,{draft:finished,id:metadata.id});
   }
   if(request.action!=='update')return response(400,{message:'Invalid draft action.'});
