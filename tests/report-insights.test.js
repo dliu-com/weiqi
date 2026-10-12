@@ -26,7 +26,7 @@ test('lead changes ignore leads of one point or less',()=>{
  assert.deepEqual(leadChanges(chart),{changes:2,leader:'B',since:5});
  assert.deepEqual(leadChanges(chart.map(p=>({...p,blackLead:p.blackLead/10}))),{changes:0,leader:null,since:null});
  const [phase]=phaseLeads(chart,6);
- assert.equal(phase.end,.2);assert.equal(phase.change.toFixed(1),'5.2');assert.deepEqual(phase.peak,{move:5,lead:4});
+ assert.deepEqual(phase.peak,{move:5,lead:4});assert.equal('end' in phase||'change' in phase,false);
 });
 test('top losses share uses each side total',()=>{
  const reviews=[5,4,3,2,1,1].map((pointLoss,i)=>({move:i*2+1,side:'B',quality:'mistake',pointLoss})).concat({move:2,side:'W',quality:'best',pointLoss:0});

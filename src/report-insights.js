@@ -57,14 +57,13 @@ export function leadChanges(chart,margin=1){
  }
  return {changes,leader,since};
 }
-// Black lead at the end of each phase, its change during the phase and the biggest lead inside it.
+// The biggest Black lead (either sign) inside each phase.
 export function phaseLeads(chart,moves){
- const leadAt=move=>chart.find(p=>p.move===move&&Number.isFinite(p.blackLead))?.blackLead;
  return gamePhases(moves).map(phase=>{
-  const points=chart.filter(p=>p.move>=phase.from&&p.move<=phase.to&&Number.isFinite(p.blackLead)),end=leadAt(phase.to),start=leadAt(phase.from-1);
-  if(!points.length||!Number.isFinite(end))return null;
+  const points=chart.filter(p=>p.move>=phase.from&&p.move<=phase.to&&Number.isFinite(p.blackLead));
+  if(!points.length)return null;
   const peak=points.reduce((a,b)=>Math.abs(b.blackLead)>Math.abs(a.blackLead)?b:a);
-  return {...phase,end,change:Number.isFinite(start)?end-start:null,peak:{move:peak.move,lead:peak.blackLead}};
+  return {...phase,peak:{move:peak.move,lead:peak.blackLead}};
  }).filter(Boolean);
 }
 export function topLossShare(reviews,side,count=5){
