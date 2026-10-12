@@ -19,7 +19,7 @@ test('report selects up to five key moments per player by points × percentage p
  const source='(;SZ[19]'+Array.from({length:24},(_,n)=>';'+(n%2?'W':'B')+'[]').join('')+')';
  const positions=Array.from({length:25},(_,n)=>({nodeId:n,move:n,blackLead:0,blackWinrate:.5,candidates:n<24?[candidate('Q16',(n%2?-1:1)*(n+1),0,.5+(n%2?-1:1)*(n+1)/100),candidate('pass',0,1)]:[]}));
  const report=buildAiReport(source,{...analysis,positions},{id:'x'});
- assert.equal(report.schemaVersion,7);
+ assert.equal(report.schemaVersion,8);
  assert.deepEqual(report.problems.filter(m=>m.side==='B').map(m=>m.move),[23,21,19,17,15]);
  assert.deepEqual(report.problems.filter(m=>m.side==='W').map(m=>m.move),[24,22,20,18,16]);
  assert.equal(report.problems.length,10);
