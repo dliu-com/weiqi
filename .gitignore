@@ -23,6 +23,7 @@ __pycache__/
 /src/report-pdf.js
 /src/report-pdf.js.LEGAL.txt
 /backend/report-renderer/assets/
+/backend/report-renderer/version.json
 /output/pdf/
 
 # Local release validation may describe private cloud infrastructure.
