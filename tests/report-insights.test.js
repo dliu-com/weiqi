@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {GAME_PHASES,gamePhases,phaseLosses,favouredByPhase,decidedFrom,leadChanges,phaseEndLeads,topLossShare} from '../src/report-insights.js';
+import {GAME_PHASES,gamePhases,phaseLosses,favouredByPhase,decidedFrom,leadChanges,phaseLeads,topLossShare} from '../src/report-insights.js';
 test('game phases use fixed move numbers and stop at the last move',()=>{
  assert.deepEqual(GAME_PHASES.map(p=>[p.key,p.from,p.to]),[['opening',1,60],['middle',61,150],['endgame',151,Infinity]]);
  assert.deepEqual(gamePhases(272).map(p=>[p.from,p.to]),[[1,60],[61,150],[151,272]]);
@@ -25,7 +25,8 @@ test('lead changes ignore leads of one point or less',()=>{
  const chart=[-5,2,.5,-.8,-3,4,0.2].map((blackLead,move)=>({move,blackLead,blackWinrate:.5}));
  assert.deepEqual(leadChanges(chart),{changes:2,leader:'B',since:5});
  assert.deepEqual(leadChanges(chart.map(p=>({...p,blackLead:p.blackLead/10}))),{changes:0,leader:null,since:null});
- assert.deepEqual(phaseEndLeads(chart,6).map(p=>[p.to,p.lead]),[[6,.2]]);
+ const [phase]=phaseLeads(chart,6);
+ assert.equal(phase.end,.2);assert.equal(phase.change.toFixed(1),'5.2');assert.deepEqual(phase.peak,{move:5,lead:4});
 });
 test('top losses share uses each side total',()=>{
  const reviews=[5,4,3,2,1,1].map((pointLoss,i)=>({move:i*2+1,side:'B',quality:'mistake',pointLoss})).concat({move:2,side:'W',quality:'best',pointLoss:0});
