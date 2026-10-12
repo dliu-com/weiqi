@@ -94,9 +94,16 @@ def handler(event,context=None):
     url=os.environ.get('KATAGO_MODEL_URL','')
     expected_url='https://media.katagotraining.org/uploaded/networks/models/kata1/'+MODEL_KEY.split('/')[-1]
     if url!=expected_url:raise ValueError('Invalid official model URL')
+    expected_sha=os.environ.get('KATAGO_MODEL_SHA256','')
+    if not re.fullmatch(r'[0-9a-f]{64}',expected_sha):raise ValueError('Missing pinned model SHA-256')
     request=urllib.request.Request(url,headers={'User-Agent':'KataGo-analysis-library/1.0 (+https://weiqi.dliu.com/about.html)'})
     # Each job fetches its own model; no persistent model storage or cache fallback.
-    with urllib.request.urlopen(request,timeout=60) as response,model.open('wb') as output:shutil.copyfileobj(response,output)
+    digest=hashlib.sha256()
+    with urllib.request.urlopen(request,timeout=60) as response,model.open('wb') as output:
+        for chunk in iter(lambda:response.read(1<<20),b''):digest.update(chunk);output.write(chunk)
+    model_sha256=digest.hexdigest()
+    if model_sha256!=expected_sha:
+        model.unlink(missing_ok=True);raise RuntimeError('Model checksum mismatch')
     downloaded=time.time()
     timings['downloadModelMs']=round((downloaded-model_download_started)*1000)
     with tempfile.TemporaryDirectory() as folder:
@@ -129,7 +136,7 @@ def handler(event,context=None):
             except (OSError,ValueError):pass
         provenance_started=time.time()
         version=subprocess.check_output([ENGINE,'version'],text=True).splitlines()[0]
-        analysis={'schemaVersion':2,'id':event['id'],'sgfSha256':event['sgfSha256'],'engine':'KataGo','engineVersion':version,'model':MODEL_KEY.split('/')[-1],'modelSha256':hashlib.sha256(model.read_bytes()).hexdigest(),'modelUrl':os.environ.get('KATAGO_MODEL_URL'),'configuration':{'analysisThreads':int(os.environ.get('ANALYSIS_THREADS','1')),'searchThreads':threads,'neuralNetThreads':int(os.environ.get('NN_THREADS','1')),'maxVisits':visits,'maxBatchSize':max_batch,'analysisPVLen':11},'visits':visits,'phase':phase,'reportPerspective':'BLACK','rules':query['rules'],'komi':query['komi'],'completedAt':datetime.datetime.now(datetime.timezone.utc).isoformat(),'elapsedMs':round((finished-started)*1000),'positions':[rows[n] for n in sorted(rows)],'benchmark':{'backend':os.environ.get('BACKEND','cpu'),'downloadMs':round((downloaded-started)*1000),'engineMs':round((finished-engine_started)*1000),'requestStartedAt':event['requestedAt'],'workerStartedAt':datetime.datetime.fromtimestamp(started,datetime.timezone.utc).isoformat(),'searchThreads':threads}}
+        analysis={'schemaVersion':2,'id':event['id'],'sgfSha256':event['sgfSha256'],'engine':'KataGo','engineVersion':version,'model':MODEL_KEY.split('/')[-1],'modelSha256':model_sha256,'modelUrl':os.environ.get('KATAGO_MODEL_URL'),'configuration':{'analysisThreads':int(os.environ.get('ANALYSIS_THREADS','1')),'searchThreads':threads,'neuralNetThreads':int(os.environ.get('NN_THREADS','1')),'maxVisits':visits,'maxBatchSize':max_batch,'analysisPVLen':11},'visits':visits,'phase':phase,'reportPerspective':'BLACK','rules':query['rules'],'komi':query['komi'],'completedAt':datetime.datetime.now(datetime.timezone.utc).isoformat(),'elapsedMs':round((finished-started)*1000),'positions':[rows[n] for n in sorted(rows)],'benchmark':{'backend':os.environ.get('BACKEND','cpu'),'downloadMs':round((downloaded-started)*1000),'engineMs':round((finished-engine_started)*1000),'requestStartedAt':event['requestedAt'],'workerStartedAt':datetime.datetime.fromtimestamp(started,datetime.timezone.utc).isoformat(),'searchThreads':threads}}
         if event.get('compute'):analysis['compute']=event['compute']
         origin=event.get('enqueuedAt') or (metadata or {}).get('analysis',{}).get('enqueuedAt')
         if origin:
