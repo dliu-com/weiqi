@@ -96,7 +96,7 @@ function graphTakeaway(title){
 }
 function statisticGraph(title,visual,formula,zh,en,insight){
  const figure=node('figure',undefined,'report-stat-card'),caption=node('figcaption',undefined,'report-graph-maths');
- figure.append(node('h3',title),visual);if(insight)caption.append(node('p',insight,'report-graph-insight'));caption.append(node('p',graphTakeaway(title),'report-graph-reading'),node('h4',t('计算细节','Calculation details')),node('p',formula,'report-formula'),node('p',t(zh,en),'report-note'));figure.append(caption);return figure;
+ figure.append(node('h3',title),visual);if(insight)caption.append(node('h4',t('AI 分析','AI analysis'),'report-insight-heading'),node('p',insight,'report-graph-insight'));caption.append(node('p',graphTakeaway(title),'report-graph-reading'),node('h4',t('计算细节','Calculation details')),node('p',formula,'report-formula'),node('p',t(zh,en),'report-note'));figure.append(caption);return figure;
 }
 function addStatistics(sheet){
  const keys=['best','good','inaccuracy','mistake','blunder'],names={best:t('AI 首选','AI first choice'),good:t('好棋','Good'),...qualities()},sides={B:sideName('B'),W:sideName('W')};
