@@ -96,7 +96,7 @@ function graphTakeaway(title){
 }
 function statisticGraph(title,visual,formula,zh,en,insight){
  const figure=node('figure',undefined,'report-stat-card'),caption=node('figcaption',undefined,'report-graph-maths');
- figure.append(node('h3',title),visual);if(insight)caption.append(node('h4',t('AI 分析','AI analysis'),'report-insight-heading'),node('p',insight,'report-graph-insight'));caption.append(node('p',graphTakeaway(title),'report-graph-reading'),node('h4',t('计算细节','Calculation details')),node('p',formula,'report-formula'),node('p',t(zh,en),'report-note'));figure.append(caption);return figure;
+ figure.append(node('h3',title),visual);if(insight)caption.append(node('h4',t('AI 分析','AI analysis'),'report-insight-heading'),insight);caption.append(node('p',graphTakeaway(title),'report-graph-reading'),node('h4',t('计算细节','Calculation details')),node('p',formula,'report-formula'),node('p',t(zh,en),'report-note'));figure.append(caption);return figure;
 }
 function addStatistics(sheet){
  const keys=['best','good','inaccuracy','mistake','blunder'],names={best:t('AI 首选','AI first choice'),good:t('好棋','Good'),...qualities()},sides={B:sideName('B'),W:sideName('W')};
@@ -105,28 +105,30 @@ function addStatistics(sheet){
  const graph=(parent,title,svg,formula,zh,en,insight)=>parent.append(statisticGraph(title,svg,formula,zh,en,insight));
  const moves=report.game.moves,phases=phaseLosses(report.reviews,moves),phaseName=key=>({opening:t('开局','opening'),middle:t('中盘','middle game'),endgame:t('收官','endgame')})[key],capital=text=>text[0].toUpperCase()+text.slice(1);
  const leadText=v=>Math.abs(v)<.05?t('持平','even'):sideName(v>0?'B':'W')+' +'+number(Math.abs(v)),percent=v=>Math.round(v)+'%',join=parts=>parts.join(t('；','; '));
+ const phaseLabel=p=>capital(phaseName(p.key))+' '+p.from+'–'+p.to;
+ const analysis=(rows,after)=>{const e=node('div',undefined,'report-graph-insight');if(rows)e.append(rows);if(after)e.append(node('p',after));return e;};
  const scoreInsight=()=>{
   const ends=phaseEndLeads(report.chart,moves),lead=leadChanges(report.chart);
-  const first=ends.length?t('各阶段结束时的预计目差：','Estimated lead at the end of each phase: ')+join(ends.map(p=>t(phaseName(p.key)+'（第 '+p.to+' 手）'+leadText(p.lead).replace(' +','+'),phaseName(p.key)+' (move '+p.to+') '+leadText(p.lead))))+t('。','. '):'';
   const second=!lead.leader?t('双方领先均未超过 1 目。','Neither side led by more than 1 point.'):!lead.changes?t('只有'+sideName(lead.leader)+'曾领先超过 1 目，从第 '+lead.since+' 手开始。','Only '+sideName(lead.leader)+' led by more than 1 point, first at move '+lead.since+'.'):t('领先超过 1 目的一方共变化 '+lead.changes+' 次；最后一次在第 '+lead.since+' 手，变为'+sideName(lead.leader)+'。','The side leading by more than 1 point changed '+lead.changes+(lead.changes===1?' time':' times')+'; the last change was at move '+lead.since+', to '+sideName(lead.leader)+'.');
-  return first+second;
+  return analysis(ends.length?table([t('阶段','Phase'),t('阶段结束时的预计目差','Estimated lead at the end')],ends.map(p=>[phaseLabel(p),leadText(p.lead)])):null,second);
  };
  const winInsight=()=>{
   const shares=favouredByPhase(report.chart,moves),decided=decidedFrom(report.chart);
-  const first=shares.length?t('胜算更高的一方：','Favoured side: ')+shares.map((p,i)=>p.side?t(phaseName(p.key)+'为'+sideName(p.side)+'（'+percent(p.percent)+(i?'':' 的手数')+'）',phaseName(p.key)+' '+sideName(p.side)+' ('+percent(p.percent)+(i?'':' of moves')+')'):t(phaseName(p.key)+'机会均等',phaseName(p.key)+' even')).join(t('，','; '))+t('。','. '):'';
   const second=decided?t('从第 '+decided.move+' 手起，'+sideName(decided.side)+'胜率一直不低于 90%。','From move '+decided.move+', '+sideName(decided.side)+' stayed at 90% or higher.'):t('终局时双方胜率都未达到 90%。','Neither side reached 90% by the end.');
-  return capital(first+second);
+  return analysis(shares.length?table([t('阶段','Phase'),t('胜算更高的一方','Favoured side'),t('占该阶段手数','Share of moves')],shares.map(p=>[phaseLabel(p),p.side?sideName(p.side):t('机会均等','Even'),p.side?percent(p.percent):'—'])):null,second);
  };
  const lossInsight=()=>{
-  const [b,w]=['B','W'].map(side=>topLossShare(report.reviews,side));
-  return b.percent===null&&w.percent===null?'':t('最大的五手损失占黑方总损失的 '+(b.percent===null?'—':percent(b.percent))+'（'+number(b.total)+' 目中的 '+number(b.top)+' 目），占白方的 '+(w.percent===null?'—':percent(w.percent))+'（'+number(w.total)+' 目中的 '+number(w.top)+' 目）。','The five biggest losses were '+(b.percent===null?'—':percent(b.percent))+' of all points Black lost ('+number(b.top)+' of '+number(b.total)+') and '+(w.percent===null?'—':percent(w.percent))+' of all points White lost ('+number(w.top)+' of '+number(w.total)+').');
+  const [b,w]=['B','W'].map(side=>topLossShare(report.reviews,side)),share=v=>v.percent===null?'—':percent(v.percent);
+  if(b.percent===null&&w.percent===null)return '';
+  return analysis(table(['',sideName('B'),sideName('W')],[[t('总损失目数','Total points lost'),number(b.total),number(w.total)],[t('最大五手的损失目数','Five biggest losses'),number(b.top),number(w.top)],[t('最大五手占比','Five biggest as share of total'),share(b),share(w)]]));
  };
  const phaseInsight=()=>{
   if(!phases.length)return '';
-  const first=t('各阶段的失误与严重失误（损失超过 2 目）：','Mistakes and blunders (over 2 points) in each phase: ')+join(phases.map(p=>t(phaseName(p.key)+'黑方 '+p.B.errors+' 手、白方 '+p.W.errors+' 手',phaseName(p.key)+' Black '+p.B.errors+', White '+p.W.errors)))+t('。','. ');
-  const most=['B','W'].map(side=>{const total=phases.reduce((n,p)=>n+p[side].totalPointLoss,0),top=[...phases].sort((a,b)=>b[side].totalPointLoss-a[side].totalPointLoss)[0];return total>0?{side,key:top.key,value:top[side].totalPointLoss,share:100*top[side].totalPointLoss/total}:null;}).filter(Boolean);
-  const second=most.length===2&&most[0].key===most[1].key?t('双方都在'+phaseName(most[0].key)+'损失最多：'+most.map(m=>sideName(m.side)+' '+number(m.value)+' 目（占其总损失 '+percent(m.share)+'）').join('，')+'。','Both players lost the most in the '+phaseName(most[0].key)+': '+most.map(m=>sideName(m.side)+' '+number(m.value)+' points ('+percent(m.share)+' of their total)').join(', ')+'.'):most.map(m=>t(sideName(m.side)+'在'+phaseName(m.key)+'损失最多：'+number(m.value)+' 目，占其总损失 '+percent(m.share)+'。',sideName(m.side)+' lost the most in the '+phaseName(m.key)+': '+number(m.value)+' points, '+percent(m.share)+' of their total.')).join(t('',' '));
-  return capital(first+second);
+  const totals={B:0,W:0};for(const p of phases)for(const side of ['B','W'])totals[side]+=p[side].totalPointLoss;
+  const loss=(p,side)=>number(p[side].totalPointLoss)+(totals[side]>0?t('（'+percent(100*p[side].totalPointLoss/totals[side])+'）',' ('+percent(100*p[side].totalPointLoss/totals[side])+')'):'');
+  const rows=table([t('阶段','Phase'),t('黑方失误','Black mistakes'),t('白方失误','White mistakes'),t('黑方损失目数','Black points lost'),t('白方损失目数','White points lost')],phases.map(p=>[phaseLabel(p),String(p.B.errors),String(p.W.errors),loss(p,'B'),loss(p,'W')]));
+  ['B','W'].forEach((side,column)=>{if(!(totals[side]>0))return;const most=Math.max(...phases.map(p=>p[side].totalPointLoss));phases.forEach((p,row)=>{if(p[side].totalPointLoss===most)rows.tBodies[0].rows[row].cells[3+column].classList.add('report-table-max');});});
+  return analysis(rows,t('失误包括严重失误（单手损失超过 2 目）。括号内为占该方总损失的比例；粗体为该方损失最多的阶段。','Mistakes include blunders (over 2 points each). Brackets show the share of all points that player lost; bold marks the phase where each player lost most.'));
  };
  const context=sheet(t('全局目差走势：谁领先？','Game-wide point advantage'));
  graph(context,t('目差：正为黑方领先，负为白方领先','Point advantage: positive Black, negative White'),contextChart('score'),'Displayed point advantage = S(position), from Black’s perspective',
