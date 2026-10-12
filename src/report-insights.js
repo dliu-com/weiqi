@@ -30,6 +30,21 @@ export function decidedFrom(chart,threshold=.9){
  while(index>0&&own(points[index-1])>=threshold)index--;
  return {side,move:points[index].move};
 }
+// Key moments changed the result: over 2 points and at least 5 percentage points lost, no later than the decided move.
+// Small point losses in close games swing win chances a lot, so both measures must be large; they rank by points × percentage points.
+// When one side was already at 90% within the opening, win chances barely move, so the biggest point losses are used instead.
+export const KEY_MOMENT_RULE={minPointLoss:2,minWinrateLoss:5};
+export function keyMomentScope(chart){
+ const decided=decidedFrom(chart);
+ return {decided,mode:!decided?'open':decided.move>GAME_PHASES[0].to?'decided':'early'};
+}
+export function keyMoments(moves,chart,count=5){
+ const scope=keyMomentScope(chart),{minPointLoss,minWinrateLoss}=KEY_MOMENT_RULE,score=m=>m.pointLoss*m.winrateLoss;
+ const candidates=moves.filter(m=>Number.isFinite(m.pointLoss)&&m.pointLoss>minPointLoss);
+ const chosen=scope.mode==='early'?candidates.sort((a,b)=>b.pointLoss-a.pointLoss||a.move-b.move)
+  :candidates.filter(m=>Number.isFinite(m.winrateLoss)&&m.winrateLoss>=minWinrateLoss&&(!scope.decided||m.move<=scope.decided.move)).sort((a,b)=>score(b)-score(a)||b.pointLoss-a.pointLoss||a.move-b.move);
+ return {scope,...Object.fromEntries(['B','W'].map(side=>[side,chosen.filter(m=>m.side===side).slice(0,count)]))};
+}
 // The lead changes hands only when the other side moves more than one point ahead.
 export function leadChanges(chart,margin=1){
  let leader=null,since=null,changes=0;
