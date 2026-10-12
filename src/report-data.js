@@ -43,7 +43,7 @@ export function buildAiReport(source,analysis,metadata,now=new Date()) {
   const playedWin=!r.estimated?playedCandidate?.blackWinrate:after?.blackWinrate;
   return {nodeId:id,move:node.depth,side,played,quality:r.quality,pointLoss:r.quality==='best'?0:r.loss,estimated:r.estimated,best:r.best,bestEvaluation:r.best?{blackLead:r.best.blackLead,blackWinrate:r.best.blackWinrate}:null,alternatives:r.alternatives,playedEvaluation:{blackLead:!r.estimated?playedCandidate?.blackLead:after?.blackLead,blackWinrate:playedWin},winrateLoss:r.quality==='best'?0:Number.isFinite(playedWin)&&Number.isFinite(r.best?.blackWinrate)?Math.max(0,sign*(r.best.blackWinrate-playedWin)*100):null};
  });
- const players={};for(const side of ['B','W']){const own=reviews.filter(m=>m.side===side);players[side]={name:record.players[side==='B'?'black':'white'],...summariseLosses(own),segments:[{from:1,to:60},{from:61,to:180},{from:181,to:Infinity}].map(range=>({from:range.from,to:Math.min(range.to,record.mainLine.length-1),...summariseLosses(own.filter(m=>m.move>=range.from&&m.move<=range.to))}))};}
+ const players={};for(const side of ['B','W']){const own=reviews.filter(m=>m.side===side);players[side]={name:record.players[side==='B'?'black':'white'],...summariseLosses(own)};}
  const eligible=reviews.filter(m=>m.best&&Number.isFinite(m.pointLoss)&&m.pointLoss>.5&&badRatings.has(m.quality)).sort((a,b)=>b.pointLoss-a.pointLoss||a.move-b.move);
  const ids=new Set([...eligible.filter(m=>m.side==='B').slice(0,5),...eligible.filter(m=>m.side==='W').slice(0,5)].map(m=>m.nodeId));
  const lineData=(anchor,candidate)=>{
