@@ -130,7 +130,7 @@ function addStatistics(sheet){
  const scoreInsight=()=>{
   const ends=phaseLeads(report.chart,moves),lead=leadChanges(report.chart);
   const second=!lead.leader?t('双方领先均未超过 1 目。','Neither side led by more than 1 point.'):!lead.changes?t('只有'+sideName(lead.leader)+'曾领先超过 1 目，从第 '+lead.since+' 手开始。','Only '+sideName(lead.leader)+' led by more than 1 point, first at move '+lead.since+'.'):t('领先超过 1 目的一方共变化 '+lead.changes+' 次；最后一次在第 '+lead.since+' 手，变为'+sideName(lead.leader)+'。','The side leading by more than 1 point changed '+lead.changes+(lead.changes===1?' time':' times')+'; the last change was at move '+lead.since+', to '+sideName(lead.leader)+'.');
-  return analysis(ends.length?table([t('阶段','Phase'),t('阶段结束时','At end of phase'),t('本阶段目差变化','Change in phase'),t('本阶段最大领先','Biggest lead in phase')],ends.map(p=>[phaseLabel(p),leadText(p.end),p.change===null?'—':leadText(p.change),leadText(p.peak.lead)+(Math.abs(p.peak.lead)<.05?'':t('（第 '+p.peak.move+' 手）',' (move '+p.peak.move+')'))])):null,second);
+  return analysis(ends.length?table([t('阶段','Phase'),t('本阶段最大领先','Biggest lead in phase')],ends.map(p=>[phaseLabel(p),leadText(p.peak.lead)+(Math.abs(p.peak.lead)<.05?'':t('（第 '+p.peak.move+' 手）',' (move '+p.peak.move+')'))])):null,second);
  };
  const winInsight=()=>{
   const shares=favouredByPhase(report.chart,moves),decided=decidedFrom(report.chart);
