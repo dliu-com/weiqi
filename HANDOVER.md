@@ -230,7 +230,7 @@ make deploy-infra              # CDK deployment and storage stack policy
 make publish                   # Rebuilds browser assets and publishes static files
 ```
 
-Plain `make` defaults to **deployment** and invokes install, tests, infrastructure deployment and publish. Do not run it expecting a local-only build. `make publish` uploads to the live site and invalidates CloudFront. Rebuilding browser assets does not deploy Python Lambda changes; deploy workers through the release keys/CDK as well. Do not hand-edit generated bundles as the source of a fix.
+Plain `make` defaults to **deployment** and invokes install, tests, infrastructure deployment and publish. Do not run it expecting a local-only build. `make publish` uploads to the live site and invalidates CloudFront (`/*`). There is no automatic S3→CloudFront clearing (see README, "Edge caching and clearing"): after hand-editing a cached object in the site bucket, invalidate its path yourself. Rebuilding browser assets does not deploy Python Lambda changes; deploy workers through the release keys/CDK as well. Do not hand-edit generated bundles as the source of a fix.
 
 Production stack names: `WeiqiStorage`, `WeiqiSite`, `WeiqiGpuBenchmark` (despite its historical name, it serves production GPU analysis), `WeiqiBudget`, and `WeiqiPositionAnalysis`. Historical CPU/Fargate source remains, but current deployment flags disable Fargate/CPU dispatch. Browser requests use **CloudFront → IAM-protected Lambda Function URL**; API Gateway has been discussed but not added.
 
