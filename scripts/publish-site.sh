@@ -17,21 +17,28 @@ fi
 node --check "$PROJECT_DIR/src/app.js"
 node --check "$PROJECT_DIR/src/engine.js"
 
-aws s3 cp "$PROJECT_DIR/src/photo-assets/" "s3://$SITE_BUCKET_NAME/photo-assets/" --recursive --cache-control 'public, max-age=0, must-revalidate' --only-show-errors
+# Each publish invalidates the edge, so the long edge lifetimes below never serve an old release.
+STATIC_CACHE='public, max-age=300, s-maxage=86400, stale-while-revalidate=86400'
+# Scripts, styles and data keep fixed names and load together, so browsers revalidate them
+# (no mixed releases) while the edge keeps them for a day. HTML pages are never edge-cached long.
+MODULE_CACHE='public, max-age=0, must-revalidate, s-maxage=86400'
+PAGE_CACHE='public, max-age=0, must-revalidate'
 
-# Upload dependencies first and the entrypoint last. Assets are revalidated on reload.
+aws s3 cp "$PROJECT_DIR/src/photo-assets/" "s3://$SITE_BUCKET_NAME/photo-assets/" --recursive --cache-control "$STATIC_CACHE" --only-show-errors
+
+# Upload dependencies first and the entrypoint last.
 for filename in analysis-position.js position-api.js analysis.js photo.html photo.css stone-placement.mp3 stone-placement-LICENSE.txt stone-sound.js time-control.js board-geometry.js site-time.js site-shell.js move-label.js board-view.js recording-tree.js recording-sequence-edit.js recording-tree-view.js editor.js editor.html home.js play.html site.css cost.html security.html photo-recognition.html documents.js flow-diagram.js report-font.otf report.html report.js report.css board-diagram.js ai-review.js game-result.js analysis-status.js evaluation-chart.js replay-navigation.js sgf.js library-api.js library.html library.js record.html record.js how-to-use.html how-to-use.js benchmarks-data.json benchmarks.html benchmarks.js about.html about.js rules.html rules.js history.html history.js i18n.js engine.js app.js styles.css favicon.svg 404.html; do
   case "$filename" in
-    *.mp3) mime='audio/mpeg' ;;
-    *.otf) mime='font/otf' ;;
-    *.js) mime='text/javascript; charset=utf-8' ;;
-    *.css) mime='text/css; charset=utf-8' ;;
-    *.svg) mime='image/svg+xml' ;;
-    *.html) mime='text/html; charset=utf-8' ;;
-    *.json) mime='application/json; charset=utf-8' ;;
-    *.txt) mime='text/plain; charset=utf-8' ;;
+    *.mp3) mime='audio/mpeg' cache="$STATIC_CACHE" ;;
+    *.otf) mime='font/otf' cache="$STATIC_CACHE" ;;
+    *.js) mime='text/javascript; charset=utf-8' cache="$MODULE_CACHE" ;;
+    *.css) mime='text/css; charset=utf-8' cache="$MODULE_CACHE" ;;
+    *.svg) mime='image/svg+xml' cache="$STATIC_CACHE" ;;
+    *.html) mime='text/html; charset=utf-8' cache="$PAGE_CACHE" ;;
+    *.json) mime='application/json; charset=utf-8' cache="$MODULE_CACHE" ;;
+    *.txt) mime='text/plain; charset=utf-8' cache="$STATIC_CACHE" ;;
   esac
-  aws s3 cp "$PROJECT_DIR/src/$filename" "s3://$SITE_BUCKET_NAME/$filename" --content-type "$mime" --cache-control 'public, max-age=0, must-revalidate' --only-show-errors
+  aws s3 cp "$PROJECT_DIR/src/$filename" "s3://$SITE_BUCKET_NAME/$filename" --content-type "$mime" --cache-control "$cache" --only-show-errors
 done
 aws s3 cp "$PROJECT_DIR/src/index.html" "s3://$SITE_BUCKET_NAME/index.html" --content-type 'text/html; charset=utf-8' --cache-control 'no-cache, max-age=0, must-revalidate' --only-show-errors
 INVALIDATION_ID="$(aws cloudfront create-invalidation --distribution-id "$DISTRIBUTION_ID" --paths '/*' --query 'Invalidation.Id' --output text)"

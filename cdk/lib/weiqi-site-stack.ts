@@ -58,7 +58,8 @@ export class WeiqiSiteStack extends Stack {
     const cachePolicy = new cloudfront.CachePolicy(this, 'SiteCachePolicy', {
       minTtl: Duration.seconds(0),
       defaultTtl: Duration.minutes(5),
-      maxTtl: Duration.hours(1),
+      // Lets s-maxage keep static files at the edge for a day; each publish invalidates them.
+      maxTtl: Duration.days(1),
       enableAcceptEncodingGzip: true,
       enableAcceptEncodingBrotli: true,
     });
@@ -174,6 +175,7 @@ export class WeiqiSiteStack extends Stack {
       domainNames: [domainName],
       certificate,
       defaultRootObject: 'index.html',
+      httpVersion: cloudfront.HttpVersion.HTTP2_AND_3,
       minimumProtocolVersion: cloudfront.SecurityPolicyProtocol.TLS_V1_2_2021,
       errorResponses: [
         { httpStatus: 403, responseHttpStatus: 404, responsePagePath: '/404.html', ttl: Duration.seconds(30) },

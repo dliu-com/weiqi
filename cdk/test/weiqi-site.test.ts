@@ -30,6 +30,7 @@ test('serves only the Weiqi subdomain over HTTPS, without always-on infrastructu
   template.hasResourceProperties('AWS::CloudFront::Distribution', {
     DistributionConfig: Match.objectLike({
       DefaultRootObject: 'index.html',
+      HttpVersion: 'http2and3',
       Aliases: [{ 'Fn::Join': ['', ['weiqi.', { 'Fn::ImportValue': 'MainDomain' }]] }],
       DefaultCacheBehavior: Match.objectLike({ ViewerProtocolPolicy: 'redirect-to-https', AllowedMethods: ['GET', 'HEAD'] }),
     }),
