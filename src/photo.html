@@ -1,6 +1,6 @@
-<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>AI analysis · DL Weiqi</title><link rel="icon" href="/favicon.svg"><link rel="stylesheet" href="/styles.css"><link rel="stylesheet" href="/site.css"><link rel="stylesheet" href="/photo.css"></head><body class="analysis-page">
-<header></header>
-<main class="workspace" id="analysis-main" data-stage="check">
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>AI analysis · DL Weiqi</title><link rel="icon" href="/favicon.svg" type="image/svg+xml"><link rel="stylesheet" href="https://files.dliu.com/dliu.com/ui/v1/dl.css"><link rel="stylesheet" href="/styles.css"><link rel="stylesheet" href="/site.css"><link rel="stylesheet" href="/photo.css"></head><body class="dl-page analysis-page">
+<header class="dl-header"></header>
+<main class="dl-main workspace" id="analysis-main" data-stage="check">
 <section class="play-area">
 <div class="board-wrap" id="board-wrap">
 <div id="board" role="group" aria-label="Analysis board"></div>
@@ -8,15 +8,15 @@
 <img id="stage-photo" alt="Your board photo" hidden>
 <div class="scan" aria-hidden="true"></div>
 <p id="stage-label" class="stage-chip" aria-hidden="true"></p>
-<button type="button" id="hide-photo" class="stage-close" data-zh="返回棋盘">Back to the board</button>
+<button type="button" id="hide-photo" class="dl-button stage-close" data-zh="返回棋盘">Back to the board</button>
 </div>
 </div>
-<div class="review-controls editor-navigation" id="sequence-controls" hidden><button type="button" id="sequence-first" aria-label="First move">|←</button><button type="button" id="sequence-previous" aria-label="Previous move">←</button><span id="sequence-position"></span><button type="button" id="sequence-next" aria-label="Next move">→</button><button type="button" id="sequence-last" aria-label="Last move">→|</button><button type="button" id="sequence-pass"></button></div>
+<div class="review-controls editor-navigation" id="sequence-controls" hidden><button type="button" id="sequence-first" aria-label="First move" class="dl-button">|←</button><button type="button" id="sequence-previous" aria-label="Previous move" class="dl-button">←</button><span id="sequence-position"></span><button type="button" id="sequence-next" aria-label="Next move" class="dl-button">→</button><button type="button" id="sequence-last" aria-label="Last move" class="dl-button">→|</button><button type="button" id="sequence-pass" class="dl-button"></button></div>
 </section>
 <aside class="workspace-panel">
 <div class="analysis-intro" id="analysis-intro"><div class="editor-heading"><h1 data-zh="AI 分析">AI analysis</h1></div></div>
 <div class="editor-upload-box" id="upload-box">
-<div class="upload-buttons"><button type="button" id="photo-button" data-zh="上传照片">Upload photo</button><button type="button" id="sgf-button" data-zh="上传 SGF">Upload SGF</button></div>
+<div class="upload-buttons"><button type="button" id="photo-button" data-zh="上传照片" class="dl-button">Upload photo</button><button type="button" id="sgf-button" data-zh="上传 SGF" class="dl-button">Upload SGF</button></div>
 <input id="photo-file" type="file" accept="image/*" hidden>
 <input id="sgf-file" type="file" accept=".sgf,application/x-go-sgf" hidden>
 <p class="upload-tip" id="upload-tip" data-zh="从正上方拍摄 19 路棋盘，全盘入镜，避免反光。">Shoot a 19 × 19 board from straight above, whole board in frame, no glare.</p>
@@ -26,12 +26,12 @@
 <ol class="progress-stages"><li id="stage-prepare" data-zh="准备照片">Preparing the photo</li><li id="stage-upload" data-zh="上传照片">Uploading</li><li id="stage-detect" data-zh="寻找棋盘和棋子">Finding the grid and stones</li></ol>
 <div class="progress-track" aria-hidden="true"><span id="progress-fill"></span></div>
 <p id="progress-time" class="note" role="status" aria-live="polite"></p>
-<button type="button" id="cancel-reading" data-zh="取消">Cancel</button>
+<button type="button" id="cancel-reading" data-zh="取消" class="dl-button">Cancel</button>
 </section>
 <p id="status" role="status" aria-live="polite" hidden></p>
 <section id="check-card" class="card analysis-card" hidden>
 <p id="check-summary" class="check-summary" role="img"><span class="stone-count" data-side="black" id="count-B"></span><span class="stone-count" data-side="white" id="count-W"></span></p>
-<div class="actions tool-switch" role="group" aria-label="Edit the board"><button type="button" id="tool-B" data-side="black" data-zh="黑子">Black</button><button type="button" id="tool-W" data-side="white" data-zh="白子">White</button><button type="button" id="undo" data-zh="撤销">Undo</button><button type="button" id="tool-E" data-zh="删除">Delete</button><button type="button" id="rotate" data-zh="旋转 90°">Rotate 90°</button><button type="button" id="clear" data-zh="清空棋盘">Clear board</button></div>
+<div class="dl-segmented tool-switch" role="group" aria-label="Edit the board"><button type="button" id="tool-B" data-side="black" data-zh="黑子">Black</button><button type="button" id="tool-W" data-side="white" data-zh="白子">White</button><button type="button" id="undo" data-zh="撤销">Undo</button><button type="button" id="tool-E" data-zh="删除">Delete</button><button type="button" id="rotate" data-zh="旋转 90°">Rotate 90°</button><button type="button" id="clear" data-zh="清空棋盘">Clear board</button></div>
 <p id="review-note" class="review-note" hidden></p>
 <p id="invalid-note" class="invalid-note" hidden></p>
 <button type="button" id="photo-thumb" class="photo-thumb" hidden><img id="thumb-photo" alt=""><span>Compare with photo</span></button>
@@ -39,17 +39,17 @@
 <section id="result-card" class="card analysis-card" hidden>
 <table class="ai-move-table"><thead><tr><th scope="col" data-zh="选点">Move</th><th scope="col" data-zh="评价">Assessment</th><th scope="col" data-zh="领先（目）">Lead (points)</th><th scope="col" data-zh="胜率（%）">Win %</th></tr></thead><tbody id="suggestions"></tbody></table>
 <p class="note" id="preview-help" data-zh="选择推荐着法预览，或在棋盘上落子。">Select a suggestion to preview it, or play on the board.</p>
-<div class="editor-toolbar"><button type="button" id="play-preview" class="primary" hidden></button><button type="button" id="clear-preview" hidden data-zh="返回当前局面">Back to the position</button></div>
+<div class="editor-toolbar"><button type="button" id="play-preview" class="dl-button dl-button-primary" hidden></button><button type="button" id="clear-preview" hidden data-zh="返回当前局面" class="dl-button">Back to the position</button></div>
 <p id="analysis-time" class="note"></p>
 </section>
-<button type="button" id="edit-board" class="edit-board" hidden data-zh="编辑棋盘">Edit board</button>
+<button type="button" id="edit-board" class="dl-button edit-board" hidden data-zh="编辑棋盘">Edit board</button>
 <form id="analysis-settings" class="card analysis-card" hidden novalidate>
 <h2 id="settings-title" data-zh="设置并分析">Settings and analysis</h2>
 <div class="settings-grid" id="settings-fields">
-<div class="field"><span data-zh="下一手">Next to play</span><div class="actions side-switch" role="group" aria-label="Next to play"><button type="button" id="side-B" data-side="black" data-zh="黑方">Black</button><button type="button" id="side-W" data-side="white" data-zh="白方">White</button></div></div>
-<div class="field"><span data-zh="贴目（中国规则）">Komi (Chinese rules)</span><div class="actions side-switch" role="group" aria-label="Komi"><button type="button" id="komi-7.5" data-zh="7.5 目">7.5</button><button type="button" id="komi-0.5" data-zh="0.5 目">0.5</button></div></div>
+<div class="field"><span data-zh="下一手">Next to play</span><div class="dl-segmented side-switch" role="group" aria-label="Next to play"><button type="button" id="side-B" data-side="black" data-zh="黑方">Black</button><button type="button" id="side-W" data-side="white" data-zh="白方">White</button></div></div>
+<div class="field"><span data-zh="贴目（中国规则）">Komi (Chinese rules)</span><div class="dl-segmented side-switch" role="group" aria-label="Komi"><button type="button" id="komi-7.5" data-zh="7.5 目">7.5</button><button type="button" id="komi-0.5" data-zh="0.5 目">0.5</button></div></div>
 </div>
-<div class="analyse-row"><button class="primary" id="analyse" type="submit"></button><button type="button" id="cancel-analysis" hidden data-zh="取消">Cancel</button></div>
+<div class="analyse-row"><button class="dl-button dl-button-primary" id="analyse" type="submit"></button><button type="button" id="cancel-analysis" hidden data-zh="取消" class="dl-button">Cancel</button></div>
 <p class="note" id="analyse-note"></p>
 </form>
 <p id="local-save" class="note"></p>
@@ -58,4 +58,4 @@
 </div>
 </aside>
 </main>
-<script type="module" src="/analysis.js"></script></body></html>
+<footer class="dl-footer"><a class="dl-footer-logo" href="https://dliu.com" aria-label="dliu.com"><img src="https://files.dliu.com/dliu.com/favicon.png" alt="" width="24" height="24"></a><a href="https://dliu.com">dliu.com</a> · <a href="/" data-zh="DL 围棋" data-en="DL Weiqi">DL 围棋</a> · <a href="/guide" data-zh="使用指南" data-en="User guide">使用指南</a> · <a href="/about" data-zh="关于" data-en="About">关于</a></footer><script type="module" src="/analysis.js"></script></body></html>

@@ -66,7 +66,7 @@ export class WeiqiSiteStack extends Stack {
 
     const headers = new cloudfront.ResponseHeadersPolicy(this, 'SiteResponseHeaders', {
       securityHeadersBehavior: {
-        contentSecurityPolicy: {contentSecurityPolicy: "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://files.dliu.com; font-src 'self'; connect-src 'self' blob: https://huggingface.co https://*.huggingface.co https://*.hf.co https://raw.githubusercontent.com; worker-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'", override:true},
+        contentSecurityPolicy: {contentSecurityPolicy: "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline' https://files.dliu.com/dliu.com/ui/; img-src 'self' data: blob: https://files.dliu.com/dliu.com/; font-src 'self'; connect-src 'self' blob: https://huggingface.co https://*.huggingface.co https://*.hf.co https://raw.githubusercontent.com; worker-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'", override:true},
         contentTypeOptions: { override: true },
         frameOptions: { frameOption: cloudfront.HeadersFrameOption.DENY, override: true },
         referrerPolicy: { referrerPolicy: cloudfront.HeadersReferrerPolicy.STRICT_ORIGIN_WHEN_CROSS_ORIGIN, override: true },
