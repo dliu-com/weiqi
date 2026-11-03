@@ -121,6 +121,10 @@ If the daily/monthly limit is exceeded, wait for the appropriate period or delib
 
 The development ledger is `cloud/development-cost-ledger.json`; it contains conservative estimates, not a final invoice or an automatically current remaining balance. Audit running resources and existing allocations before starting paid experiments.
 
+### Security review (3 November 2026)
+
+`/docs/security` holds the threat model, STRIDE per component, worst-case cost per hour, the dated live penetration test, the code review and findings W-1 to W-10. Rerun the live checks with `node scripts/security/pentest.mjs --rate-limits --out cloud/security-pentest.json` (see README). Open user decisions: W-1, a WAF rate rule to cap CloudFront/S3 request costs (paid); W-2, rewriting the public git history to remove the AWS account ID (force-push). Optional: upgrade `puppeteer-core` (W-5), which regenerates every report.
+
 ## Remaining work in priority order
 
 ### 1. Reliable automatic real-photo recognition

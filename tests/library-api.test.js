@@ -167,3 +167,19 @@ test('one connection gets a bounded number of saves and deep analyses per day',a
  const kept=(await h.call('/api/draft')).draft;assert.equal(kept.publication,undefined);assert.ok(kept.sgf.includes('Limit 2'));
  assert.equal((await h.call('/api/draft',{action:'save',expectedRevision:kept.revision,id:randomUUID()},{'x-weiqi-viewer':'198.51.100.7'})).status,200);
 });
+// Mirrors the live checks C1–C3, I1–I6 and M1 in scripts/security/pentest.mjs.
+test('request gates reject cross-site, non-JSON, oversized, malformed and unsupported requests without changing state',async()=>{
+ const h=api(),send=async(method,path,body,headers={},query={})=>(await h.event({rawPath:path,queryStringParameters:query,requestContext:{http:{method}},headers:{'content-type':'application/json',origin:'https://test.invalid','x-weiqi-viewer':'198.51.100.9',...headers},body})).statusCode;
+ const revisions=async()=>[(await h.call('/api/game')).state.revision,(await h.call('/api/draft')).draft.revision],before=await revisions();
+ for(const path of ['/api/game','/api/draft','/api/position/analyze','/api/position/recognize'])for(const origin of ['https://evil.invalid','null','https://test.invalid.evil.invalid'])assert.equal(await send('POST',path,'{}',{origin}),403,path+' '+origin);
+ for(const type of ['text/plain','application/x-www-form-urlencoded','multipart/form-data; boundary=x',undefined])for(const path of ['/api/game','/api/draft'])assert.equal(await send('POST',path,'{}',{'content-type':type}),415,path+' '+type);
+ assert.equal(await send('POST','/api/game',JSON.stringify({pad:'x'.repeat(2100)})),413);
+ assert.equal(await send('POST','/api/draft',JSON.stringify({action:'update',pad:'x'.repeat(1600001)})),413);
+ for(const path of ['/api/game','/api/draft'])assert.equal(await send('POST',path,'{"action":'),400);
+ assert.equal(await send('POST','/api/game','{"__proto__":{"phase":"ended"},"constructor":{"prototype":{"x":1}}}'),400);
+ assert.equal(await send('POST','/api/draft','{"action":"delete"}'),400);
+ for(const method of ['PUT','PATCH','DELETE'])for(const path of ['/api/game','/api/draft','/api/games/x'])assert.equal(await send(method,path,'{}'),405,method+' '+path);
+ assert.equal(await send('POST','/api/games','{}'),405);
+ for(const cursor of ['{"$ne":null}','../current','game#x'])assert.equal(await send('GET','/api/games',undefined,{},{cursor}),400,cursor);
+ assert.deepEqual(await revisions(),before);assert.equal(({}).x,undefined);assert.equal(h.files.size,0);
+});
