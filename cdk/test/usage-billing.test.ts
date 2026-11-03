@@ -20,7 +20,11 @@ test('production stacks create no resources with fixed monthly charges',()=>{
 test('Lambda logs use CloudFormation-managed log groups instead of logRetention helpers',()=>{
  expect(resources.filter(r=>r.Type==='AWS::Lambda::Function').length).toBeGreaterThan(5);
  expect(resources.filter(r=>r.Type==='Custom::LogRetention').map(r=>r.id)).toEqual([]);
- // The certificate requestor belongs to the legacy DnsValidatedCertificate construct shared with sibling sites.
- const unmanaged=resources.filter(r=>r.Type==='AWS::Lambda::Function'&&!r.id.startsWith('SiteCertificate')&&!resources.some(g=>g.stack===r.stack&&g.Type==='AWS::Logs::LogGroup'&&g.id===r.Properties.LoggingConfig?.LogGroup?.Ref));
+ const unmanaged=resources.filter(r=>r.Type==='AWS::Lambda::Function'&&!resources.some(g=>g.stack===r.stack&&g.Type==='AWS::Logs::LogGroup'&&g.id===r.Properties.LoggingConfig?.LogGroup?.Ref));
  expect(unmanaged.map(r=>`${r.stack}/${r.id}`)).toEqual([]);
+});
+
+test('every log group keeps logs for 90 days',()=>{
+ const groups=resources.filter(r=>r.Type==='AWS::Logs::LogGroup');expect(groups.length).toBeGreaterThan(5);
+ expect(groups.filter(g=>g.Properties.RetentionInDays!==90).map(g=>`${g.stack}/${g.id}`)).toEqual([]);
 });

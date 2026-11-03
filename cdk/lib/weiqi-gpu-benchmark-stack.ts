@@ -10,7 +10,7 @@ export class WeiqiGpuBenchmarkStack extends Stack {
  constructor(scope:Construct,id:string,props:StackProps & {libraryBucket:string;production?:boolean;dispatchEnabled?:boolean;analysisQueueArn?:string;cpuQuickQueue?:string;cpuDeepQueue?:string;cpuJobDefinition?:string}) {
   super(scope,id,props);
   const root=path.join(__dirname,'../..');
-  const customResourceLogs=new logs.LogGroup(this,'CustomResourceLogs',{retention:logs.RetentionDays.ONE_WEEK,removalPolicy:RemovalPolicy.DESTROY});
+  const customResourceLogs=new logs.LogGroup(this,'CustomResourceLogs',{retention:logs.RetentionDays.THREE_MONTHS,removalPolicy:RemovalPolicy.DESTROY});
   const tagBatch=(name:string,arn:string)=>new cr.AwsCustomResource(this,name+'ProjectTag',{logGroup:customResourceLogs,
    onCreate:{service:'Batch',action:'tagResource',parameters:{resourceArn:arn,tags:{[projectConfig.project.tagKey]:projectConfig.project.tagValue}},physicalResourceId:cr.PhysicalResourceId.of(name+'-project-tag')},
    onUpdate:{service:'Batch',action:'tagResource',parameters:{resourceArn:arn,tags:{[projectConfig.project.tagKey]:projectConfig.project.tagValue}},physicalResourceId:cr.PhysicalResourceId.of(name+'-project-tag')},
@@ -45,7 +45,7 @@ export class WeiqiGpuBenchmarkStack extends Stack {
   }
   const jobRole=new iam.Role(this,'JobRole',{assumedBy:new iam.ServicePrincipal('ecs-tasks.amazonaws.com')});bucket.grantReadWrite(jobRole,'benchmarks/*');
   if(props.production){bucket.grantReadWrite(jobRole,'games/*');bucket.grantReadWrite(jobRole,'jobs/*');}
-  const log=new logs.LogGroup(this,'Logs',{retention:logs.RetentionDays.ONE_WEEK,removalPolicy:RemovalPolicy.DESTROY});
+  const log=new logs.LogGroup(this,'Logs',{retention:logs.RetentionDays.THREE_MONTHS,removalPolicy:RemovalPolicy.DESTROY});
   const job=new batch.CfnJobDefinition(this,'Job',{type:'container',platformCapabilities:['EC2'],retryStrategy:{attempts:1},timeout:{attemptDurationSeconds:props.production?projectConfig.analysis.jobTimeoutSeconds:3600},containerProperties:{image:repository.repositoryUri+':'+workerTag,jobRoleArn:jobRole.roleArn,resourceRequirements:[{type:'VCPU',value:'4'},{type:'MEMORY',value:'10000'},{type:'GPU',value:'1'}],environment:[{name:'LIBRARY_BUCKET',value:bucket.bucketName},{name:'ANALYSIS_TIMEOUT_SECONDS',value:props.production?String(projectConfig.analysis.jobTimeoutSeconds-100):'3500'},{name:'MAX_VISITS',value:String(projectConfig.analysis.deepVisits)}],logConfiguration:{logDriver:'awslogs',options:{'awslogs-group':log.logGroupName,'awslogs-region':this.region,'awslogs-stream-prefix':'benchmark'}}}});
   const build=new codebuild.Project(this,'Build',{source:codebuild.Source.s3({bucket,path:'build/gpu-source.zip'}),environment:{buildImage:codebuild.LinuxBuildImage.STANDARD_7_0,privileged:true,computeType:codebuild.ComputeType.SMALL},timeout:Duration.minutes(20),environmentVariables:{REPOSITORY_URI:{value:repository.repositoryUri},IMAGE_TAG:{value:workerTag}},buildSpec:codebuild.BuildSpec.fromObject({version:'0.2',phases:{pre_build:{commands:['aws ecr get-login-password --region "$AWS_DEFAULT_REGION" | docker login --username AWS --password-stdin "$REPOSITORY_URI"']},build:{commands:['docker build -f gpu/Dockerfile -t "$REPOSITORY_URI:$IMAGE_TAG" .']},post_build:{commands:['docker push "$REPOSITORY_URI:$IMAGE_TAG"']}}})});repository.grantPullPush(build);bucket.grantRead(build,'build/*');
   if(props.production){
@@ -58,7 +58,7 @@ export class WeiqiGpuBenchmarkStack extends Stack {
    const gpuQueues=[productionQueue!.ref,fallbackGpuQueue!.ref];this.productionJobQueues.push(...gpuQueues);
    const environment={LIBRARY_BUCKET:bucket.bucketName,AI_CONTROL_KEY:'control/ai-spending.json',JOB_QUEUE:productionQueue!.ref,FALLBACK_GPU_QUEUE:fallbackGpuQueue!.ref,JOB_DEFINITION:job.ref,CONTROL_QUEUE:fallbackQueue.queueUrl,GPU_FALLBACK_WAIT_SECONDS:String(projectConfig.analysis.capacityFallbackSeconds),QUICK_VISITS:String(projectConfig.analysis.quickVisits),DEEP_VISITS:String(projectConfig.analysis.deepVisits)};
    const createCoordinator=(name:string)=>{
-    const fn=new lambda.Function(this,name,{runtime:lambda.Runtime.NODEJS_22_X,handler:'index.handler',code,timeout:Duration.seconds(30),memorySize:256,environment,logGroup:new logs.LogGroup(this,name+'Logs',{retention:logs.RetentionDays.ONE_WEEK,removalPolicy:RemovalPolicy.DESTROY})});
+    const fn=new lambda.Function(this,name,{runtime:lambda.Runtime.NODEJS_22_X,handler:'index.handler',code,timeout:Duration.seconds(30),memorySize:256,environment,logGroup:new logs.LogGroup(this,name+'Logs',{retention:logs.RetentionDays.THREE_MONTHS,removalPolicy:RemovalPolicy.DESTROY})});
     bucket.grantReadWrite(fn,'games/*');bucket.grantReadWrite(fn,'jobs/*');bucket.grantRead(fn,'control/ai-spending.json');fallbackQueue.grantSendMessages(fn);
     fn.addToRolePolicy(new iam.PolicyStatement({actions:['batch:DescribeJobs','batch:ListJobs','batch:CancelJob'],resources:['*']}));
     fn.addToRolePolicy(new iam.PolicyStatement({actions:['batch:SubmitJob'],resources:[...gpuQueues,job.ref]}));return fn;

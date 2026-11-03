@@ -9,7 +9,7 @@ export class WeiqiPositionStack extends Stack{
    ['Recognition','recognize.handler',props.release.recognitionKey,config.recognitionMemoryMb,config.recognitionTimeoutSeconds,{MODEL_PATH:'/var/task/model.onnx',THREADS:String(Math.max(1,Math.floor(config.recognitionMemoryMb/1769)))}],
    ['Engine','analyze.handler',props.release.aiKey,config.aiMemoryMb,config.aiTimeoutSeconds,{VISITS:String(config.aiVisits),APPIMAGE_EXTRACT_AND_RUN:'1'}],
   ] as const){
-   const fn=new lambda.Function(this,name,{functionName:'WeiqiPosition'+name,runtime:lambda.Runtime.PYTHON_3_12,architecture:lambda.Architecture.X86_64,handler,code:lambda.Code.fromBucket(bucket,key),memorySize:memory,timeout:Duration.seconds(timeout),environment:environment as Record<string,string>,logGroup:new logs.LogGroup(this,name+'Logs',{retention:logs.RetentionDays.ONE_WEEK,removalPolicy:RemovalPolicy.DESTROY})});
+   const fn=new lambda.Function(this,name,{functionName:'WeiqiPosition'+name,runtime:lambda.Runtime.PYTHON_3_12,architecture:lambda.Architecture.X86_64,handler,code:lambda.Code.fromBucket(bucket,key),memorySize:memory,timeout:Duration.seconds(timeout),environment:environment as Record<string,string>,logGroup:new logs.LogGroup(this,name+'Logs',{retention:logs.RetentionDays.THREE_MONTHS,removalPolicy:RemovalPolicy.DESTROY})});
    new CfnOutput(this,name+'Name',{value:fn.functionName});
   }
   new CfnOutput(this,'UsageTableName',{value:usage.tableName});

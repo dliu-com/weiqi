@@ -54,6 +54,9 @@ export class WeiqiSiteStack extends Stack {
       hostedZone,
       region: 'us-east-1',
     });
+    // The legacy construct's helper Lambda otherwise logs to an unmanaged group.
+    const certificateRequestor=certificate.node.findChild('CertificateRequestorFunction').node.defaultChild as lambda.CfnFunction;
+    certificateRequestor.loggingConfig={logGroup:new logs.LogGroup(this,'CertificateRequestorLogs',{retention:logs.RetentionDays.THREE_MONTHS,removalPolicy:RemovalPolicy.DESTROY}).logGroupName};
 
     const cachePolicy = new cloudfront.CachePolicy(this, 'SiteCachePolicy', {
       minTtl: Duration.seconds(0),
@@ -102,7 +105,7 @@ export class WeiqiSiteStack extends Stack {
       description:'Prepared bilingual Weiqi reports - renderer '+JSON.parse(fs.readFileSync(path.join(root,'backend/report-renderer/version.json'),'utf8')).version,
       runtime:lambda.Runtime.NODEJS_22_X,handler:'index.handler',memorySize:2048,
       timeout:Duration.minutes(5),ephemeralStorageSize:Size.gibibytes(1),
-      logGroup:new logs.LogGroup(this,'ReportRendererLogs',{retention:logs.RetentionDays.ONE_WEEK,removalPolicy:RemovalPolicy.DESTROY}),
+      logGroup:new logs.LogGroup(this,'ReportRendererLogs',{retention:logs.RetentionDays.THREE_MONTHS,removalPolicy:RemovalPolicy.DESTROY}),
       code:lambda.Code.fromAsset(path.join(root,'backend/report-renderer')),
       environment:{LIBRARY_BUCKET:libraryBucket.bucketName,SITE_BUCKET:bucket.bucketName},
     });
@@ -116,7 +119,7 @@ export class WeiqiSiteStack extends Stack {
       memorySize: 256,
       // Caps the cost of a request flood; normal use needs only a few at once.
       reservedConcurrentExecutions: 20,
-      logGroup: new logs.LogGroup(this, 'GameLogs', { retention: logs.RetentionDays.ONE_WEEK, removalPolicy: RemovalPolicy.DESTROY }),
+      logGroup: new logs.LogGroup(this, 'GameLogs', { retention: logs.RetentionDays.THREE_MONTHS, removalPolicy: RemovalPolicy.DESTROY }),
       environment: { POSITION_USAGE_TABLE:'weiqi-position-usage',POSITION_RECOGNIZER:'WeiqiPositionRecognition',POSITION_ENGINE:'WeiqiPositionEngine',POSITION_DAILY_MICROS:String(projectConfig.positionAnalysis.dailyRequests*projectConfig.positionAnalysis.requestReserveMicros),POSITION_REQUEST_MICROS:String(projectConfig.positionAnalysis.requestReserveMicros),CLIENT_EDITS_PER_MINUTE:'60',CLIENT_POSITIONS_PER_DAY:String(projectConfig.positionAnalysis.connectionDailyRequests),DAILY_ANALYSIS_CAP:String(projectConfig.analysis.dailyDeepLimit),DAILY_UPLOAD_CAP:String(projectConfig.analysis.dailyGameLimit), AI_CONTROL_KEY:'control/ai-spending.json', LIBRARY_BUCKET:libraryBucket.bucketName, SITE_BUCKET:bucket.bucketName, ANALYSIS_QUEUE:analysisQueue.queueUrl, TABLE_NAME: gameTable.tableName, REPORT_QUEUE:reportQueue.queueUrl, SITE_ORIGIN: Fn.join('', ['https://', domainName]) },
       code: lambda.Code.fromInline([engineSource, serviceSource, sharedLibrarySource, queueEstimateSource, sharePreviewSource, libraryHandlerSource, queueStatusSource, fs.readFileSync(path.join(root,'backend/client-limit.cjs'),'utf8'), fs.readFileSync(path.join(root,'backend/position-handler.cjs'),'utf8'), handlerSource].join('\n')),
     });

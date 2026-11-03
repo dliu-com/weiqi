@@ -50,4 +50,4 @@ if(context('positionAnalysis')==='true'){
 }
 
 // Stack tags propagate to every supported CloudFormation resource.
-for(const stack of app.node.children)Tags.of(stack).add(projectConfig.project.tagKey,projectConfig.project.tagValue,{excludeResourceTypes:['AWS::Batch::ComputeEnvironment','AWS::Batch::JobQueue']});
+for(const stack of app.node.children)Tags.of(stack).add(projectConfig.project.tagKey,projectConfig.project.tagValue,{excludeResourceTypes:['AWS::Batch::ComputeEnvironment','AWS::Batch::JobQueue','AWS::Budgets::Budget']}); // newer aws-cdk-lib tags budgets, which would replace them
