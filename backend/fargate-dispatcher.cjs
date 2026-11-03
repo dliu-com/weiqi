@@ -48,7 +48,7 @@ exports.handler=async event=>{
   for(const phase of ['quick','deep'])metadata.analysis[phase] ||= {status:'queued',visits:configs[phase].visits,estimatedSeconds:configs[phase].estimatedSeconds};
   await storage.send(new PutObjectCommand({Bucket:bucket,Key:key,Body:JSON.stringify(metadata),ContentType:'application/json',IfMatch:obj.ETag}));
   for(const phase of ['quick','deep']){
-   if(metadata.analysis[phase].jobId||['ready','failed'].includes(metadata.analysis[phase].status))continue;
+   if(metadata.analysis[phase].jobId||['ready','failed','limited'].includes(metadata.analysis[phase].status))continue;
    const c=configs[phase],usesGpu=gpu&&phase==='deep',requestKey='jobs/'+id+'/'+phase+'-request.json',request={id,phase,production:true,enqueuedAt:metadata.analysis.enqueuedAt,query:kataQuery(record,id+'-'+phase,c.visits),nodeIds:record.mainLine,sgfSha256:createHash('sha256').update(source).digest('hex'),requestedAt:new Date().toISOString(),outputPrefix:gamePrefix(id),estimatedSeconds:c.estimatedSeconds,compute:usesGpu?{backend:'gpu',vCpu:4,memoryGB:16,gpu:'NVIDIA T4',gpuCount:1,gpuMemoryGB:16,instanceType:'g4dn.xlarge'}:{backend:'fargate-cpu',vCpu:c.cpu,memoryGB:c.memory/1024}};
    await storage.send(new PutObjectCommand({Bucket:bucket,Key:requestKey,Body:JSON.stringify(request),ContentType:'application/json'}));
    const environment=[{name:'BENCHMARK_REQUEST_KEY',value:requestKey},{name:'ANALYSIS_THREADS',value:usesGpu?process.env.GPU_ANALYSIS_THREADS||'16':String(c.cpu)},{name:'NN_THREADS',value:usesGpu?'1':String(c.cpu)},{name:'NN_MAX_BATCH_SIZE',value:usesGpu?process.env.GPU_MAX_BATCH_SIZE||'32':'1'},{name:'ANALYSIS_TIMEOUT_SECONDS',value:'14300'}];

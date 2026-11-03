@@ -7,6 +7,9 @@ const app=new App();const storage=new WeiqiStorageStack(app,'WeiqiStorage',{term
 const template=Template.fromStack(site),retained=Template.fromStack(storage);
 function makeSite(id:string,props:any){const app=new App(),storage=new WeiqiStorageStack(app,'WeiqiStorage',{env:props.env});return new WeiqiSiteStack(app,id,{...props,storage});}
 
+test('response headers include a Permissions-Policy that disables unused browser features', () => {
+  template.hasResourceProperties('AWS::CloudFront::ResponseHeadersPolicy', {ResponseHeadersPolicyConfig: Match.objectLike({CustomHeadersConfig: {Items: [{Header: 'Permissions-Policy', Value: 'camera=(), microphone=(), geolocation=(), payment=(), usb=()', Override: true}]}})});
+});
 test('static site storage stays private and encrypted', () => {
   template.hasResourceProperties('AWS::S3::Bucket', {
     BucketEncryption: { ServerSideEncryptionConfiguration: [{ ServerSideEncryptionByDefault: { SSEAlgorithm: 'AES256' } }] },

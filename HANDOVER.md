@@ -123,7 +123,7 @@ The development ledger is `cloud/development-cost-ledger.json`; it contains cons
 
 ### Security review (3 November 2026)
 
-`/docs/security` holds the threat model, STRIDE per component, worst-case cost per hour, the dated live penetration test, the code review and findings W-1 to W-10. Rerun the live checks with `node scripts/security/pentest.mjs --rate-limits --out cloud/security-pentest.json` (see README). Open user decisions: W-1, a WAF rate rule to cap CloudFront/S3 request costs (paid); W-2, rewriting the public git history to remove the AWS account ID (force-push). Optional: upgrade `puppeteer-core` (W-5), which regenerates every report.
+`/docs/security` holds the threat model, STRIDE per component, worst-case cost per hour, the dated live penetration test, the code review and findings W-1 to W-12. The independent retest added W-11 (a Permissions-Policy header, now set in the CloudFront response headers policy) and W-12 (the disabled Fargate dispatcher now skips deep jobs marked `limited`). The CDK CLI is pinned at ≥ 2.1147 because aws-cdk-lib 2.275 needs it. Rerun the live checks with `node scripts/security/pentest.mjs --rate-limits --out cloud/security-pentest.json` (see README). Open user decisions: W-1, a WAF rate rule to cap CloudFront/S3 request costs (paid); W-2, rewriting the public git history to remove the AWS account ID (force-push). Optional: upgrade `puppeteer-core` (W-5), which regenerates every report.
 
 ## Remaining work in priority order
 

@@ -1,8 +1,8 @@
 import {gamePrefix} from '../backend/library-service.js';
 import test from 'node:test';import assert from 'node:assert/strict';import vm from 'node:vm';import {readFileSync} from 'node:fs';import {createHash,randomUUID} from 'node:crypto';
-function dispatcher({lookupFailure=false,deepFailure=false,gpu=false}={}){
+function dispatcher({lookupFailure=false,deepFailure=false,gpu=false,analysis={status:'queued'}}={}){
  const id='2026100601',key=gamePrefix(id)+'/metadata.json',original='(;SZ[19]KM[6.5];B[dd];W[pp])';
- const files=new Map([[key,JSON.stringify({id,analysis:{status:'queued'}})],[gamePrefix(id)+'/original.sgf',original]]),submitted=[],fallbacks=[];let lookups=0;
+ const files=new Map([[key,JSON.stringify({id,analysis})],[gamePrefix(id)+'/original.sgf',original]]),submitted=[],fallbacks=[];let lookups=0;
  class GetObjectCommand{constructor(input){this.input=input;}}class PutObjectCommand{constructor(input){this.input=input;}}class SubmitJobCommand{constructor(input){this.input=input;}}
  class S3Client{async send(c){if(c instanceof GetObjectCommand)return {ETag:'test',Body:{transformToString:async()=>files.get(c.input.Key)}};files.set(c.input.Key,c.input.Body);return {};}}
  class SendMessageCommand{constructor(input){this.input=input;}}
@@ -34,4 +34,12 @@ test('hybrid dispatcher pins one model for independent CPU quick/GPU deep jobs a
  assert.equal(deep.containerOverrides.resourceRequirements.find(r=>r.type==='GPU').value,'1');assert.equal(deep.containerOverrides.resourceRequirements.find(r=>r.type==='VCPU').value,'4');
  assert.equal(JSON.parse(d.files.get('jobs/2026100601/quick-request.json')).query.maxVisits,8);assert.equal(JSON.parse(d.files.get('jobs/2026100601/deep-request.json')).query.maxVisits,1000);
  assert.deepEqual(d.fallbacks.map(m=>m.DelaySeconds),[900]);
+});
+
+test('dispatcher never submits a deep job that is limited by the daily cap',async()=>{
+ for(const gpu of [false,true]){
+  const d=dispatcher({gpu,analysis:{status:'queued',deep:{status:'limited',visits:1000,estimatedSeconds:60}}});await d.call(1);
+  assert.deepEqual(d.submitted.map(j=>j.jobName),['weiqi-2026100601-quick']);assert.equal(d.files.has('jobs/2026100601/deep-request.json'),false);
+  const state=JSON.parse(d.files.get(d.key)).analysis;assert.equal(state.deep.status,'limited');assert.equal(state.deep.jobId,undefined);
+ }
 });

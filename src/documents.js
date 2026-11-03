@@ -140,7 +140,7 @@ function securityExtra(f){
  para('用 node scripts/security/pentest.mjs --rate-limits 对正式网站运行，44 项全部通过；结果保存在 cloud/security-pentest.json，可随时重跑。','Run against the live site with node scripts/security/pentest.mjs --rate-limits: all 44 checks passed. The results are in cloud/security-pentest.json, and the script can be rerun at any time.');
  f.append(table([['测试','Test'],['预期','Expected'],['实际','Actual'],['状态','Status']],[
   [['T1–T4 TLS','T1–T4 TLS'],['拒绝 TLS 1.0/1.1；HTTP 跳转 HTTPS','TLS 1.0/1.1 refused; HTTP redirects to HTTPS'],['拒绝；1.2/1.3 接受；301','Refused; 1.2/1.3 accepted; 301'],pass],
-  [['T5–T7 安全头','T5–T7 Security headers'],['HSTS、CSP、nosniff、禁止嵌入；API no-store；HTTP/3','HSTS, CSP, nosniff, no framing; API no-store; HTTP/3'],['全部存在','All present'],pass],
+  [['T5–T7 安全头','T5–T7 Security headers'],['HSTS、CSP、nosniff、禁止嵌入、Permissions-Policy；API no-store；HTTP/3','HSTS, CSP, nosniff, no framing, Permissions-Policy; API no-store; HTTP/3'],['全部存在','All present'],pass],
   [['F1–F2 隐藏文件','F1–F2 Hidden files'],['.git、.env、源码映射、配置 → 404；没有目录列表','.git, .env, source maps, configs → 404; no listing'],['20 个路径全部 404','All 20 paths 404'],pass],
   [['M1 HTTP 方法','M1 HTTP methods'],['不支持的方法 → 4xx','Unsupported methods → 4xx'],['400/404/405','400/404/405'],pass],
   [['A1–A2 伪造凭证','A1–A2 Forged credentials'],['alg=none JWT 和管理员 cookie 被忽略；未签名请求被拒绝','alg=none JWT and admin cookie ignored; unsigned body rejected'],['相同的公开响应；404','Same public response; 404'],pass],
@@ -172,7 +172,9 @@ function securityExtra(f){
   ['W-7',lo,['CSP 允许内联样式；HSTS 不含子域名','CSP allows inline styles; HSTS does not cover subdomains'],accepted],
   ['W-8',lo,['后台分析角色可以删除棋谱文件（存储桶有版本）','Background analysis roles can delete game files (the bucket is versioned)'],accepted],
   ['W-9',info,['少数 IAM 操作必须使用 *','A few IAM actions must use *'],accepted],
-  ['W-10',info,['现场棋局和草稿任何人都能修改','Anyone can change the live game and the draft'],['设计如此','By design']]
+  ['W-10',info,['现场棋局和草稿任何人都能修改','Anyone can change the live game and the draft'],['设计如此','By design']],
+  ['W-11',lo,['没有 Permissions-Policy 头（独立复查发现）','No Permissions-Policy header (found by the independent review)'],fixed],
+  ['W-12',lo,['未启用的 Fargate 分派器会提交超出每日上限的深度分析（独立复查发现）','The disabled Fargate dispatcher would submit deep analysis over the daily cap (found by the independent review)'],fixed]
  ]));
  heading('接受的剩余风险','Accepted residual risks');
  list([['多 IP 分布式滥用仍可用完全站额度；AI 会暂停到第二天。','Distributed abuse from many IPs can still use up the site-wide limits; AI then pauses until the next day.'],['任何人都可以修改或清空现场棋局和草稿。棋局链接不保密，棋谱库公开。请不要上传私人信息。','Anyone can change or clear the live game and draft. Game links are not secret, and the library is public. Do not upload private information.'],['CloudFront 和 S3 的请求费用没有硬上限，也没有 WAF 或验证码；AWS Shield Standard 只防网络层攻击。','CloudFront and S3 request charges have no hard cap, and there is no WAF or CAPTCHA; AWS Shield Standard only stops network-level attacks.'],['大范围分享前，应考虑增加登录或邀请，以及 WAF 或验证码。','Before sharing widely, consider sign-in or invitations, and WAF or CAPTCHA.']]);
