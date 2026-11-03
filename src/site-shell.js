@@ -34,7 +34,7 @@ export class AppShell {
   this.header.append(this.brand,this.menuToggle,this.nav);
   // The five /docs pages share a tab bar at the top of main.
   this.path=location.pathname.length>1?location.pathname.replace(/\/$/,''):location.pathname;
-  this.infoPages=[['/docs','技术架构','Technical architecture'],['/docs/cost','运行成本','Cost'],['/docs/security','安全','Security'],['/docs/benchmarks','基准实验','Benchmarks'],['/docs/photo-recognition','照片识别','Photo recognition']];
+  this.infoPages=[['/docs','技术架构','Technical architecture'],['/docs/cost','运行成本','Cost'],['/docs/security','安全','Security'],['/docs/benchmarks','基准实验','Benchmarks'],['/docs/photo-recognition','照片识别','Photo recognition'],['/docs/health','健康检查','Health checks']];
   const main=document.querySelector('main');
   if(main&&this.infoPages.some(([href])=>href===this.path)){this.infoTabs=document.createElement('nav');this.infoTabs.className='dl-tabs';main.prepend(this.infoTabs);}
   this.footerLinks=[...document.querySelectorAll('.dl-footer a[data-zh]')];

@@ -3,7 +3,7 @@ import test from 'node:test';import vm from 'node:vm';import assert from 'node:a
 const src=new URL('../src/',import.meta.url),read=file=>readFileSync(new URL(file,src),'utf8');
 const DL_CSS='<link rel="stylesheet" href="https://files.dliu.com/dliu.com/ui/v1/dl.css">',DL_DOCS_CSS='<link rel="stylesheet" href="https://files.dliu.com/dliu.com/ui/v1/dl-docs.css">';
 const pages=readdirSync(src).filter(file=>file.endsWith('.html'));
-const docsPages=['about.html','how-to-use.html','benchmarks.html','cost.html','security.html','photo-recognition.html'];
+const docsPages=['about.html','how-to-use.html','benchmarks.html','cost.html','security.html','photo-recognition.html','site-health.html'];
 
 test('every page loads the shared stylesheet before its own and uses the weiqi logo as favicon',()=>{
  assert.ok(pages.length>=14);

@@ -142,6 +142,30 @@ export class WeiqiSiteStack extends Stack {
     gameTable.grant(gameHandler, 'dynamodb:GetItem', 'dynamodb:PutItem', 'dynamodb:Scan');
     const functionUrl = gameHandler.addFunctionUrl({ authType: lambda.FunctionUrlAuthType.AWS_IAM });
 
+    // Public GET /health for status.dliu.com: read only, one cheap read per dependency, never paid work.
+    const healthCheck=new lambda.Function(this,'HealthCheck',{
+      description:'Weiqi read-only health check for status.dliu.com',
+      runtime:lambda.Runtime.NODEJS_22_X,handler:'index.handler',timeout:Duration.seconds(10),memorySize:256,
+      // The CloudFront cache answers almost every request; this caps a flood that misses it.
+      reservedConcurrentExecutions:2,
+      logGroup:new logs.LogGroup(this,'HealthCheckLogs',{retention:logs.RetentionDays.THREE_MONTHS,removalPolicy:RemovalPolicy.DESTROY}),
+      code:lambda.Code.fromInline(fs.readFileSync(path.join(root,'backend/health.cjs'),'utf8')),
+      environment:{SITE_BUCKET:bucket.bucketName,LIBRARY_BUCKET:libraryBucket.bucketName,AI_CONTROL_KEY:'control/ai-spending.json',TABLE_NAME:gameTable.tableName,REPORT_DLQ_URL:reportDeadLetters.queueUrl,REPORT_RENDERER:reportRenderer.functionName,POSITION_RECOGNIZER:'WeiqiPositionRecognition',POSITION_ENGINE:'WeiqiPositionEngine'},
+    });
+    healthCheck.addToRolePolicy(new iam.PolicyStatement({actions:['s3:GetObject'],resources:[bucket.arnForObjects('index.html'),libraryBucket.arnForObjects('control/ai-spending.json')]}));
+    // Without ListBucket a missing control file reads as AccessDenied (fail), never as "not paused".
+    healthCheck.addToRolePolicy(new iam.PolicyStatement({actions:['dynamodb:GetItem'],resources:[gameTable.tableArn]}));
+    healthCheck.addToRolePolicy(new iam.PolicyStatement({actions:['sqs:GetQueueAttributes'],resources:[reportDeadLetters.queueArn]}));
+    healthCheck.addToRolePolicy(new iam.PolicyStatement({actions:['lambda:GetFunctionConfiguration'],resources:[reportRenderer.functionArn,`arn:${this.partition}:lambda:${this.region}:${this.account}:function:WeiqiPositionRecognition`,`arn:${this.partition}:lambda:${this.region}:${this.account}:function:WeiqiPositionEngine`]}));
+    const healthUrl=healthCheck.addFunctionUrl({authType:lambda.FunctionUrlAuthType.AWS_IAM});
+    // Keyed on nothing: every viewer shares one copy for 60 s, so status checks cost at most one call a minute per edge.
+    const healthCache=new cloudfront.CachePolicy(this,'HealthCache',{
+      comment:'Weiqi /health: 60 s, no headers, cookies or query strings',
+      minTtl:Duration.seconds(0),defaultTtl:Duration.seconds(60),maxTtl:Duration.seconds(60),
+      headerBehavior:cloudfront.CacheHeaderBehavior.none(),cookieBehavior:cloudfront.CacheCookieBehavior.none(),queryStringBehavior:cloudfront.CacheQueryStringBehavior.none(),
+      enableAcceptEncodingGzip:true,enableAcceptEncodingBrotli:true,
+    });
+
     const recordRoutes=new cloudfront.Function(this,'RecordRoutes',{code:cloudfront.FunctionCode.fromInline(fs.readFileSync(path.join(root,'src/routes.cjs'),'utf8'))});
     // Overwrites any client-supplied value, so the API can give each connection a fair share of public limits.
     const apiViewer=new cloudfront.Function(this,'ApiViewer',{code:cloudfront.FunctionCode.fromInline("function handler(event){var request=event.request;request.headers['x-weiqi-viewer']={value:event.viewer.ip};return request;}")});
@@ -176,6 +200,16 @@ export class WeiqiSiteStack extends Stack {
           originRequestPolicy: cloudfront.OriginRequestPolicy.ALL_VIEWER_EXCEPT_HOST_HEADER,
           functionAssociations:[{eventType:cloudfront.FunctionEventType.VIEWER_REQUEST,function:apiViewer}],
           responseHeadersPolicy: headers,
+        },
+        // No origin request policy: CloudFront forwards no cookies, Authorization header or query string.
+        'health': {
+          origin: origins.FunctionUrlOrigin.withOriginAccessControl(healthUrl),
+          allowedMethods: cloudfront.AllowedMethods.ALLOW_GET_HEAD,
+          cachedMethods: cloudfront.CachedMethods.CACHE_GET_HEAD,
+          viewerProtocolPolicy: cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
+          cachePolicy: healthCache,
+          responseHeadersPolicy: headers,
+          compress: true,
         },
       },
       domainNames: [domainName],

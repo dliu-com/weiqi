@@ -1,4 +1,4 @@
-import './site-shell.js';import {t} from './i18n.js';import {tiers,flow,stats,callout} from './flow-diagram.js';
+import './site-shell.js';import {t} from './i18n.js';import {tiers,flow,stats,callout,more} from './flow-diagram.js';import {healthFunctions,guestChecks,checkUrl,notTested,rules,healthEndpoint} from './health-spec.js';
 const el=(tag,cls,text)=>{const n=document.createElement(tag);if(cls)n.className=cls;if(text!=null)n.textContent=text;return n;};
 const say=v=>typeof v==='string'?v:t(...v),dash='—';
 const ul=items=>{const list=el('ul','doc-list');for(const item of items)list.append(el('li','',say(item)));return list;};
@@ -24,6 +24,7 @@ const costFlows=[
 const pages={
  cost:{title:['网站运行成本','Site running costs'],intro:costSummary,extra:costDetails,links:[['/docs/benchmarks','基准实验','Benchmark experiments'],['https://aws.amazon.com/ec2/pricing/on-demand/','AWS EC2 价格','AWS EC2 pricing'],['https://aws.amazon.com/lambda/pricing/','AWS Lambda 价格','AWS Lambda pricing'],['https://aws.amazon.com/s3/pricing/','AWS S3 价格','AWS S3 pricing'],['https://aws.amazon.com/dynamodb/pricing/','AWS DynamoDB 价格','AWS DynamoDB pricing'],['https://aws.amazon.com/cloudfront/pricing/','AWS CloudFront 价格','AWS CloudFront pricing']]},
  security:{title:['安全审查','Security review'],intro:securityOverview,extra:securityExtra,links:[['https://cheatsheetseries.owasp.org/cheatsheets/REST_Security_Cheat_Sheet.html','OWASP API 安全','OWASP REST security'],['https://cheatsheetseries.owasp.org/cheatsheets/Input_Validation_Cheat_Sheet.html','OWASP 输入验证','OWASP input validation'],['https://cheatsheetseries.owasp.org/cheatsheets/Cross_Site_Scripting_Prevention_Cheat_Sheet.html','OWASP XSS 防御','OWASP XSS prevention']]},
+ health:{title:['网站健康检查','Site health checks'],intro:healthIntro,sections:healthSections,sourcesTitle:['链接','Links'],links:[['/docs/health.md','完整技术版本（Markdown）','Full technical version (Markdown)'],['https://status.dliu.com','status.dliu.com 状态页','status.dliu.com status page'],['/docs/security','安全','Security']]},
  photo:{title:['照片识别原理','How photo recognition works'],intro:photoIntro,sections:photoSections,extra:photoResults,after:photoAfter,sourcesTitle:['源代码与许可','Source code and licences'],sourcesNote:['Moku v4 和本站的照片识别代码都采用 AGPL-3.0 许可。Moku 项目报告其测试集中约 44% 的照片完全正确；本站在其输出之上增加了上述检查。','Moku v4 and this site’s photo-recognition code are both licensed under AGPL-3.0. The Moku project reports that about 44% of its test photos are read perfectly; this site adds the checks above on top of its output.'],links:[['/analysis','照片分析','Photo analysis'],['https://github.com/kaya-go/moku','Moku 源代码','Moku source code'],['https://huggingface.co/kaya-go/moku-v4','Moku v4 模型','Moku v4 model'],['/photo-assets/photo-source.tar.gz','下载本站识别源码','Download this site’s recognition source'],['https://onnxruntime.ai/','ONNX Runtime','ONNX Runtime']]}
 };
 function costList(title,rows,className){const f=document.createDocumentFragment(),h=document.createElement('h3'),list=document.createElement('dl');h.textContent=t(...title);list.className='cost-list'+(className?' '+className:'');for(const [label,value]of rows){const dt=document.createElement('dt'),dd=document.createElement('dd');dt.textContent=t(...label);dd.textContent=t(...value);list.append(dt,dd);}f.append(h,list);return f;}
@@ -208,5 +209,42 @@ function photoAfter(f){f.append(
   ['角度很低时，高高的棋子会挡住后面的点。','At very low angles, tall stones hide the points behind them.'],
   ['解决这两个问题需要新的模型，目前不打算继续做。','Fixing either needs a new model; no more work is planned.']]),
   callout('camera',t('请尽量从正上方拍摄。分析前请始终对照照片检查。','Take the photo from above if you can. Always check the board against the photo before analysing.'))));}
+const code=text=>{const pre=el('pre','code');pre.append(el('code','',text));return pre;};
+const markdownLink=()=>{const a=el('a','',t('完整技术版本（Markdown）','Full technical version (Markdown)'));a.href='/docs/health.md';const p=el('p');p.append(a);return p;};
+function checkTable(checks){return table([['方法','Method'],['网址','URL'],['状态码','Status'],['内容类型','Content type'],['内容标记或跳转','Marker or Location']],checks.map(c=>[c.method,checkUrl(c),String(c.status),c.type??dash,c.location?'Location: '+c.location:c.marker]));}
+function healthIntro(f){
+ f.append(para('status.dliu.com 每 15 分钟像普通访客一样检查本站：不登录、只读、从不修改内容，也从不启动要花钱的 AI 工作。','Every 15 minutes, status.dliu.com checks this site the way any visitor would: no sign-in, read only, never changing content and never starting paid AI work.'));
+ const diagram=flow({title:t('本站如何被检查','How this site is tested'),steps:[
+  {icon:'bot',title:'status.dliu.com',text:t('以访客身份，每 15 分钟','As a guest, every 15 minutes')},
+  {icon:'browser',title:t('网页和公开数据','Pages and public data'),text:t('首页、对局、棋谱库、报告','Home, play, library, reports')},
+  {icon:'lambda',title:'/health',text:t('一次查看所有功能','One look at every function')},
+  {icon:'dynamodb',title:t('数据库和存储','Database and storage'),text:t('每项只读一次','One small read each')},
+  {icon:'check',title:t('结果','Result'),text:t('正常 · 注意 · 故障','Pass · warn · fail')}
+ ]});
+ const results=flow({steps:[
+  {icon:'check',tone:'good',title:t('正常','Pass'),text:t('一切可用','Everything works')},
+  {icon:'flag',tone:'warn',title:t('注意','Warn'),text:t('网站可用，但某项暂停或有积压','The site works, but something is paused or backed up')},
+  {icon:'shield',tone:'bad',title:t('故障','Fail'),text:t('访客会遇到问题','Visitors will hit a problem')}
+ ]});
+ results.querySelectorAll('.dg-arrow').forEach(a=>a.remove());
+ f.append(diagram,results,markdownLink());
+}
+function healthSections(f){
+ const fnSection=part('检查的功能','What is checked');
+ for(const fn of healthFunctions){
+  const box=el('section','health-function');box.dataset.healthKey=fn.key;
+  const p=el('p');p.append(el('strong','',t(...fn.name)+(fn.critical?t('（关键）',' (critical)'):'')+': '),document.createTextNode(t(...fn.plain)+' '+t('出问题时：','If it is down: ')+t(...fn.down)));
+  const checks=guestChecks.filter(c=>c.key===fn.key),inner=document.createElement('div');
+  if(checks.length)inner.append(el('p','',t('访客检查（GET，不带 cookie）：','Guest checks (GET, no cookies):')),checkTable(checks));
+  inner.append(el('p','',t('/health 读取：','/health reads: ')+t(...fn.reads)),table([['正常','Pass'],['注意','Warn'],['故障','Fail']],[[fn.pass,fn.warn,fn.fail].map(x=>t(...x).replace(/`/g,''))]));
+  box.append(p,more(t('技术细节','Technical details'),inner));fnSection.append(box);
+ }
+ const endpoint=part('健康接口 /health','The /health endpoint',para('一个网址同时报告上面每个功能是否正常。它只读取，结果在 CloudFront 缓存 60 秒，所以频繁检查也几乎不花钱。','One address reports whether each function above is working. It only reads, and CloudFront keeps the answer for 60 seconds, so frequent checks cost almost nothing.'));
+ const details=document.createElement('div');
+ details.append(checkTable(guestChecks.filter(c=>c.key==='health')),ul([...['caching','timeouts','format','private'].map(k=>t(...healthEndpoint[k])),'output: '+healthEndpoint.outputs.join(', ')].map(x=>x.replace(/`/g,''))),code(JSON.stringify(healthEndpoint.example,null,2)));
+ endpoint.append(more(t('技术细节：格式、缓存和超时','Technical details: format, caching and timeouts'),details));
+ const rulesBox=document.createElement('div');rulesBox.append(ul(rules.map(r=>t(...r).replace(/`/g,''))));
+ f.append(fnSection,endpoint,part('不检查的内容','What is not tested',ul(notTested)),part('检查规则','Testing rules',para('检查只读取，绝不改变内容。','Checks only read and never change anything.'),more(t('技术细节','Technical details'),rulesBox)),markdownLink());
+}
 function render(){const kind=document.body.dataset.document,page=pages[kind],title=t(...page.title);document.title=title+' · DL Weiqi';document.getElementById('document-title').textContent=title;const f=document.createDocumentFragment();page.intro?.(f);page.sections?.(f);page.extra?.(f);page.after?.(f);const h=document.createElement('h2');h.textContent=t(...(page.sourcesTitle??['参考与实测','Sources and measurements']));f.append(h);if(page.sourcesNote)f.append(para(...page.sourcesNote));const nav=document.createElement('nav');nav.className='page-links';for(const [href,zh,en]of page.links){const a=document.createElement('a');a.href=href;a.textContent=t(zh,en);nav.append(a);}f.append(nav);document.getElementById('document-content').replaceChildren(f);}
 window.addEventListener('site-language-change',render);render();

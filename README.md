@@ -200,6 +200,20 @@ Renderer dependencies are pinned in `backend/report-renderer/package-lock.json`.
 Production PDF validation (2026-10-06): both English and Chinese downloads match the prepared S3 files exactly. Each sample had 15 A4 pages (16 since the full game record page was added), searchable text, vector charts, internal contents/review links and section bookmarks. The duplicated game-summary page has been removed; metadata stays on the title page and reading guidance accompanies each graph. The updated reader has six graphs, ten key-moment rows and three board reviews per side; desktop and 390-pixel mobile layouts have no horizontal overflow. All 11 completed existing records were prepared with the latest renderer. Graphs use the replay chart palette: grey canvas, dark Black and outlined white White; point-advantage and win-probability graphs fill the area around zero and 50% respectively. Move-quality categories retain their green/yellow/orange/red meanings. The report viewer uses the app navigation and saved language preference, with Save PDF as the only extra header action. Evidence: `cloud/report-chart-style-validation.json` (latest presentation), `cloud/report-summary-removal-validation.json` (page layout) and `cloud/prepared-report-files-validation.json` (original export validation).
 
 
+## Health checks for status.dliu.com
+
+status.dliu.com tests the site every 15 minutes as an anonymous guest, following the shared contract (`status/HEALTH.md` in the dliu.com workspace).
+
+- **`/docs/health`** (`src/site-health.html`, rendered by `src/documents.js`) is the people version: a diagram of how the site is tested, one plain line per function, what isn't tested, and every technical detail folded in closed `<details>` blocks.
+- **`/docs/health.md`** is the machine version: functions, a guest-check table (URL, status, content type, body marker or `Location`, slow threshold), the `/health` format and the rules, all unfolded. `make publish` (`scripts/publish-site.sh`) regenerates it with `node scripts/build-health-md.mjs` and uploads it as `text/markdown; charset=utf-8`. Both are built from `src/health-spec.js`, so they can't drift apart.
+- **`GET /health`** (`backend/health.cjs`, the `HealthCheck` Lambda) reports `pages`, `live-game`, `library`, `reports`, `analysis` and `position` as `{status, time, functions:[{key,name,status,output?}]}` with `Content-Type: application/health+json`. It returns 200 for pass or warn and 503 for fail.
+  - It makes one cheap read per dependency: HeadObject `index.html`, a key-only GetItem of the live game, GetObject of the spending-guard control file, the report dead-letter queue depth, and the state of the report renderer and the two position functions. Each read has a 2 s timeout.
+  - It never writes, never lists S3 and never starts paid work. Its IAM role allows only those reads.
+  - CloudFront's `health` behavior caches it for 60 s with an empty cache key. It has no origin request policy and no functions, so it forwards no cookies, `Authorization` header or query string, and the handler ignores the request entirely. Reserved concurrency is 2.
+  - `output` is only a generic reason (`timeout`, `read failed`, `function not ready`, `paused by spending guard`, `failed reports waiting`), never names or counts.
+- `tests/health.test.js` and the CDK test guard all of this: the page, the Markdown and the endpoint keep the same function keys; the handler reads no request data; and the behavior forwards nothing.
+- Cost: at most one Lambda call a minute per CloudFront edge that is asked, about $0.00 a month.
+
 ## Public-site safeguards and release evidence
 
 ### Project spending safeguard and administrator commands

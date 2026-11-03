@@ -134,3 +134,27 @@ test('the public API may read and create library records but never delete them',
  for(const prefix of ['games/*','library-index/*','uploads/*','reservations/*','daily-analysis/*','share/*'])expect(objects).toContain(prefix);
  expect(objects).not.toContain('control/');
 });
+
+test('GET /health is a cached, read-only Lambda behind CloudFront that receives no cookies, Authorization or query string',()=>{
+  const res=template.toJSON().Resources as Record<string,any>;
+  const [healthId,health]=Object.entries(res).find(([,r])=>r.Type==='AWS::Lambda::Function'&&r.Properties.Description==='Weiqi read-only health check for status.dliu.com')!;
+  expect(health.Properties.ReservedConcurrentExecutions).toBe(2);
+  const [cacheId]=Object.entries(res).find(([,r])=>r.Type==='AWS::CloudFront::CachePolicy'&&r.Properties.CachePolicyConfig.Name?.toString().includes('HealthCache')||r.Type==='AWS::CloudFront::CachePolicy'&&r.Properties.CachePolicyConfig.Comment?.includes('/health'))!;
+  const cache=res[cacheId].Properties.CachePolicyConfig;
+  expect([cache.DefaultTTL,cache.MaxTTL,cache.MinTTL]).toEqual([60,60,0]);
+  const key=cache.ParametersInCacheKeyAndForwardedToOrigin;
+  expect([key.HeadersConfig.HeaderBehavior,key.CookiesConfig.CookieBehavior,key.QueryStringsConfig.QueryStringBehavior]).toEqual(['none','none','none']);
+  const dist=Object.values(res).find(r=>r.Type==='AWS::CloudFront::Distribution')!.Properties.DistributionConfig;
+  const behavior=dist.CacheBehaviors.find((b:any)=>b.PathPattern==='health');
+  expect(behavior.CachePolicyId).toEqual({Ref:cacheId});
+  expect(behavior.OriginRequestPolicyId).toBeUndefined();expect(behavior.FunctionAssociations).toBeUndefined();
+  expect(behavior.AllowedMethods).toEqual(['GET','HEAD']);
+  const urls=Object.entries(res).filter(([,r])=>r.Type==='AWS::Lambda::Url'&&JSON.stringify(r.Properties.TargetFunctionArn).includes(healthId));
+  expect(urls.map(([,u])=>u.Properties.AuthType)).toEqual(['AWS_IAM']);
+  const perms=Object.values(res).filter(r=>r.Type==='AWS::Lambda::Permission'&&JSON.stringify(r.Properties.FunctionName).includes(urls[0][0]));
+  expect(perms.map(r=>r.Properties.Action).sort()).toEqual(['lambda:InvokeFunction','lambda:InvokeFunctionUrl']);
+  expect(perms.every(r=>r.Properties.Principal==='cloudfront.amazonaws.com')).toBe(true);
+  const roleId=health.Properties.Role['Fn::GetAtt'][0];
+  const actions=Object.values(res).filter(r=>r.Type==='AWS::IAM::Policy'&&r.Properties.Roles.some((x:any)=>x.Ref===roleId)).flatMap(r=>r.Properties.PolicyDocument.Statement).flatMap((s:any)=>{expect(s.Effect).toBe('Allow');expect(s.Resource).not.toBe('*');return [].concat(s.Action);}).sort();
+  expect(actions).toEqual(['dynamodb:GetItem','lambda:GetFunctionConfiguration','s3:GetObject','sqs:GetQueueAttributes']);
+});
