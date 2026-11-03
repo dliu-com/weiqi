@@ -164,7 +164,7 @@ function securityExtra(f){
  const lo=['低','Low'],me=['中','Medium'],info=['信息','Info'];
  f.append(table([['编号','ID'],['级别','Severity'],['问题','Finding'],['状态','Status']],[
   ['W-1',me,['CloudFront 和 S3 的请求与流量费用没有硬上限','CloudFront and S3 request and transfer charges have no hard cap'],decide],
-  ['W-2',lo,['公开 git 历史中有 AWS 账户 ID（不是密钥）','The AWS account ID is in public git history (it is not a secret key)'],decide],
+  ['W-2',lo,['公开 git 历史中有 AWS 账户 ID（不是密钥）。2026-11-03 已改写历史，换成占位符 123456789012；旧的克隆、分叉和 GitHub 缓存的旧提交页面可能仍有它','The AWS account ID was in public git history (it is not a secret key). On 2026-11-03 the history was rewritten to use the placeholder 123456789012; old clones, forks and GitHub’s cached views of old commits may still have it'],fixed],
   ['W-3',lo,['3 个 Lambda 日志组没有保留期','3 Lambda log groups had no retention'],fixed],
   ['W-4',lo,['CDK 开发依赖有严重级别公告（Jest 的 Handlebars）','CDK dev dependencies had a critical advisory (Handlebars in Jest)'],fixed],
   ['W-5',lo,['报告渲染器的 zod 公告','zod advisory in the report renderer'],accepted],
