@@ -1,4 +1,4 @@
-import test from 'node:test';import assert from 'node:assert/strict';import {readFileSync,readdirSync} from 'node:fs';
+import test from 'node:test';import vm from 'node:vm';import assert from 'node:assert/strict';import {readFileSync,readdirSync} from 'node:fs';
 // Guards the shared dliu.com look (https://files.dliu.com/dliu.com/README.md): dl.css first, weiqi's own logo in the header, the DL logo in the footer.
 const src=new URL('../src/',import.meta.url),read=file=>readFileSync(new URL(file,src),'utf8');
 const DL_CSS='<link rel="stylesheet" href="https://files.dliu.com/dliu.com/ui/v1/dl.css">',DL_DOCS_CSS='<link rel="stylesheet" href="https://files.dliu.com/dliu.com/ui/v1/dl-docs.css">';
@@ -24,7 +24,7 @@ test('docs pages load the shared docs stylesheet',()=>{
 
 test('the header script draws the shared header markup with weiqi\'s own logo and the collapsible menu',()=>{
  const shell=read('site-shell.js');
- for(const piece of ["className='dl-brand'","brand.href='/'","className='dl-logo'","src='/favicon.svg'","className='dl-button dl-menu-toggle'","'aria-controls','dl-menu'","nav.id='dl-menu'","className='dl-nav dl-nav-collapsible'","className='dl-nav-link'","className='dl-language'","className='dl-button dl-language-toggle'","className='dl-languages'","className='dl-tabs'"])assert.ok(shell.includes(piece),piece);
+ for(const piece of ["className='dl-brand'","brand.href='/'","className='dl-logo'","src='/favicon.svg'","className='dl-button dl-menu-toggle'","'aria-controls','dl-menu'","nav.id='dl-menu'","className='dl-nav dl-nav-collapsible'","'dl-nav-link'","className='dl-language'","className='dl-button dl-language-toggle'","className='dl-languages'","className='dl-tabs'"])assert.ok(shell.includes(piece),piece);
  assert.doesNotMatch(shell,/site-header|info-tabs|menu-button/);
 });
 
@@ -37,4 +37,17 @@ test('the app stylesheets leave the header, buttons and palette to the shared st
  for(const file of ['styles.css','site.css','photo.css']){const css=read(file);
   assert.doesNotMatch(css,/\.site-header|\.info-tabs|\.menu-button|button\.primary|--gold|--accent:|--line:|--muted:/,file);
   assert.doesNotMatch(css,/(^|[},])\s*button\s*\{/,file);}
+});
+
+test('/docs holds architecture, cost and security; the menu and footer link to it',()=>{
+ const c={};vm.runInNewContext(read('routes.cjs'),c);const route=(uri,querystring={})=>c.handler({request:{uri,querystring}});
+ for(const [uri,file] of [['/docs','/about.html'],['/docs/cost','/cost.html'],['/docs/security','/security.html']])assert.equal(route(uri).uri,file);
+ for(const [uri,to] of [['/about','/docs'],['/about/','/docs'],['/cost','/docs/cost'],['/security.html','/docs/security'],['/benchmarks','/docs/benchmarks'],['/photo-recognition','/docs/photo-recognition']]){const r=route(uri);assert.equal(r.statusCode,301,uri);assert.equal(r.headers.location.value,to,uri);}
+ assert.equal(route('/cost',{lang:{value:'en'}}).headers.location.value,'/docs/cost?lang=en');
+ const shell=read('site-shell.js');
+ assert.ok(shell.includes("['/docs','文档','Docs']")&&shell.includes("href==='/docs'?'dl-button':'dl-nav-link'"));
+ for(const tab of ["['/docs','技术架构','Technical architecture']","['/docs/cost','运行成本','Cost']","['/docs/security','安全','Security']"])assert.ok(shell.includes(tab),tab);
+ for(const file of pages)assert.ok(read(file).includes('<a href="/docs" data-zh="文档" data-en="Docs">文档</a></footer>'),file);
+ // Docs pages are served below /docs/, so their own files must be linked from the site root.
+ for(const file of ['about.html','cost.html','security.html','benchmarks.html','photo-recognition.html'])assert.doesNotMatch(read(file),/(src|href)="(?![\/#]|https?:)/,file);
 });

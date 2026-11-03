@@ -8,10 +8,10 @@ function readMore(){
  const section=document.createElement('section'),heading=document.createElement('h2'),grid=document.createElement('div');
  section.className='about-read-more';heading.textContent=t('延伸阅读','Read more');grid.className='about-cards';
  for(const [href,name,title,line,key]of [
-  ['/benchmarks','chart',['CPU / GPU 基准实验','CPU / GPU benchmarks'],['支持 GPU 与访问数选择的测试','Tests behind the GPU and visit choices'],['深度 3,000 次：T4 约 44 分钟','Deep 3,000 visits ≈ 44 min on T4']],
-  ['/cost','budget',['网站运行成本','Site running costs'],['网站承担，用户免费','Paid by the site, free for users'],['深度 AI US$0.50–0.75 / 局 · 3 小时对局 US$0.52','Deep AI US$0.50–0.75 / game · 3 h live game US$0.52']],
-  ['/security','shield',['安全审查','Security review'],['线上渗透测试与威胁模型','Live penetration test and threat model'],['2026 年 10 月 8 日测试','Tested 8 Oct 2026']],
-  ['/photo-recognition','camera',['照片识别原理','How photo recognition works'],['从棋盘照片到可编辑局面','From a board photo to an editable position'],['6 张实拍照片中 5 张完全正确','5 of 6 real photos exact']]
+  ['/docs/benchmarks','chart',['CPU / GPU 基准实验','CPU / GPU benchmarks'],['支持 GPU 与访问数选择的测试','Tests behind the GPU and visit choices'],['深度 3,000 次：T4 约 44 分钟','Deep 3,000 visits ≈ 44 min on T4']],
+  ['/docs/cost','budget',['网站运行成本','Site running costs'],['网站承担，用户免费','Paid by the site, free for users'],['深度 AI US$0.50–0.75 / 局 · 3 小时对局 US$0.52','Deep AI US$0.50–0.75 / game · 3 h live game US$0.52']],
+  ['/docs/security','shield',['安全审查','Security review'],['线上渗透测试与威胁模型','Live penetration test and threat model'],['2026 年 10 月 8 日测试','Tested 8 Oct 2026']],
+  ['/docs/photo-recognition','camera',['照片识别原理','How photo recognition works'],['从棋盘照片到可编辑局面','From a board photo to an editable position'],['6 张实拍照片中 5 张完全正确','5 of 6 real photos exact']]
  ]){
   const card=document.createElement('a'),body=document.createElement('span'),strong=document.createElement('strong'),small=document.createElement('span'),fact=document.createElement('span');
   card.className='about-card';card.href=href;body.className='about-card-text';small.className='about-card-line';fact.className='about-card-key';
@@ -21,7 +21,7 @@ function readMore(){
  section.append(heading,grid);return section;
 }
 function render(){
- document.title=t('关于 · DL','About · DL');document.getElementById('about-title').textContent=t('技术架构','Technical architecture');
+ document.title=t('技术文档 · DL','Docs · DL');document.getElementById('about-title').textContent=t('技术架构','Technical architecture');
  const fragment=document.createDocumentFragment();
  fragment.append(stats([[t('0 台','0'),t('空闲时运行的服务器','servers running when idle'),'power'],[t('≈ 5 分钟','≈ 5 min'),t('快速 AI 复盘','quick AI review'),'clock'],[t('≈ 1 小时','≈ 1 h'),t('深度 AI 复盘','deep AI review'),'gpu'],[t('≈ 3 秒','≈ 3 s'),t('分析一个局面','AI for one position'),'katago']]),systemMap(),deepFlow(),positionFlow(),gpuFallback(),readMore(),quickAnalysisLicence());
  document.getElementById('about-content').replaceChildren(fragment);

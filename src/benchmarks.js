@@ -75,5 +75,5 @@ function render(){
  if(!scrolled&&location.hash){scrolled=true;document.getElementById(decodeURIComponent(location.hash.slice(1)))?.scrollIntoView();}
 }
 window.addEventListener('site-language-change',render);render();
-try{const response=await fetch('benchmarks-data.json',{cache:'no-cache'});if(!response.ok)throw Error('Unable to load benchmarks.');data=await response.json();}catch{failed=true;}
+try{const response=await fetch('/benchmarks-data.json',{cache:'no-cache'});if(!response.ok)throw Error('Unable to load benchmarks.');data=await response.json();}catch{failed=true;}
 render();
