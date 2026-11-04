@@ -218,15 +218,16 @@ function showHealthNow(){
   for(const cell of document.querySelectorAll('[data-health-key]')){const status=found.get(cell.dataset.healthKey);cell.textContent=status?t(...healthWords[status]):t('未知','Unknown');cell.className='health-mark'+(status?' is-'+status:'');}});
 }
 function healthIntro(f){
- const visitorChecks=guestChecks.filter(c=>c.key!=='health').length;
+ const top=el('p','health-md'),link=el('a','',t('给机器看的版本：/docs/health.md','Machine-readable version: /docs/health.md'));
+ link.href='/docs/health.md';top.append(link);f.append(top);
  f.append(para('每 15 分钟，status.dliu.com 从爱尔兰、美国和日本三个地方，像普通访客一样检查本站：不登录、只读、从不修改内容，也从不启动要花钱的 AI 工作。','Every 15 minutes, status.dliu.com checks this site from three places (Ireland, the USA and Japan) the way any visitor would: no sign-in, read only, never changing anything and never starting paid AI work.'));
  f.append(stats([[String(healthFunctions.length),t('个功能被检查','functions tested'),'check'],[String(guestChecks.length),t('项检查，每次都做','checks in every run'),'filter'],[t('15 分钟','15 min'),t('检查一次','between runs'),'clock'],['3',t('个检查地点','places check it'),'cloudfront'],['0',t('次登录','sign-ins needed'),'lock'],['1',t('次网站自检（/health）','site self-check (/health)'),'gauge']]));
- f.append(flow({title:t('一次检查是怎样进行的','How one test run goes'),numbered:true,steps:[
-  {icon:'bot',title:'status.dliu.com',text:t('以访客身份，从 3 个地方','As a guest, from 3 places')},
-  {icon:'browser',title:t('网页和公开数据','Pages and public data'),text:t(visitorChecks+' 项：首页、对局、棋谱库、示例报告',visitorChecks+' checks: home, play, library, a sample report')},
-  {icon:'lambda',title:'/health',text:t('网站检查自己的每个功能','The site checks each of its functions')},
-  {icon:'dynamodb',title:t('数据库和存储','Database and storage'),text:t('每项只读一小次','One small read each')},
-  {icon:'check',title:t('结果','Result'),text:t('正常 · 慢或暂停 · 故障','Working · slow or paused · not working')}
+ const count=key=>guestChecks.filter(c=>c.key===key).length;
+ f.append(tiers({title:t('逐层检查什么','What is checked, layer by layer'),rows:[
+  {tone:'untrusted',badge:t('访客','Guest'),label:t('检查者','Testers'),nodes:[{icon:'bot',title:'status.dliu.com',text:t('爱尔兰 · 美国 · 日本，每 15 分钟','Ireland · USA · Japan, every 15 min')},{icon:'browser',title:t('任何访客','Any visitor'),text:t('可以打开同样的页面','Can open the same pages')}]},
+  {link:t('HTTPS，不登录','HTTPS, no sign-in'),tone:'edge',badge:t('边缘','Edge'),label:'CloudFront',nodes:[{icon:'cloudfront',title:'Amazon CloudFront',text:t('HTTPS · 安全头','HTTPS · security headers')},{icon:'s3',title:t('网页','Pages'),text:t(count('pages')+' 项：首页、对局、文档、指南',count('pages')+' checks: home, play, docs, guide')},{icon:'report',title:t('示例报告','Sample report'),text:t(count('reports')+' 项',count('reports')+' checks')}]},
+  {link:t('页面 · 公开数据 · /health','Pages · public data · /health'),tone:'app',badge:t('应用','App'),label:t('按次运行','Runs per request'),nodes:[{icon:'lambda',title:t('棋局 API','Game API'),text:t((count('live-game')+count('library'))+' 项：现场对局、棋谱库',(count('live-game')+count('library'))+' checks: live game, library')},{icon:'lambda',title:'/health',text:t('网站检查自己的每个功能','The site checks each of its functions')},{icon:'camera',title:t('照片识别','Photo detection'),text:t('只看是否就绪，从不运行','Readiness only, never run')},{icon:'katago',title:t('AI 分析','AI analysis'),text:t('只看是否就绪和费用保护','Readiness and spending guard only')}]},
+  {link:t('每项只读一小次','One small read each'),tone:'private',badge:t('数据','Data'),label:t('私有存储','Private storage'),nodes:[{icon:'dynamodb',title:'DynamoDB',text:t('现场棋局','Live game')},{icon:'s3',title:t('棋谱库','Record library'),text:t('S3 · AI 开关','S3 · AI on/off setting')},{icon:'sqs',title:t('报告队列','Report queue'),text:t('有没有失败的报告','Any failed reports waiting?')}]}
  ]}));
  const results=flow({title:t('三种结果','Three possible results'),steps:[
   {icon:'check',tone:'good',title:t('正常','Working'),text:t('每项检查都按时通过','Every check passed in time')},
