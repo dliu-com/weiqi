@@ -21,12 +21,18 @@ function readMore(){
  }
  section.append(heading,grid);return section;
 }
+// The first thing on the Architecture tab is a link to this site's source code.
+function repoLink(){
+ const p=document.createElement('p'),label=document.createElement('span'),a=document.createElement('a');
+ p.className='dl-docs-repo';label.textContent=t('源代码：','Source code:');a.href='https://github.com/dliu-com/weiqi';a.textContent='github.com/dliu-com/weiqi';
+ p.append(label,' ',a);return p;
+}
 function render(){
  document.body.classList.toggle('site-document',location.hash==='#health');
  if(location.hash==='#health'){renderDocument('health',document.getElementById('about-title'),document.getElementById('about-content'));return;}
  document.title=t('技术文档 · DL','Docs · DL');document.getElementById('about-title').textContent=t('架构','Architecture');
  const fragment=document.createDocumentFragment();
- fragment.append(stats([[t('0 台','0'),t('空闲时运行的服务器','servers running when idle'),'power'],[t('≈ 5 分钟','≈ 5 min'),t('快速 AI 复盘','quick AI review'),'clock'],[t('≈ 1 小时','≈ 1 h'),t('深度 AI 复盘','deep AI review'),'gpu'],[t('≈ 3 秒','≈ 3 s'),t('分析一个局面','AI for one position'),'katago']]),systemMap(),deepFlow(),positionFlow(),gpuFallback(),readMore(),quickAnalysisLicence());
+ fragment.append(repoLink(),stats([[t('0 台','0'),t('空闲时运行的服务器','servers running when idle'),'power'],[t('≈ 5 分钟','≈ 5 min'),t('快速 AI 复盘','quick AI review'),'clock'],[t('≈ 1 小时','≈ 1 h'),t('深度 AI 复盘','deep AI review'),'gpu'],[t('≈ 3 秒','≈ 3 s'),t('分析一个局面','AI for one position'),'katago']]),systemMap(),deepFlow(),positionFlow(),gpuFallback(),readMore(),quickAnalysisLicence());
  document.getElementById('about-content').replaceChildren(fragment);
 }
 window.addEventListener('site-language-change',render);window.addEventListener('hashchange',render);render();

@@ -61,3 +61,10 @@ test('a publish never pairs a new page with an old script: assets first, edge cl
   assert.ok(index>0&&lastInvalidate>index,'index.html uploads before the final invalidation');
   assert.match(s,/MODULE_CACHE='public, max-age=0, must-revalidate/);
 });
+
+test('the Architecture tab starts with a link to the source code',()=>{
+ const about=read('about.js');
+ assert.match(about,/p\.className='dl-docs-repo';label\.textContent=t\('源代码：','Source code:'\);a\.href='https:\/\/github\.com\/dliu-com\/weiqi';a\.textContent='github\.com\/dliu-com\/weiqi'/);
+ assert.match(about,/fragment\.append\(repoLink\(\),stats\(/);
+ assert.ok(read('about.html').includes(DL_DOCS_CSS));
+});
