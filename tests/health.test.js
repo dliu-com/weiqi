@@ -1,6 +1,6 @@
-import test from 'node:test';import assert from 'node:assert/strict';import vm from 'node:vm';import {readFileSync} from 'node:fs';
+import test from 'node:test';import assert from 'node:assert/strict';import vm from 'node:vm';import {readFileSync,existsSync} from 'node:fs';
 import {healthFunctions,healthKeys,guestChecks,healthMarkdown,notTested,rules} from '../src/health-spec.js';
-// Guards the status.dliu.com contract (status/HEALTH.md): /docs/health, /docs/health.md and GET /health stay in sync.
+// Guards the status.dliu.com contract (status/HEALTH.md): /docs#health, /docs/health.md and GET /health stay in sync.
 const root=new URL('../',import.meta.url),read=file=>readFileSync(new URL(file,root),'utf8');
 const healthSource=read('backend/health.cjs');
 
@@ -74,15 +74,36 @@ test('page, Markdown and endpoint list the same functions and guest checks',()=>
  assert.match(md,/application\/health\+json/);assert.match(md,/max-age=60/);
 });
 
-test('/docs/health is a docs page with a diagram, folded technical details and a link to the Markdown',()=>{
- const html=read('src/site-health.html'),docs=read('src/documents.js'),shell=read('src/site-shell.js'),c={};
- assert.match(html,/data-document="health"/);assert.match(html,/dl-docs\.css/);
+test('/docs#health is the Health tab on /docs, with a diagram, folded technical details and a link to the Markdown',()=>{
+ const html=read('src/about.html'),about=read('src/about.js'),docs=read('src/documents.js'),shell=read('src/site-shell.js'),c={};
+ assert.match(html,/dl-docs\.css/);assert.match(html,/rel="alternate" type="text\/markdown" href="\/docs\/health\.md"/);
+ assert.ok(!existsSync(new URL('../src/site-health.html',import.meta.url)),'the separate page is gone');
+ assert.match(about,/import \{renderDocument\} from '\.\/documents\.js'/);
+ assert.match(about,/location\.hash==='#health'\)\{renderDocument\('health'/);assert.match(about,/addEventListener\('hashchange',render\)/);
+ assert.match(docs,/export function renderDocument\(/);assert.match(docs,/if\(document\.body\.dataset\.document\)/);
+ assert.ok(shell.includes("['/docs#health','健康','Health']"));assert.match(shell,/location\.hash==='#health'/);
  vm.runInNewContext(read('src/routes.cjs'),c);
- assert.equal(c.handler({request:{uri:'/docs/health',querystring:{}}}).uri,'/site-health.html');
- assert.equal(c.handler({request:{uri:'/docs/health.md',querystring:{}}}).uri,'/docs/health.md');
- assert.ok(shell.includes("['/docs/health','健康检查','Health checks']"));
- for(const piece of ["health:{title:","flow({title:t('本站如何被检查'","tone:'good'","tone:'warn'","tone:'bad'","more(t('技术细节'","'/docs/health.md'","'Full technical version (Markdown)'"])assert.ok(docs.includes(piece),piece);
+ const go=(uri,querystring={})=>c.handler({request:{uri,querystring}});
+ assert.equal(go('/docs').uri,'/about.html');
+ for(const old of ['/docs/health','/docs/health/','/site-health.html']){const r=go(old);assert.equal(r.statusCode,301);assert.equal(r.headers.location.value,'/docs#health');}
+ assert.equal(go('/docs/health',{lang:{value:'en'}}).headers.location.value,'/docs?lang=en#health');
+ assert.equal(go('/about').headers.location.value,'/docs');
+ assert.equal(go('/docs/health.md').uri,'/docs/health.md');
  const publish=read('scripts/publish-site.sh');
- assert.ok(publish.includes('site-health.html')&&publish.includes('health-spec.js'));
+ assert.ok(!publish.includes('site-health.html')&&publish.includes('health-spec.js')&&publish.includes('documents.js'));
  assert.match(publish,/s3:\/\/\$SITE_BUCKET_NAME\/docs\/health\.md" --content-type 'text\/markdown; charset=utf-8'/);
+});
+
+test('the Health tab is for people: flows, numbers, a table and a chart, with no exact technical details',()=>{
+ const docs=read('src/documents.js'),block=docs.slice(docs.indexOf('// /docs#health is for people'),docs.indexOf('// /docs#health reuses'));
+ assert.ok(block.length>500);
+ for(const piece of ['stats([','flow({title:',"tone:'good'","tone:'warn'","tone:'bad'",'healthChart()','table([','ul(notTested)'])assert.ok(block.includes(piece),piece);
+ for(const banned of ['more(','code(',"'details'",'<details','dg-more','<code','checkUrl','healthEndpoint','.path','.status==','rules'])assert.ok(!block.includes(banned),banned);
+ const exact={test:text=>/https?:\/\/|`|\b[1-5]\d\d\b|application\/|text\/|\bGET\b|\bHEAD\b|\{"/.test(text)||/content-type|cache-control|\bjson\b/i.test(text)};
+ const literals=[...block.matchAll(/'((?:[^'\\]|\\.)*)'/g)].map(m=>m[1]).filter(x=>!['/health','health-mark'].includes(x));
+ for(const text of literals)assert.ok(!exact.test(text)||text==="/health",text);
+ for(const fn of healthFunctions)for(const field of ['name','does','how','down'])for(const text of fn[field])assert.ok(!exact.test(text),fn.key+'.'+field+': '+text);
+ for(const n of notTested)for(const text of n)assert.ok(!exact.test(text),text);
+ assert.match(docs,/health:\{title:\[[^\]]+\],intro:healthIntro,sections:healthSections,sourcesTitle:null,links:\[\['\/docs\/health\.md','给机器看的技术版本（Markdown）','Technical version for machines \(Markdown\)'\]\]\}/);
+ assert.equal((docs.match(/\/docs\/health\.md/g)||[]).length,1,'one link to the Markdown, at the end');
 });

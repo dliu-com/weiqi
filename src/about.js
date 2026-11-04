@@ -2,6 +2,7 @@ import './site-shell.js';
 import {localTimestamp} from './site-time.js';
 import {t,setLanguage} from './i18n.js';
 import {flow,tiers,stats,icon} from './flow-diagram.js';
+import {renderDocument} from './documents.js';
 const text=value=>Array.isArray(value)?t(value[0],value[1]):value;
 // Cards linking to the other info pages, each with one headline fact from that page.
 function readMore(){
@@ -21,12 +22,14 @@ function readMore(){
  section.append(heading,grid);return section;
 }
 function render(){
- document.title=t('技术文档 · DL','Docs · DL');document.getElementById('about-title').textContent=t('技术架构','Technical architecture');
+ document.body.classList.toggle('site-document',location.hash==='#health');
+ if(location.hash==='#health'){renderDocument('health',document.getElementById('about-title'),document.getElementById('about-content'));return;}
+ document.title=t('技术文档 · DL','Docs · DL');document.getElementById('about-title').textContent=t('架构','Architecture');
  const fragment=document.createDocumentFragment();
  fragment.append(stats([[t('0 台','0'),t('空闲时运行的服务器','servers running when idle'),'power'],[t('≈ 5 分钟','≈ 5 min'),t('快速 AI 复盘','quick AI review'),'clock'],[t('≈ 1 小时','≈ 1 h'),t('深度 AI 复盘','deep AI review'),'gpu'],[t('≈ 3 秒','≈ 3 s'),t('分析一个局面','AI for one position'),'katago']]),systemMap(),deepFlow(),positionFlow(),gpuFallback(),readMore(),quickAnalysisLicence());
  document.getElementById('about-content').replaceChildren(fragment);
 }
-window.addEventListener('site-language-change',render);render();
+window.addEventListener('site-language-change',render);window.addEventListener('hashchange',render);render();
 
 function quickAnalysisLicence(){
  const p=document.createElement('p'),link=(href,text)=>{const a=document.createElement('a');a.href=href;a.textContent=text;return a;};

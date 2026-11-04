@@ -3,7 +3,7 @@ import test from 'node:test';import vm from 'node:vm';import assert from 'node:a
 const src=new URL('../src/',import.meta.url),read=file=>readFileSync(new URL(file,src),'utf8');
 const DL_CSS='<link rel="stylesheet" href="https://files.dliu.com/dliu.com/ui/v1/dl.css">',DL_DOCS_CSS='<link rel="stylesheet" href="https://files.dliu.com/dliu.com/ui/v1/dl-docs.css">';
 const pages=readdirSync(src).filter(file=>file.endsWith('.html'));
-const docsPages=['about.html','how-to-use.html','benchmarks.html','cost.html','security.html','photo-recognition.html','site-health.html'];
+const docsPages=['about.html','how-to-use.html','benchmarks.html','cost.html','security.html','photo-recognition.html'];
 
 test('every page loads the shared stylesheet before its own and uses the weiqi logo as favicon',()=>{
  assert.ok(pages.length>=14);
@@ -46,8 +46,18 @@ test('/docs holds architecture, cost and security; the menu and footer link to i
  assert.equal(route('/cost',{lang:{value:'en'}}).headers.location.value,'/docs/cost?lang=en');
  const shell=read('site-shell.js');
  assert.ok(shell.includes("['/docs','文档','Docs']")&&shell.includes("href==='/docs'?'dl-button':'dl-nav-link'"));
- for(const tab of ["['/docs','技术架构','Technical architecture']","['/docs/cost','运行成本','Cost']","['/docs/security','安全','Security']"])assert.ok(shell.includes(tab),tab);
+ for(const tab of ["['/docs','架构','Architecture']","['/docs/cost','运行成本','Cost']","['/docs/security','安全','Security']"])assert.ok(shell.includes(tab),tab);
  for(const file of pages)assert.ok(read(file).includes('<a href="/docs" data-zh="文档" data-en="Docs">文档</a></footer>'),file);
  // Docs pages are served below /docs/, so their own files must be linked from the site root.
  for(const file of ['about.html','cost.html','security.html','benchmarks.html','photo-recognition.html'])assert.doesNotMatch(read(file),/(src|href)="(?![\/#]|https?:)/,file);
+});
+
+test('a publish never pairs a new page with an old script: assets first, edge cleared, then pages',()=>{
+  const s=readFileSync(new URL('../scripts/publish-site.sh',import.meta.url),'utf8');
+  assert.match(s,/for pass in assets pages; do/);
+  assert.match(s,/assets:\*\.html\|pages:\*\.js\|pages:\*\.css\|pages:\*\.json/);
+  assert.match(s,/if \[ "\$pass" = assets \]; then invalidate; fi/);
+  const lastInvalidate=s.lastIndexOf('\ninvalidate\n'),index=s.indexOf('/index.html"');
+  assert.ok(index>0&&lastInvalidate>index,'index.html uploads before the final invalidation');
+  assert.match(s,/MODULE_CACHE='public, max-age=0, must-revalidate/);
 });

@@ -1,6 +1,6 @@
 # DL Weiqi health checks
 
-How status.dliu.com (or anyone) can test https://weiqi.dliu.com as an anonymous guest. This is the full technical version of https://weiqi.dliu.com/docs/health. The site has no sign-in.
+How status.dliu.com (or anyone) can test https://weiqi.dliu.com as an anonymous guest. This is the full technical version of https://weiqi.dliu.com/docs#health (the Health tab). The site has no sign-in.
 
 ## Functions
 
@@ -24,7 +24,7 @@ One row per check. Method GET, no cookies. "Type" is a prefix of `Content-Type`.
 | `pages` | GET | https://weiqi.dliu.com/record | 200 | `text/html` | `dl-header` | 2000 |
 | `pages` | GET | https://weiqi.dliu.com/guide | 200 | `text/html` | `dl-header` | 2000 |
 | `pages` | GET | https://weiqi.dliu.com/docs | 200 | `text/html` | `dl-header` | 2000 |
-| `pages` | GET | https://weiqi.dliu.com/docs/health | 200 | `text/html` | `dl-header` | 2000 |
+| `pages` | GET | https://weiqi.dliu.com/docs/health | 301 | — | Location: `/docs#health` | — |
 | `pages` | GET | https://weiqi.dliu.com/docs/health.md | 200 | `text/markdown` | `# DL Weiqi health checks` | 2000 |
 | `pages` | GET | https://weiqi.dliu.com/about | 301 | — | Location: `/docs` | — |
 | `pages` | GET | http://weiqi.dliu.com/ | 301 | — | Location: `https://weiqi.dliu.com/` | — |

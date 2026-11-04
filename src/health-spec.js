@@ -1,4 +1,4 @@
-// Single source for /docs/health (people), /docs/health.md (machines) and the /health tests.
+// Single source for /docs#health (people), /docs/health.md (machines) and the /health tests.
 // Text pairs are [Chinese, English].
 export const SITE='https://weiqi.dliu.com';
 export const SAMPLE_GAME='2026101001';
@@ -6,31 +6,43 @@ export const SAMPLE_GAME='2026101001';
 export const healthFunctions=[
  {key:'pages',critical:true,name:['网页','Pages'],
   plain:['首页、对局、记谱、棋谱库、指南和文档页面能打开。','The home, play, record, library, guide and docs pages open.'],
+  does:['网站的每个页面：首页、对局、记谱、棋谱库、指南和文档。', 'Every page of the site: home, play, record, library, guide and docs.'],
+  how:["像访客一样打开每个页面；/health 确认网站文件还在。", "Opens each page like a visitor; /health checks the site files are there."],
   down:['网站打不开。','The site does not load.'],
   pass:['找到文件','object found'],warn:['—','—'],fail:['`timeout`、`read failed`','`timeout`, `read failed`'],
   reads:['网站存储桶：读取首页文件的信息（HeadObject index.html）。','Site bucket: HeadObject of index.html.']},
  {key:'live-game',critical:true,name:['现场对局和共享草稿','Live game and shared draft'],
   plain:['现场棋局、共享记谱草稿和对局列表能读取。','The live game, the shared recording draft and the game list can be read.'],
+  does:['两台设备一起下棋，或一起记录一盘棋。', 'Play a game on two devices, or record one together.'],
+  how:["读取现场棋局、共享草稿和对局列表；/health 读取对局数据库。", "Reads the live game, the shared draft and the game list; /health reads the game database."],
   down:['不能下棋或记谱。','Nobody can play or record a game.'],
   pass:['读取成功','read succeeded'],warn:['—','—'],fail:['`timeout`、`read failed`','`timeout`, `read failed`'],
   reads:['DynamoDB 对局表：按固定键读取现场棋局（GetItem，只取键）。','DynamoDB game table: GetItem of the fixed live-game key (key only).']},
  {key:'library',critical:true,name:['棋谱库','Game library'],
   plain:['已保存的棋谱列表和单个棋谱能打开。','The saved-game list and a single saved game open.'],
+  does:['浏览和回放已保存的棋谱。', 'Browse and replay saved games.'],
+  how:["打开棋谱列表和一盘示例棋谱；/health 读取棋谱存储。", "Opens the game list and one sample game; /health reads the game storage."],
   down:['看不到已保存的棋谱。','Saved games cannot be viewed.'],
   pass:['读取成功','read succeeded'],warn:['—','—'],fail:['`timeout`、`read failed`','`timeout`, `read failed`'],
   reads:['棋谱存储桶：读取一个很小的固定控制文件（GetObject）。','Library bucket: GetObject of one small fixed control file.']},
  {key:'reports',critical:false,name:['棋局报告','Game reports'],
   plain:['已生成的 AI 棋局报告能打开，报告生成程序可用，没有失败的报告在等待。','Prepared AI game reports open, the report renderer is ready, and no failed reports are waiting.'],
+  does:['阅读一盘棋的 AI 复盘报告。', 'Read the AI review report of a game.'],
+  how:["打开示例棋谱的报告；/health 确认报告程序就绪，且没有失败的报告在等待。", "Opens the sample game's report; /health checks the report maker is ready and no failed reports are waiting."],
   down:['新的报告无法生成；已有报告也可能打不开。','New reports are not made, and existing ones may not open.'],
   pass:['生成程序就绪且队列为空','renderer ready and queue empty'],warn:['`failed reports waiting`，或生成程序正在更新（`function not ready`）','`failed reports waiting`, or the renderer is updating (`function not ready`)'],fail:['`timeout`、`read failed`、`function not ready`','`timeout`, `read failed`, `function not ready`'],
   reads:['报告生成函数的状态（Lambda GetFunctionConfiguration）；失败报告队列是否为空（SQS GetQueueAttributes）。','Report renderer state (Lambda GetFunctionConfiguration); whether the failed-report queue is empty (SQS GetQueueAttributes).']},
  {key:'analysis',critical:false,name:['AI 棋局分析','AI game analysis'],
   plain:['AI 分析没有被费用保护暂停。检查从不启动分析。','AI analysis is not paused by the spending guard. The check never starts an analysis.'],
+  does:['每盘保存的棋谱都会得到逐手 AI 分析。', 'Every saved game gets an AI review of each move.'],
+  how:["读取示例棋谱的 AI 分析；/health 确认分析没有被费用保护暂停。不会启动新分析。", "Reads the sample game's AI review; /health checks it isn't paused by the spending guard. No analysis is started."],
   down:['新棋谱暂时没有 AI 分析，之后会补上。','New games get no AI analysis for now; it catches up later.'],
   pass:['未暂停','not paused'],warn:['`paused by spending guard`','`paused by spending guard`'],fail:['`timeout`、`read failed`','`timeout`, `read failed`'],
   reads:['与棋谱库同一次读取：控制文件中的暂停标记。','The same control-file read as the library: its paused flag.']},
  {key:'position',critical:false,name:['照片识别和局面分析','Photo recognition and position analysis'],
   plain:['照片识别和局面分析程序可用，且没有被费用保护暂停。检查从不识别照片或分析局面。','The photo-recognition and position-analysis functions are ready and not paused by the spending guard. The check never reads a photo or analyses a position.'],
+  does:['拍一张棋盘照片，得到这个局面的 AI 建议。', 'Take a photo of a board and get AI advice for that position.'],
+  how:["打开 AI 分析页面；/health 确认两个程序就绪且未暂停。不会分析任何照片。", "Opens the AI analysis page; /health checks both programs are ready and not paused. No photo is analysed."],
   down:['不能用照片或局面做 AI 分析。','Photos and positions cannot be analysed.'],
   pass:['两个函数都就绪且未暂停','both functions ready and not paused'],warn:['`paused by spending guard`，或函数正在更新（`function not ready`）','`paused by spending guard`, or a function is updating (`function not ready`)'],fail:['`timeout`、`read failed`、`function not ready`','`timeout`, `read failed`, `function not ready`'],
   reads:['两个函数的状态（Lambda GetFunctionConfiguration）；控制文件中的暂停标记。','State of both functions (Lambda GetFunctionConfiguration); the control file\'s paused flag.']}
@@ -40,7 +52,8 @@ export const healthKeys=healthFunctions.map(f=>f.key);
 const page=(key,path)=>({key,method:'GET',path,status:200,type:'text/html',marker:'dl-header',slowMs:2000});
 const api=(key,path,marker)=>({key,method:'GET',path,status:200,type:'application/json',marker,slowMs:3000});
 export const guestChecks=[
- page('pages','/'),page('pages','/play'),page('pages','/record'),page('pages','/guide'),page('pages','/docs'),page('pages','/docs/health'),
+ page('pages','/'),page('pages','/play'),page('pages','/record'),page('pages','/guide'),page('pages','/docs'),
+ {key:'pages',method:'GET',path:'/docs/health',status:301,location:'/docs#health'},
  {key:'pages',method:'GET',path:'/docs/health.md',status:200,type:'text/markdown',marker:'# DL Weiqi health checks',slowMs:2000},
  {key:'pages',method:'GET',path:'/about',status:301,location:'/docs'},
  {key:'pages',method:'GET',url:'http://weiqi.dliu.com/',status:301,location:SITE+'/'},
@@ -79,7 +92,7 @@ export const healthEndpoint={
 
 const cell=v=>String(v).replace(/\|/g,'\\|');
 export function healthMarkdown(){
- const lines=['# DL Weiqi health checks','','How status.dliu.com (or anyone) can test '+SITE+' as an anonymous guest. This is the full technical version of '+SITE+'/docs/health. The site has no sign-in.','',
+ const lines=['# DL Weiqi health checks','','How status.dliu.com (or anyone) can test '+SITE+' as an anonymous guest. This is the full technical version of '+SITE+'/docs#health (the Health tab). The site has no sign-in.','',
   '## Functions','','| Key | Name | Critical | What a guest gets | Down means |','|---|---|---|---|---|',
   ...healthFunctions.map(f=>'| `'+f.key+'` | '+f.name[1]+' ('+f.name[0]+') | '+(f.critical?'yes':'no')+' | '+cell(f.plain[1])+' | '+cell(f.down[1])+' |'),'',
   '## Guest checks','','One row per check. Method GET, no cookies. "Type" is a prefix of `Content-Type`. "Marker" is a fixed string in the body (a JSON key for JSON). For redirects, `Location` must equal the given value. "Slow" is the time above which the check counts as slow.','',

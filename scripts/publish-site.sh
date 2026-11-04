@@ -26,8 +26,17 @@ PAGE_CACHE='public, max-age=0, must-revalidate'
 
 aws s3 cp "$PROJECT_DIR/src/photo-assets/" "s3://$SITE_BUCKET_NAME/photo-assets/" --recursive --cache-control "$STATIC_CACHE" --only-show-errors
 
-# Upload dependencies first and the entrypoint last.
-for filename in analysis-position.js position-api.js analysis.js photo.html photo.css stone-placement.mp3 stone-placement-LICENSE.txt stone-sound.js time-control.js board-geometry.js site-time.js site-shell.js move-label.js board-view.js recording-tree.js recording-sequence-edit.js recording-tree-view.js editor.js editor.html home.js play.html site.css cost.html security.html site-health.html photo-recognition.html health-spec.js documents.js flow-diagram.js report-font.otf report.html report.js report.css board-diagram.js ai-review.js game-result.js analysis-status.js evaluation-chart.js replay-navigation.js sgf.js library-api.js library.html library.js record.html record.js how-to-use.html how-to-use.js benchmarks-data.json benchmarks.html benchmarks.js about.html about.js rules.html rules.js history.html history.js i18n.js engine.js app.js styles.css favicon.svg 404.html; do
+invalidate() {
+  local id
+  id="$(aws cloudfront create-invalidation --distribution-id "$DISTRIBUTION_ID" --paths '/*' --query 'Invalidation.Id' --output text)"
+  aws cloudfront wait invalidation-completed --distribution-id "$DISTRIBUTION_ID" --id "$id"
+}
+
+# Two passes so a new page never meets an old script: first scripts, styles and data, then the
+# edge is cleared, then the HTML pages, then the edge is cleared again. Modules import each
+# other by fixed names, so this ordering (not ?v= on one entry script) keeps a release whole.
+for pass in assets pages; do
+for filename in analysis-position.js position-api.js analysis.js photo.html photo.css stone-placement.mp3 stone-placement-LICENSE.txt stone-sound.js time-control.js board-geometry.js site-time.js site-shell.js move-label.js board-view.js recording-tree.js recording-sequence-edit.js recording-tree-view.js editor.js editor.html home.js play.html site.css cost.html security.html photo-recognition.html health-spec.js documents.js flow-diagram.js report-font.otf report.html report.js report.css board-diagram.js ai-review.js game-result.js analysis-status.js evaluation-chart.js replay-navigation.js sgf.js library-api.js library.html library.js record.html record.js how-to-use.html how-to-use.js benchmarks-data.json benchmarks.html benchmarks.js about.html about.js rules.html rules.js history.html history.js i18n.js engine.js app.js styles.css favicon.svg 404.html; do
   case "$filename" in
     *.mp3) mime='audio/mpeg' cache="$STATIC_CACHE" ;;
     *.otf) mime='font/otf' cache="$STATIC_CACHE" ;;
@@ -38,11 +47,13 @@ for filename in analysis-position.js position-api.js analysis.js photo.html phot
     *.json) mime='application/json; charset=utf-8' cache="$MODULE_CACHE" ;;
     *.txt) mime='text/plain; charset=utf-8' cache="$STATIC_CACHE" ;;
   esac
+  case "$pass:$filename" in assets:*.html|pages:*.js|pages:*.css|pages:*.json|pages:*.mp3|pages:*.otf|pages:*.svg|pages:*.txt) continue ;; esac
   aws s3 cp "$PROJECT_DIR/src/$filename" "s3://$SITE_BUCKET_NAME/$filename" --content-type "$mime" --cache-control "$cache" --only-show-errors
+done
+if [ "$pass" = assets ]; then invalidate; fi
 done
 node "$PROJECT_DIR/scripts/build-health-md.mjs"
 aws s3 cp "$PROJECT_DIR/src/health.md" "s3://$SITE_BUCKET_NAME/docs/health.md" --content-type 'text/markdown; charset=utf-8' --cache-control "$PAGE_CACHE" --only-show-errors
 aws s3 cp "$PROJECT_DIR/src/index.html" "s3://$SITE_BUCKET_NAME/index.html" --content-type 'text/html; charset=utf-8' --cache-control 'no-cache, max-age=0, must-revalidate' --only-show-errors
-INVALIDATION_ID="$(aws cloudfront create-invalidation --distribution-id "$DISTRIBUTION_ID" --paths '/*' --query 'Invalidation.Id' --output text)"
-aws cloudfront wait invalidation-completed --distribution-id "$DISTRIBUTION_ID" --id "$INVALIDATION_ID"
+invalidate
 aws cloudformation describe-stacks --stack-name "$STACK_NAME" --query "Stacks[0].Outputs[?OutputKey=='WebsiteUrl'].OutputValue" --output text
