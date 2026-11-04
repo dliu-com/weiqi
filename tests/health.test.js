@@ -100,12 +100,13 @@ test('the Health tab is for people: flows, numbers, a table and a chart, with no
  for(const piece of ['stats([','tiers({title:','flow({title:',"tone:'good'","tone:'warn'","tone:'bad'",'healthChart()','table([','ul(notTested)'])assert.ok(block.includes(piece),piece);
  for(const banned of ['more(','code(',"'details'",'<details','dg-more','<code','checkUrl','healthEndpoint','.path','.status==','rules'])assert.ok(!block.includes(banned),banned);
  const exact={test:text=>/https?:\/\/|`|\b[1-5]\d\d\b|application\/|text\/|\bGET\b|\bHEAD\b|\{"/.test(text)||/content-type|cache-control|\bjson\b/i.test(text)};
- const literals=[...block.matchAll(/'((?:[^'\\]|\\.)*)'/g)].map(m=>m[1]).filter(x=>!['/health','health-mark'].includes(x));
+ const literals=[...block.matchAll(/'((?:[^'\\]|\\.)*)'/g)].map(m=>m[1]).filter(x=>!['/health','health-mark','https://status.dliu.com/site/weiqi'].includes(x));
  for(const text of literals)assert.ok(!exact.test(text)||text==="/health",text);
  for(const fn of healthFunctions)for(const field of ['name','does','how','down'])for(const text of fn[field])assert.ok(!exact.test(text),fn.key+'.'+field+': '+text);
  for(const n of notTested)for(const text of n)assert.ok(!exact.test(text),text);
  assert.match(docs,/health:\{title:\[[^\]]+\],intro:healthIntro,sections:healthSections,sourcesTitle:null,links:\[\['\/docs\/health\.md','给机器看的技术版本（Markdown）','Technical version for machines \(Markdown\)'\]\]\}/);
  assert.equal((docs.match(/href='\/docs\/health\.md'/g)||[]).length,1,'one link to the Markdown under the heading, plus the one at the end');
+ assert.match(block,/status\.href='https:\/\/status\.dliu\.com\/site\/weiqi'/,'links to its own status page');
  const intro=block.slice(block.indexOf('function healthIntro'));assert.ok(intro.indexOf("link.href='/docs/health.md'")<intro.indexOf('stats(['),'the Markdown link comes first');
  for(const piece of ['tiers({title:',"tone:'untrusted'","tone:'edge'","tone:'app'","tone:'private'","icon:'cloudfront'","icon:'lambda'","icon:'dynamodb'"])assert.ok(block.includes(piece),piece);
 });

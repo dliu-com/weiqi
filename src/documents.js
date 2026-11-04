@@ -219,7 +219,9 @@ function showHealthNow(){
 }
 function healthIntro(f){
  const top=el('p','health-md'),link=el('a','',t('给机器看的版本：/docs/health.md','Machine-readable version: /docs/health.md'));
- link.href='/docs/health.md';top.append(link);f.append(top);
+ link.href='/docs/health.md';
+ const status=el('a','',t('实时状态：status.dliu.com/site/weiqi','Live status: status.dliu.com/site/weiqi'));status.href='https://status.dliu.com/site/weiqi';
+ top.append(link,' · ',status);f.append(top);
  f.append(para('每 15 分钟，status.dliu.com 从爱尔兰、美国和日本三个地方，像普通访客一样检查本站：不登录、只读、从不修改内容，也从不启动要花钱的 AI 工作。','Every 15 minutes, status.dliu.com checks this site from three places (Ireland, the USA and Japan) the way any visitor would: no sign-in, read only, never changing anything and never starting paid AI work.'));
  f.append(stats([[String(healthFunctions.length),t('个功能被检查','functions tested'),'check'],[String(guestChecks.length),t('项检查，每次都做','checks in every run'),'filter'],[t('15 分钟','15 min'),t('检查一次','between runs'),'clock'],['3',t('个检查地点','places check it'),'cloudfront'],['0',t('次登录','sign-ins needed'),'lock'],['1',t('次网站自检（/health）','site self-check (/health)'),'gauge']]));
  const count=key=>guestChecks.filter(c=>c.key===key).length;
