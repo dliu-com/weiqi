@@ -22,6 +22,14 @@ export function draftPublication(current,request,uploadId){
  if(moves<MIN_LIBRARY_MOVES)throw Object.assign(Error(`A game needs at least ${MIN_LIBRARY_MOVES} moves to be saved. This game has ${moves}.`),{statusCode:400});
  return {revision:current.revision+1,sgf:source,selected:0,updatedAt:new Date().toISOString(),publication:{id:request.id,uploadId,status:'pending'}};
 }
+// The managed API saves the main line under the same rules as Save game: legal moves, 50–400 of them.
+export function publishableSgf(source){
+ if(typeof source!=='string'||!source.trim())throw Object.assign(Error('Provide the game as SGF text in "sgf".'),{statusCode:400});
+ const main=mainRecordingSgf(source),record=recordingTree(main);validateDraftSequence(record);
+ const moves=record.mainLine.length-1;if(moves>MAX_GAME_MOVES)throw Object.assign(Error(`A game can have at most ${MAX_GAME_MOVES} moves. This game has ${moves}.`),{statusCode:400});
+ if(moves<MIN_LIBRARY_MOVES)throw Object.assign(Error(`A game needs at least ${MIN_LIBRARY_MOVES} moves to be saved. This game has ${moves}.`),{statusCode:400});
+ return main;
+}
 // Used when the daily save limit is reached after the save began: editing continues with the main line.
 export function draftWithoutPublication(pending){
  return {revision:pending.revision+1,sgf:pending.sgf,selected:0,updatedAt:new Date().toISOString()};

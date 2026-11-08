@@ -1,0 +1,10 @@
+{
+  "GET /api/me": { "scope": "weiqi.read" },
+  "GET /api/game": { "scope": "weiqi.read" },
+  "GET /api/draft": { "scope": "weiqi.read" },
+  "GET /api/library": { "scope": "weiqi.read" },
+  "GET /api/library/{gameId}": { "scope": "weiqi.read" },
+  "GET /api/library/{gameId}/report": { "scope": "weiqi.read" },
+  "POST /api/library": { "scope": "weiqi.write" },
+  "DELETE /api/library/{gameId}": { "scope": "weiqi.delete" }
+}

@@ -13,4 +13,7 @@ async function usageAllowance(id,limit,seconds){
  try{await db.send(new ClientUpdateItemCommand({TableName:process.env.POSITION_USAGE_TABLE,Key:{id:{S:id}},UpdateExpression:'ADD used :one SET expires = :expires',ConditionExpression:'attribute_not_exists(used) OR used < :limit',ExpressionAttributeValues:{':one':{N:'1'},':limit':{N:String(limit)},':expires':{N:String(Math.floor(Date.now()/1000)+seconds)}}}));return true;}
  catch(e){if(e.name==='ConditionalCheckFailedException')return false;throw e;}
 }
-async function clientAllowance(event,scope,period,limit,seconds){const bucket=clientBucket(event);return bucket===null||usageAllowance('client#'+scope+'#'+period+'#'+bucket,limit,seconds);}
+// handler.cjs adds requests with a verified owner session (auth.cjs). They skip only these per-connection shares;
+// site-wide caps (edits a minute, saves and deep analyses a day, the spending guard) still apply.
+const ownerEvents=new WeakSet();
+async function clientAllowance(event,scope,period,limit,seconds){if(ownerEvents.has(event))return true;const bucket=clientBucket(event);return bucket===null||usageAllowance('client#'+scope+'#'+period+'#'+bucket,limit,seconds);}

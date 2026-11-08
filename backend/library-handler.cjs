@@ -39,7 +39,7 @@ async function attachPlayerRanks(metadata,source) {
  catch(e){if(e.name!=='NoSuchKey')throw e;}
  return metadata;
 }
-async function libraryHandler(event) {
+async function libraryHandler(event,pageSize=LIBRARY_PAGE_SIZE) {
   const method=event.requestContext?.http?.method, path=event.rawPath, id=path.slice('/api/library/'.length);
   try {
     if (!process.env.LIBRARY_BUCKET) return response(503,{message:'Record library is not configured.'});
@@ -47,7 +47,7 @@ async function libraryHandler(event) {
       const cursor=event.queryStringParameters?.cursor;
       if (cursor && cursor.length>2048) return response(400,{message:'Invalid page cursor.'});
       const counting=libraryCount().catch(()=>null);
-      let list;try{list=await libraryS3.send(new ListObjectsV2Command({Bucket:process.env.LIBRARY_BUCKET,Prefix:'library-index/',MaxKeys:LIBRARY_PAGE_SIZE,...(cursor?{ContinuationToken:cursor}:{})}));}catch(e){if(cursor&&e.name==='InvalidArgument')return response(400,{message:'Invalid page cursor.'});throw e;}
+      let list;try{list=await libraryS3.send(new ListObjectsV2Command({Bucket:process.env.LIBRARY_BUCKET,Prefix:'library-index/',MaxKeys:pageSize,...(cursor?{ContinuationToken:cursor}:{})}));}catch(e){if(cursor&&e.name==='InvalidArgument')return response(400,{message:'Invalid page cursor.'});throw e;}
       const games=await Promise.all((list.Contents || []).map(async p=>{try{const entry=JSON.parse(await libraryStore.get(p.Key));if(!validRecordId(entry.id))return null;return attachPlayerRanks(JSON.parse(await libraryStore.get(gamePrefix(entry.id)+'/metadata.json')));}catch(e){if(e.name==='NoSuchKey')return null;throw e;}}));
       const paused=await libraryStore.analysisPaused();
       if(paused)for(const g of games.filter(Boolean))if(!['ready','limited'].includes(g.analysis?.status))g.analysis={...g.analysis,status:'paused',reason:'monthly_budget'};

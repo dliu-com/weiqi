@@ -23,6 +23,7 @@ exports.handler = async event => {
   if(event.source==='aws.batch'&&event['detail-type']==='Batch Job State Change')return completedAnalysisReport(event.detail||{});
   const method = event.requestContext?.http?.method;
   const requestPath = event.rawPath || '';
+  if(await ownerRequest(event))ownerEvents.add(event);
   if(method==='POST'){const headers=event.headers||{};if(headers.origin&&headers.origin!==process.env.SITE_ORIGIN)return response(403,{message:'Invalid request origin.'});if(!headers['content-type']?.toLowerCase().startsWith('application/json'))return response(415,{message:'Use JSON.'});}
   if(requestPath.startsWith('/api/position/'))return positionHandler(event);
   if(method==='POST'&&!event._retry){try{const minute=Math.floor(Date.now()/60000);if(!(await clientAllowance(event,'edit',minute,Number(process.env.CLIENT_EDITS_PER_MINUTE||60),120)))return response(429,{message:'Too many edits from this connection. Please wait one minute and retry.'});if(!(await usageAllowance('site#edit#'+minute,Number(process.env.SITE_EDITS_PER_MINUTE||120),120)))return response(429,{message:'Too many edits. Please wait one minute and retry.'});}catch{return response(503,{message:'The service is busy. Please retry.'});}}
@@ -85,6 +86,14 @@ exports.handler = async event => {
     return response(500, { message: '棋局暂时无法同步，请稍后重试。' });
   }
 };
+
+// Only a request carrying the session cookie costs a parameter read; a guest request is never looked up.
+// Any failure counts as a guest, so the public limits apply.
+async function ownerRequest(event){
+ if(!weiqiAuth.hasSessionCookie(event))return false;
+ try{return Boolean(weiqiAuth.getSession(event,await weiqiAuth.loadConfig()));}
+ catch(e){console.error('Owner session check unavailable',{name:e.name});return false;}
+}
 
 // Save completed live games through the same idempotent library pipeline as uploads.
 async function publishLiveGame(state){
