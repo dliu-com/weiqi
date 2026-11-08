@@ -1,0 +1,59 @@
+#!/usr/bin/env bash
+# Stores this app's Microsoft Entra sign-in settings (client ID and secret) in SSM Parameter Store.
+# The tenant ID is shared by every dliu.com app: /dliu/entra-tenant-id, owned by the dliu-com/audit stack.
+# Values are read interactively and passed to AWS via a private temp file, so they never
+# appear in shell history, process arguments, or this repository.
+set -euo pipefail
+
+REGION="${AWS_REGION:-eu-west-1}"
+PREFIX="${PARAMETER_PREFIX:-/weiqi}"
+
+current() {
+  aws ssm get-parameter --region "$REGION" --name "$PREFIX/$1" --query Parameter.Value --output text 2>/dev/null || true
+}
+
+put() { # name type value
+  # The value goes through a private temp file (not argv) so it never shows up in `ps`.
+  local input
+  input="$(umask 077; mktemp)"
+  NAME="$PREFIX/$1" TYPE="$2" VALUE="$3" node -e '
+    process.stdout.write(JSON.stringify({ Name: process.env.NAME, Type: process.env.TYPE, Value: process.env.VALUE, Overwrite: true }));
+  ' > "$input"
+  if ! aws ssm put-parameter --region "$REGION" --cli-input-json "file://$input" >/dev/null; then
+    rm -f "$input"
+    echo "Failed to save $PREFIX/$1" >&2
+    exit 1
+  fi
+  rm -f "$input"
+  echo "  saved $PREFIX/$1 ($2)"
+}
+
+prompt() { # var label default
+  local value
+  read -r -p "$2${3:+ [$3]}: " value
+  printf -v "$1" '%s' "${value:-$3}"
+}
+
+echo "Microsoft Entra settings for weiqi.dliu.com (Entra app: weiqi) (region $REGION)."
+echo "Press Enter to keep the value shown in brackets."
+if [[ -z "$(aws ssm get-parameter --region "$REGION" --name /dliu/entra-tenant-id --query Parameter.Name --output text 2>/dev/null || true)" ]]; then
+  echo "Missing the shared /dliu/entra-tenant-id; deploy the dliu-com/audit stack first." >&2
+  exit 1
+fi
+prompt CLIENT_ID "Application (client) ID" "$(current entra-client-id)"
+read -r -s -p "Client secret VALUE (hidden; Enter to keep current): " CLIENT_SECRET; echo
+
+[[ "$CLIENT_ID" =~ ^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$ ]] || { echo "Client ID must be the Application (client) ID GUID." >&2; exit 1; }
+if [[ "$CLIENT_ID" == "$(aws ssm get-parameter --region "$REGION" --name /dliu/api-app-id --query Parameter.Value --output text 2>/dev/null || true)" ]]; then
+  echo "That is the shared dliu API registration; use the weiqi app registration's client ID." >&2
+  exit 1
+fi
+
+put entra-client-id String "$CLIENT_ID"
+if [[ -n "$CLIENT_SECRET" ]]; then
+  put entra-client-secret SecureString "$CLIENT_SECRET"
+elif [[ -z "$(aws ssm get-parameter --region "$REGION" --name "$PREFIX/entra-client-secret" --query Parameter.Name --output text 2>/dev/null || true)" ]]; then
+  echo "No client secret stored yet; run again and enter it." >&2
+  exit 1
+fi
+echo "Done. Website sign-in reads these settings once deployed (cached for 5 minutes)."

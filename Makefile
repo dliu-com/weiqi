@@ -2,7 +2,7 @@
 AWS_REGION ?= eu-west-1
 STACK_NAME := WeiqiSite
 
-.PHONY: install serve test synth diff deploy-infra publish deploy ai-status ai-resume ai-check build-local-analysis prepare-position-runtime
+.PHONY: install serve test synth diff deploy-infra publish deploy ai-status ai-resume ai-check build-local-analysis prepare-position-runtime set-secrets
 
 install:
 	npm ci
@@ -21,6 +21,10 @@ ai-resume:
 
 ai-check:
 	node scripts/ai-control.mjs dryRun
+
+# Prompts for the weiqi Entra app's client ID and secret and stores them in SSM under /weiqi/.
+set-secrets:
+	AWS_REGION=$(AWS_REGION) bash scripts/set-secrets.sh
 
 test:
 	python3 -m unittest discover -s tests/cloud
