@@ -158,3 +158,60 @@ test('GET /health is a cached, read-only Lambda behind CloudFront that receives 
   const actions=Object.values(res).filter(r=>r.Type==='AWS::IAM::Policy'&&r.Properties.Roles.some((x:any)=>x.Ref===roleId)).flatMap(r=>r.Properties.PolicyDocument.Statement).flatMap((s:any)=>{expect(s.Effect).toBe('Allow');expect(s.Resource).not.toBe('*');return [].concat(s.Action);}).sort();
   expect(actions).toEqual(['dynamodb:GetItem','lambda:GetFunctionConfiguration','s3:GetObject','sqs:GetQueueAttributes']);
 });
+
+const ownerRoutes:Record<string,{scope:string}>=JSON.parse(require('fs').readFileSync(require('path').join(__dirname,'../../backend/managed-routes.json'),'utf8'));
+const functionNamed=(t:Template,description:string)=>Object.entries(t.toJSON().Resources as Record<string,any>).find(([,r])=>r.Type==='AWS::Lambda::Function'&&r.Properties.Description===description)!;
+const roleStatements=(t:Template,fn:any)=>{const roleId=fn.Properties.Role['Fn::GetAtt'][0];return Object.values(t.toJSON().Resources as Record<string,any>).filter(r=>r.Type==='AWS::IAM::Policy'&&r.Properties.Roles.some((x:any)=>x.Ref===roleId)).flatMap(r=>r.Properties.PolicyDocument.Statement);};
+const actionsOf=(statements:any[])=>statements.flatMap((s:any)=>[].concat(s.Action));
+test('only OwnerApi may delete, only a game\'s own files, and never object versions',()=>{
+ const [,owner]=functionNamed(template,'Weiqi owner sign-in, owner tools and the Microsoft-token API');
+ expect(owner.Properties.ReservedConcurrentExecutions).toBe(5);
+ const statements=roleStatements(template,owner),actions=actionsOf(statements);
+ expect(actions.some((a:string)=>a.includes('*')||/Version|DeleteBucket|PutBucket/.test(a))).toBe(false);
+ const deletes=JSON.stringify(statements.filter((s:any)=>[].concat(s.Action).includes('s3:DeleteObject' as never)).map((s:any)=>s.Resource));
+ for(const prefix of ['games/*','library-index/*','share/*','prepared-reports/*'])expect(deletes).toContain(prefix);
+ for(const prefix of ['uploads/','reservations/','daily-analysis/','control/','index.html'])expect(deletes).not.toContain(prefix);
+ const all=Object.values(template.toJSON().Resources as Record<string,any>).filter(r=>r.Type==='AWS::IAM::Policy').flatMap(r=>actionsOf(r.Properties.PolicyDocument.Statement));
+ expect(all.filter((a:string)=>/DeleteObjectVersion/.test(a))).toEqual([]);
+ const policies=Object.values(template.findResources('AWS::IAM::Policy'));const game=policies.find((policy:any)=>JSON.stringify(policy.Properties.Roles).includes('GameHandler')) as any;
+ expect(actionsOf(game.Properties.PolicyDocument.Statement).filter((a:string)=>/Delete/.test(a))).toEqual([]);
+});
+test('owner sign-in secrets are readable only under /weiqi and the shared tenant ID, through SSM',()=>{
+ for(const description of ['Weiqi owner sign-in, owner tools and the Microsoft-token API']){
+  const [,fn]=functionNamed(template,description),statements=roleStatements(template,fn);
+  const ssmStatement=statements.find((s:any)=>[].concat(s.Action).includes('ssm:GetParameters' as never));
+  expect(JSON.stringify(ssmStatement.Resource)).toContain('parameter/weiqi/*');expect(JSON.stringify(ssmStatement.Resource)).toContain('parameter/dliu/entra-tenant-id');
+  const kms=statements.find((s:any)=>[].concat(s.Action).includes('kms:Decrypt' as never));
+  expect(kms.Condition.StringEquals['kms:ViaService']).toEqual({'Fn::Join':['',['ssm.',{Ref:'AWS::Region'},'.amazonaws.com']]});
+ }
+});
+test('the public API bundle checks the owner cookie but contains no delete code',()=>{
+ const game=Object.values(template.toJSON().Resources as Record<string,any>).find(r=>r.Type==='AWS::Lambda::Function'&&r.Properties.ReservedConcurrentExecutions===20)!;
+ const code=game.Properties.Code.ZipFile;expect(code).toContain('weiqiAuth');expect(code).not.toMatch(/Delete(Object|Objects)Command/);expect(code).not.toMatch(/^module\.exports=/m);
+});
+test('/auth/* and /api/owner/* reach OwnerApi uncached, ahead of the public /api/* behaviour',()=>{
+ const res=template.toJSON().Resources as Record<string,any>;const [ownerId]=functionNamed(template,'Weiqi owner sign-in, owner tools and the Microsoft-token API');
+ const dist=Object.values(res).find(r=>r.Type==='AWS::CloudFront::Distribution')!.Properties.DistributionConfig;
+ const patterns=dist.CacheBehaviors.map((b:any)=>b.PathPattern);
+ expect(patterns.indexOf('api/owner/*')).toBeLessThan(patterns.indexOf('api/*'));expect(patterns).toContain('auth/*');
+ const owner=dist.CacheBehaviors.find((b:any)=>b.PathPattern==='api/owner/*'),auth=dist.CacheBehaviors.find((b:any)=>b.PathPattern==='auth/*');
+ expect(auth.AllowedMethods).toEqual(['GET','HEAD']);
+ for(const b of [owner,auth]){expect(b.CachePolicyId).toBe('4135ea2d-6df8-44a3-9df3-4b5a84be39ad');expect(b.ResponseHeadersPolicyId).toBeDefined();expect(b.TargetOriginId).toBe(owner.TargetOriginId);}
+ const origin=dist.Origins.find((o:any)=>o.Id===owner.TargetOriginId);expect(JSON.stringify(origin.DomainName)).toContain('OwnerApi');
+ const urls=Object.values(res).filter(r=>r.Type==='AWS::Lambda::Url'&&JSON.stringify(r.Properties.TargetFunctionArn).includes(ownerId));
+ expect(urls.map(u=>u.Properties.AuthType)).toEqual(['AWS_IAM']);
+ const perms=Object.values(res).filter(r=>r.Type==='AWS::Lambda::Permission'&&JSON.stringify(r.Properties.FunctionName).includes(ownerId));
+ expect(perms.every(r=>r.Properties.Principal==='cloudfront.amazonaws.com')).toBe(true);
+});
+test('the managed API exists only when enabled; every route needs a Microsoft token with its weiqi.* scope',()=>{
+ expect(Object.keys(template.findResources('AWS::ApiGatewayV2::Api'))).toEqual([]);
+ const managed=Template.fromStack(makeSite('Managed',{microsoftApi:true}));
+ const routes=Object.values(managed.findResources('AWS::ApiGatewayV2::Route')) as any[];
+ expect(Object.fromEntries(routes.map(r=>[r.Properties.RouteKey,r.Properties.AuthorizationScopes]))).toEqual(Object.fromEntries(Object.entries(ownerRoutes).map(([k,v])=>[k,[v.scope]])));
+ expect(routes.every(r=>r.Properties.AuthorizationType==='JWT')).toBe(true);
+ expect(new Set(Object.values(ownerRoutes).map(v=>v.scope))).toEqual(new Set(['weiqi.read','weiqi.write','weiqi.delete']));
+ managed.hasResourceProperties('AWS::ApiGatewayV2::Authorizer',{AuthorizerType:'JWT',IdentitySource:['$request.header.Authorization'],JwtConfiguration:{Audience:[Match.anyValue()],Issuer:Match.anyValue()}});
+ managed.hasResourceProperties('AWS::ApiGatewayV2::Stage',{DefaultRouteSettings:{ThrottlingRateLimit:10,ThrottlingBurstLimit:20}});
+ const [,owner]=functionNamed(managed,'Weiqi owner sign-in, owner tools and the Microsoft-token API');
+ expect(Object.keys(owner.Properties.Environment.Variables)).toEqual(expect.arrayContaining(['API_GATEWAY_ID','API_TENANT_ID','API_AUDIENCE','API_CLIENT_ID']));
+});

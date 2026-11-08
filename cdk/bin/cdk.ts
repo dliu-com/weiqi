@@ -20,7 +20,7 @@ const context=(name:string)=>{
 if((process.env.CDK_DEFAULT_REGION||'eu-west-1')!=='eu-west-1')throw Error('Weiqi resources must be provisioned in Ireland (eu-west-1).');
 const storage=new WeiqiStorageStack(app,'WeiqiStorage',{terminationProtection:true,tags:{service:'weiqi'},env:{account:process.env.CDK_DEFAULT_ACCOUNT,region:process.env.CDK_DEFAULT_REGION||'eu-west-1'}});
 new WeiqiSiteStack(app, 'WeiqiSite', {storage,
-  analysisQueueArnOverride:context('analysisQueueArnOverride'),keepLegacyAnalysisQueue:context('keepLegacyAnalysisQueue')!=='false',
+  analysisQueueArnOverride:context('analysisQueueArnOverride'),keepLegacyAnalysisQueue:context('keepLegacyAnalysisQueue')!=='false',microsoftApi:context('microsoftApi')==='true',
   tags: { service: 'weiqi' },
   env: {
     account: process.env.CDK_DEFAULT_ACCOUNT,

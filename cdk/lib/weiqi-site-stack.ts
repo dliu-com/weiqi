@@ -5,6 +5,9 @@ import {execFileSync} from 'child_process';
 import { Construct } from 'constructs';
 import {SqsEventSource} from 'aws-cdk-lib/aws-lambda-event-sources';
 import {
+  aws_apigatewayv2 as apigateway,
+  aws_apigatewayv2_authorizers as authorizers,
+  aws_apigatewayv2_integrations as integrations,
   aws_certificatemanager as acm,
   aws_cloudfront as cloudfront,
   aws_cloudfront_origins as origins,
@@ -18,6 +21,7 @@ import {
   aws_route53_targets as targets,
   aws_s3 as s3,
   aws_sqs as sqs,
+  aws_ssm as ssm,
   CfnOutput,
   Duration,
   Fn,
@@ -27,8 +31,16 @@ import {
   StackProps,
 } from 'aws-cdk-lib';
 
+// Owner sign-in settings (scripts/set-secrets.sh) and the shared dliu.com Entra tenant and "dliu API" app.
+export const PARAMETER_PREFIX='/weiqi';
+export const TENANT_PARAMETER='/dliu/entra-tenant-id';
+export const API_APP_PARAMETER='/dliu/api-app-id';
+// Managed API stage throttle: above this API Gateway answers 429 before Lambda runs.
+export const MANAGED_API_RATE=10;
+export const MANAGED_API_BURST=20;
+
 export class WeiqiSiteStack extends Stack {
-  constructor(scope: Construct, id: string, props: StackProps & {analysisQueueArnOverride?:string;keepLegacyAnalysisQueue?:boolean;storage?:{gameTable:dynamodb.ITable;libraryBucket:s3.IBucket}} = {}) {
+  constructor(scope: Construct, id: string, props: StackProps & {analysisQueueArnOverride?:string;keepLegacyAnalysisQueue?:boolean;microsoftApi?:boolean;storage?:{gameTable:dynamodb.ITable;libraryBucket:s3.IBucket}} = {}) {
     super(scope, id, props);
 
     const rootDomain = Fn.importValue('MainDomain');
@@ -98,6 +110,8 @@ export class WeiqiSiteStack extends Stack {
     const libraryHandlerSource = fs.readFileSync(path.join(root,'backend/library-handler.cjs'),'utf8');
     const sharePreviewSource = fs.readFileSync(path.join(root,'backend/share-preview.cjs'),'utf8').replace(/^module.exports=.*;$/gm,'');
     const handlerSource = fs.readFileSync(path.join(root, 'backend/handler.cjs'), 'utf8');
+    // auth.cjs ends with module.exports for tests; inside a bundle that line would replace the handler's exports.
+    const authSource = fs.readFileSync(path.join(root,'backend/auth.cjs'),'utf8').replace(/^module.exports=.*;$/gm,'');
     execFileSync(process.execPath,[path.join(root,'scripts/build-report-renderer.mjs')],{stdio:'inherit'});
     const reportDeadLetters=new sqs.Queue(this,'ReportDeadLetters',{fifo:true,retentionPeriod:Duration.days(14)});
     const reportQueue=new sqs.Queue(this,'ReportQueue',{fifo:true,visibilityTimeout:Duration.minutes(6),retentionPeriod:Duration.days(1),deadLetterQueue:{queue:reportDeadLetters,maxReceiveCount:3}});
@@ -120,9 +134,17 @@ export class WeiqiSiteStack extends Stack {
       // Caps the cost of a request flood; normal use needs only a few at once.
       reservedConcurrentExecutions: 20,
       logGroup: new logs.LogGroup(this, 'GameLogs', { retention: logs.RetentionDays.THREE_MONTHS, removalPolicy: RemovalPolicy.DESTROY }),
-      environment: { POSITION_USAGE_TABLE:'weiqi-position-usage',POSITION_RECOGNIZER:'WeiqiPositionRecognition',POSITION_ENGINE:'WeiqiPositionEngine',POSITION_DAILY_MICROS:String(projectConfig.positionAnalysis.dailyRequests*projectConfig.positionAnalysis.requestReserveMicros),POSITION_REQUEST_MICROS:String(projectConfig.positionAnalysis.requestReserveMicros),CLIENT_EDITS_PER_MINUTE:'60',CLIENT_POSITIONS_PER_DAY:String(projectConfig.positionAnalysis.connectionDailyRequests),DAILY_ANALYSIS_CAP:String(projectConfig.analysis.dailyDeepLimit),DAILY_UPLOAD_CAP:String(projectConfig.analysis.dailyGameLimit), AI_CONTROL_KEY:'control/ai-spending.json', LIBRARY_BUCKET:libraryBucket.bucketName, SITE_BUCKET:bucket.bucketName, ANALYSIS_QUEUE:analysisQueue.queueUrl, TABLE_NAME: gameTable.tableName, REPORT_QUEUE:reportQueue.queueUrl, SITE_ORIGIN: Fn.join('', ['https://', domainName]) },
-      code: lambda.Code.fromInline([engineSource, serviceSource, sharedLibrarySource, queueEstimateSource, sharePreviewSource, libraryHandlerSource, queueStatusSource, fs.readFileSync(path.join(root,'backend/client-limit.cjs'),'utf8'), fs.readFileSync(path.join(root,'backend/position-handler.cjs'),'utf8'), handlerSource].join('\n')),
+      environment: { POSITION_USAGE_TABLE:'weiqi-position-usage',POSITION_RECOGNIZER:'WeiqiPositionRecognition',POSITION_ENGINE:'WeiqiPositionEngine',POSITION_DAILY_MICROS:String(projectConfig.positionAnalysis.dailyRequests*projectConfig.positionAnalysis.requestReserveMicros),POSITION_REQUEST_MICROS:String(projectConfig.positionAnalysis.requestReserveMicros),CLIENT_EDITS_PER_MINUTE:'60',CLIENT_POSITIONS_PER_DAY:String(projectConfig.positionAnalysis.connectionDailyRequests),DAILY_ANALYSIS_CAP:String(projectConfig.analysis.dailyDeepLimit),DAILY_UPLOAD_CAP:String(projectConfig.analysis.dailyGameLimit), AI_CONTROL_KEY:'control/ai-spending.json', LIBRARY_BUCKET:libraryBucket.bucketName, SITE_BUCKET:bucket.bucketName, ANALYSIS_QUEUE:analysisQueue.queueUrl, TABLE_NAME: gameTable.tableName, REPORT_QUEUE:reportQueue.queueUrl, SITE_ORIGIN: Fn.join('', ['https://', domainName]), PARAMETER_PREFIX, TENANT_PARAMETER },
+      code: lambda.Code.fromInline([engineSource, serviceSource, sharedLibrarySource, queueEstimateSource, sharePreviewSource, libraryHandlerSource, queueStatusSource, fs.readFileSync(path.join(root,'backend/client-limit.cjs'),'utf8'), fs.readFileSync(path.join(root,'backend/position-handler.cjs'),'utf8'), authSource, handlerSource].join('\n')),
     });
+    // Both functions read the owner sign-in settings: this app's client ID and secret (also the session key) and the tenant ID.
+    const parameterArn=(name:string)=>this.formatArn({service:'ssm',resource:'parameter',resourceName:name.slice(1)});
+    const readSecrets=(fn:lambda.Function)=>{
+      fn.addToRolePolicy(new iam.PolicyStatement({actions:['ssm:GetParameters'],resources:[parameterArn(`${PARAMETER_PREFIX}/*`),parameterArn(TENANT_PARAMETER)]}));
+      fn.addToRolePolicy(new iam.PolicyStatement({actions:['kms:Decrypt'],resources:['*'],conditions:{StringEquals:{'kms:ViaService':`ssm.${this.region}.amazonaws.com`}}}));
+    };
+    // GameHandler only checks the owner's session cookie to lift per-connection limits; it can never delete.
+    readSecrets(gameHandler);
     gameHandler.addToRolePolicy(new iam.PolicyStatement({actions:['lambda:InvokeFunction'],resources:[`arn:${this.partition}:lambda:${this.region}:${this.account}:function:WeiqiPositionRecognition`,`arn:${this.partition}:lambda:${this.region}:${this.account}:function:WeiqiPositionEngine`]}));
     gameHandler.addToRolePolicy(new iam.PolicyStatement({actions:['dynamodb:PutItem','dynamodb:UpdateItem'],resources:[`arn:${this.partition}:dynamodb:${this.region}:${this.account}:table/weiqi-position-usage`]}));
     reportQueue.grantSendMessages(gameHandler);
@@ -141,6 +163,60 @@ export class WeiqiSiteStack extends Stack {
     analysisQueue.grantSendMessages(gameHandler);
     gameTable.grant(gameHandler, 'dynamodb:GetItem', 'dynamodb:PutItem', 'dynamodb:Scan');
     const functionUrl = gameHandler.addFunctionUrl({ authType: lambda.FunctionUrlAuthType.AWS_IAM });
+
+    // OwnerApi: owner sign-in (/auth/*), the owner's website tools (/api/owner/*) and the managed API. It is the only
+    // function that may delete games; guests reach just sign-in and GET /api/owner/session (backend/owner-api.cjs).
+    const managedRoutes:Record<string,{scope:string}>=JSON.parse(fs.readFileSync(path.join(root,'backend/managed-routes.json'),'utf8'));
+    const strip=(source:string)=>source.replace(/^import .*;\n/gm,'').replace(/^export /gm,'').replace(/^module.exports=.*;$/gm,'');
+    const ownerSource=[
+      ...['src/engine.js','backend/game-service.js','src/sgf.js','src/recording-tree.js','backend/draft-service.js','src/ai-review.js','src/report-insights.js','src/report-data.js','backend/library-service.js','src/queue-estimate.js','backend/share-preview.cjs','backend/library-handler.cjs','backend/queue-status.cjs','backend/auth.cjs'].map(file=>strip(fs.readFileSync(path.join(root,file),'utf8'))),
+      'const MANAGED_ROUTES='+JSON.stringify(managedRoutes)+';',
+      strip(fs.readFileSync(path.join(root,'backend/owner-api.cjs'),'utf8')),
+    ].join('\n');
+    const ownerApi=new lambda.Function(this,'OwnerApi',{
+      description:'Weiqi owner sign-in, owner tools and the Microsoft-token API',
+      runtime:lambda.Runtime.NODEJS_22_X,handler:'index.handler',timeout:Duration.seconds(30),memorySize:256,
+      reservedConcurrentExecutions:5,
+      logGroup:new logs.LogGroup(this,'OwnerApiLogs',{retention:logs.RetentionDays.THREE_MONTHS,removalPolicy:RemovalPolicy.DESTROY}),
+      environment:{LIBRARY_BUCKET:libraryBucket.bucketName,SITE_BUCKET:bucket.bucketName,AI_CONTROL_KEY:'control/ai-spending.json',ANALYSIS_QUEUE:analysisQueue.queueUrl,TABLE_NAME:gameTable.tableName,
+        SITE_ORIGIN:Fn.join('',['https://',domainName]),DAILY_ANALYSIS_CAP:String(projectConfig.analysis.dailyDeepLimit),DAILY_UPLOAD_CAP:String(projectConfig.analysis.dailyGameLimit),PARAMETER_PREFIX,TENANT_PARAMETER},
+      code:lambda.Code.fromInline(ownerSource),
+    });
+    readSecrets(ownerApi);
+    ownerApi.addToRolePolicy(new iam.PolicyStatement({actions:['s3:GetObject','s3:PutObject'],resources:apiLibraryPrefixes.map(p=>libraryBucket.arnForObjects(p))}));
+    ownerApi.addToRolePolicy(new iam.PolicyStatement({actions:['s3:GetObject'],resources:[libraryBucket.arnForObjects('control/ai-spending.json')]}));
+    // Delete is limited to a game's files and its list entry. Buckets are versioned and no function may delete
+    // versions, so every delete can be undone. Uploads, reservations and daily counters are never deleted.
+    ownerApi.addToRolePolicy(new iam.PolicyStatement({actions:['s3:DeleteObject'],resources:[libraryBucket.arnForObjects('games/*'),libraryBucket.arnForObjects('library-index/*')]}));
+    ownerApi.addToRolePolicy(new iam.PolicyStatement({actions:['s3:ListBucket'],resources:[libraryBucket.bucketArn,bucket.bucketArn]}));
+    ownerApi.addToRolePolicy(new iam.PolicyStatement({actions:['s3:PutObject'],resources:[bucket.arnForObjects('share/*')]}));
+    ownerApi.addToRolePolicy(new iam.PolicyStatement({actions:['s3:DeleteObject'],resources:[bucket.arnForObjects('share/*'),bucket.arnForObjects('prepared-reports/*')]}));
+    ownerApi.addToRolePolicy(new iam.PolicyStatement({actions:['batch:DescribeJobs','batch:ListJobs'],resources:['*']}));
+    ownerApi.addToRolePolicy(new iam.PolicyStatement({actions:['dynamodb:GetItem'],resources:[gameTable.tableArn]}));
+    analysisQueue.grantSendMessages(ownerApi);
+    const ownerUrl=ownerApi.addFunctionUrl({authType:lambda.FunctionUrlAuthType.AWS_IAM});
+
+    // ---------- Managed API (Microsoft access tokens) ----------
+    // API Gateway checks the token (signature, issuer, audience, expiry, route scope); OwnerApi re-checks the claims
+    // (authorize in backend/owner-api.cjs). The website and its cookies don't use this API.
+    if(props.microsoftApi){
+      const tenantId=ssm.StringParameter.valueForStringParameter(this,TENANT_PARAMETER);
+      // The shared "dliu API" app: tokens are issued for it (audience) and through it (azp).
+      const apiAppId=ssm.StringParameter.valueForStringParameter(this,API_APP_PARAMETER);
+      const httpApi=new apigateway.HttpApi(this,'MicrosoftApi',{description:'Weiqi API: Microsoft Entra access tokens, delegated weiqi.* permissions and assigned users'});
+      (httpApi.defaultStage!.node.defaultChild as apigateway.CfnStage).defaultRouteSettings={throttlingRateLimit:MANAGED_API_RATE,throttlingBurstLimit:MANAGED_API_BURST};
+      const authorizer=new authorizers.HttpJwtAuthorizer('MicrosoftJwt',Fn.join('',['https://login.microsoftonline.com/',tenantId,'/v2.0']),{jwtAudience:[apiAppId]});
+      const integration=new integrations.HttpLambdaIntegration('WeiqiApi',ownerApi);
+      for(const [route,{scope}] of Object.entries(managedRoutes)){
+        const [method,routePath]=route.split(' ');
+        httpApi.addRoutes({path:routePath,methods:[apigateway.HttpMethod[method as 'GET'|'POST'|'DELETE']],integration,authorizer,authorizationScopes:[scope]});
+      }
+      ownerApi.addEnvironment('API_GATEWAY_ID',httpApi.apiId);
+      ownerApi.addEnvironment('API_TENANT_ID',tenantId);
+      ownerApi.addEnvironment('API_AUDIENCE',apiAppId);
+      ownerApi.addEnvironment('API_CLIENT_ID',apiAppId);
+      new CfnOutput(this,'MicrosoftApiUrl',{value:httpApi.apiEndpoint});
+    }
 
     // Public GET /health for status.dliu.com: read only, one cheap read per dependency, never paid work.
     const healthCheck=new lambda.Function(this,'HealthCheck',{
@@ -179,6 +255,7 @@ export class WeiqiSiteStack extends Stack {
     const trafficGeoPolicy = cloudfront.OriginRequestPolicy.fromOriginRequestPolicyId(
       this, 'TrafficGeo', Fn.importValue('TrafficGeoOriginRequestPolicyId'));
 
+    const ownerOrigin=origins.FunctionUrlOrigin.withOriginAccessControl(ownerUrl);
     const distribution = new cloudfront.Distribution(this, 'SiteDistribution', {
       defaultBehavior: {
         functionAssociations:[{eventType:cloudfront.FunctionEventType.VIEWER_REQUEST,function:recordRoutes},{ eventType: cloudfront.FunctionEventType.VIEWER_RESPONSE, function: visitorIdFunction }],
@@ -192,6 +269,23 @@ export class WeiqiSiteStack extends Stack {
         compress: true,
       },
       additionalBehaviors: {
+        // Listed before api/*: CloudFront uses the first matching pattern.
+        'api/owner/*': {
+          origin: ownerOrigin,
+          allowedMethods: cloudfront.AllowedMethods.ALLOW_ALL,
+          viewerProtocolPolicy: cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
+          cachePolicy: cloudfront.CachePolicy.CACHING_DISABLED,
+          originRequestPolicy: cloudfront.OriginRequestPolicy.ALL_VIEWER_EXCEPT_HOST_HEADER,
+          responseHeadersPolicy: headers,
+        },
+        'auth/*': {
+          origin: ownerOrigin,
+          allowedMethods: cloudfront.AllowedMethods.ALLOW_GET_HEAD,
+          viewerProtocolPolicy: cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
+          cachePolicy: cloudfront.CachePolicy.CACHING_DISABLED,
+          originRequestPolicy: cloudfront.OriginRequestPolicy.ALL_VIEWER_EXCEPT_HOST_HEADER,
+          responseHeadersPolicy: headers,
+        },
         'api/*': {
           origin: origins.FunctionUrlOrigin.withOriginAccessControl(functionUrl),
           allowedMethods: cloudfront.AllowedMethods.ALLOW_ALL,
@@ -234,6 +328,12 @@ export class WeiqiSiteStack extends Stack {
       sourceArn: distribution.distributionArn,
       invokedViaFunctionUrl: true,
     });
+    ownerApi.addPermission('CloudFrontInvokeFunction', {
+      principal: new iam.ServicePrincipal('cloudfront.amazonaws.com'),
+      action: 'lambda:InvokeFunction',
+      sourceArn: distribution.distributionArn,
+      invokedViaFunctionUrl: true,
+    });
 
     new route53.ARecord(this, 'SiteAliasRecord', {
       recordName: 'weiqi', zone: hostedZone,
@@ -250,6 +350,7 @@ export class WeiqiSiteStack extends Stack {
     new CfnOutput(this,'AnalysisQueueUrl',{value:analysisQueue.queueUrl});
     new CfnOutput(this, 'GameTableName', { value: gameTable.tableName });
     new CfnOutput(this, 'GameFunctionName', { value: gameHandler.functionName });
+    new CfnOutput(this, 'OwnerFunctionName', { value: ownerApi.functionName });
     new CfnOutput(this, 'SiteBucketName', { value: bucket.bucketName });
     new CfnOutput(this, 'DistributionId', { value: distribution.distributionId });
     new CfnOutput(this, 'CloudFrontDomainName', { value: distribution.distributionDomainName });

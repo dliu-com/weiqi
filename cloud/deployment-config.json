@@ -8,5 +8,6 @@
   "analysisQueueArnOverride": "arn:aws:sqs:eu-west-1:{account}:WeiqiGpuBenchmark-ProductionUploads7A5169A4-qnArg73Mau1c",
   "keepLegacyAnalysisQueue": "false",
   "spendingGuard": "true",
-  "positionAnalysis": "true"
+  "positionAnalysis": "true",
+  "microsoftApi": "true"
 }
