@@ -50,8 +50,8 @@ test('low stone-sound settings are really quiet: the click follows loudness, not
 });
 
 test('the default is quiet, muted plays nothing, and an old linear setting keeps its loudness',async()=>{
- const fresh=load();assert.equal(fresh.slider.value,'30');
- assert.ok(dB(await fresh.click())<=-30,'the default click is at least 30 dB down');
+ const fresh=load();assert.equal(fresh.slider.value,'20','the default is 20%');
+ assert.ok(dB(await fresh.click())<=-40,'the default click is at least 40 dB down');
  const muted=load();assert.equal(await muted.click(0),null,'0% creates no sound');
  const old=load({'weiqi.stone-volume':'5'});
  assert.equal(old.slider.value,'37');assert.equal(old.store.get('weiqi.stone-volume-v2'),'37');

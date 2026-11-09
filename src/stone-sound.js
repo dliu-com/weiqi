@@ -1,7 +1,7 @@
 import {t} from './i18n.js';
 // The slider follows loudness, not amplitude. A linear gain left low settings loud (10% was only 20 dB down),
-// so the click's gain is (volume/100)³: about 60 dB from 10% to 100%, and 30% is about 31 dB down.
-const key='weiqi.stone-volume-v2',linearKey='weiqi.stone-volume',defaultVolume=30,controls=[];
+// so the click's gain is (volume/100)³: about 60 dB from 10% to 100%. The default, 20%, is about 42 dB down.
+const key='weiqi.stone-volume-v2',linearKey='weiqi.stone-volume',defaultVolume=20,controls=[];
 const clamp=v=>Math.max(0,Math.min(100,v));
 export const stoneGain=v=>(clamp(v)/100)**3;
 // A volume saved under the old linear slider keeps the loudness it had.
