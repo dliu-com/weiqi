@@ -6,5 +6,6 @@
   "GET /api/library/{gameId}": { "scope": "weiqi.read" },
   "GET /api/library/{gameId}/report": { "scope": "weiqi.read" },
   "POST /api/library": { "scope": "weiqi.write" },
+  "PATCH /api/library/{gameId}": { "scope": "weiqi.write" },
   "DELETE /api/library/{gameId}": { "scope": "weiqi.delete" }
 }

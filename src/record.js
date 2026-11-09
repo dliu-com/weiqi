@@ -1,4 +1,4 @@
-import './site-shell.js';
+import {adminSession,adminSignInUrl} from './site-shell.js';
 import {timeControlSummary} from './time-control.js';
 import {mountStoneSound,prepareStoneSound,playStoneSound} from './stone-sound.js';
 import {BoardView} from './board-view.js';
@@ -10,7 +10,7 @@ import {play} from './engine.js';
 import {stepReplay} from './replay-navigation.js';
 import {gameResult} from './game-result.js';
 import {drawEvaluationChart} from './evaluation-chart.js';
-import {readSgf,parseSgf} from './sgf.js';
+import {readSgf,parseSgf,withGameInfo,sgfWithGameInfo} from './sgf.js';
 import {libraryRequest,requestErrorText} from './library-api.js';
 import {renderMoveLabel,qualityPill} from './move-label.js';
 const $=id=>document.getElementById(id),id=location.pathname.match(/^\/game\/([0-9]{10,14}|[a-f0-9-]{36})\/?$/)?.[1] || new URLSearchParams(location.search).get('game');
@@ -23,7 +23,7 @@ try{suggestions=localStorage.getItem('weiqi.aiSuggestions')!=='off';}catch{}
 function coord(index){return 'ABCDEFGHJKLMNOPQRST'[index%record.size]+(record.size-Math.floor(index/record.size));}
 let boardView;
 function drawBoard(){if(boardView)return;boardView=new BoardView($('board'),{horizontalArrows:false,onPoint:i=>{const actual=boardRecordedMoves.get(i),choice=boardCandidates.get(i);if(actual!==undefined)selectPosition(actual);else if(choice?.continuation)followAiContinuation(choice.continuation);else if(choice)showAiCandidate(choice.review,choice.candidate);else previewMove(i);}});points=boardView.points;}
-function render(){const panel=document.querySelector('#record-main aside'),scroll=panel.scrollTop;renderContents();panel.scrollTop=scroll;}
+function render(){const panel=document.querySelector('#record-main aside'),scroll=panel.scrollTop;renderContents();renderAdmin();panel.scrollTop=scroll;}
 function renderContents(){document.title=(data?.metadata.name || t('棋谱','Game record'))+' · DL';$('download-original').textContent=t('下载 SGF','Download SGF');$('generate-report').textContent=t('查看 AI 报告','View AI report');const reportReady=data?.analysis?.phase==='deep'&&data.metadata.analysis.status==='ready';$('generate-report').setAttribute('aria-disabled',String(!reportReady));if(reportReady)$('generate-report').href='/game/'+id+'/report';else $('generate-report').removeAttribute('href');$('generate-report').title=reportReady?t('查看已生成的中英文报告并保存 PDF','View the prepared English/Chinese report and save PDF'):data?.metadata.analysis.deep?.status==='limited'?t('无报告：当日深度分析限额已满','No report: daily deep analysis limit reached'):t('深度分析完成后自动生成报告','Report prepared automatically after deep analysis');$('record-main').hidden=!record;if(!record)return;
  const base=record.nodes[selected],continuations=aiLine&&!trialOffset&&!aiLine.overview?lineContinuations(record,aiLine,analyses,data.analysis?.phase):[],node=trials[trialOffset-1] || aiLine?.frames[aiLine.offset] || base;
  $('trial-controls').hidden=!trialOffset;$('trial-undo').textContent=t('撤回试下','Undo preview');$('trial-clear').textContent=t('返回原局面','Return to original position');
@@ -85,7 +85,7 @@ function showLoadError(){
  const link=document.createElement('a');link.href='/game';link.textContent=t('查看棋谱库','Go to the game library');
  $('record-message').replaceChildren(text+' ',...(record?[]:[link]));
 }
-async function load(){if(loading)return;loading=true;render();try{if(!/^(?:[0-9]{10,14}|[a-f0-9-]{36})$/.test(id || ''))throw Object.assign(Error('Invalid game link.'),{kind:'invalid-link'});const next=await libraryRequest('/api/library/'+id);const parsed=readSgf(next.sgf);if(next.analysis && next.analysis.sgfSha256!==Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(next.sgf))),b=>b.toString(16).padStart(2,'0')).join(''))throw Object.assign(Error('Analysis does not match this record.'),{kind:'mismatch'});data=next;record=parsed;handicap=Number(parseSgf(next.sgf).nodes[0].HA?.[0]||0);analyses=new Map((data.analysis?.positions || []).map(p=>[p.nodeId,p]));if(selected===null||selected>=record.nodes.length)selected=record.mainLine.at(-1);drawBoard();loadError=null;$('record-message').textContent='';}catch(e){loadError=e;showLoadError();}finally{loading=false;render();schedulePoll();scheduleStatusTicker();}}
+async function load(){if(loading)return;loading=true;render();try{if(!/^(?:[0-9]{10,14}|[a-f0-9-]{36})$/.test(id || ''))throw Object.assign(Error('Invalid game link.'),{kind:'invalid-link'});const next=await libraryRequest('/api/library/'+id);const parsed=readSgf(next.sgf);if(next.analysis && next.analysis.sgfSha256!==Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(next.sgf))),b=>b.toString(16).padStart(2,'0')).join(''))throw Object.assign(Error('Analysis does not match this record.'),{kind:'mismatch'});data=next;record=withGameInfo(parsed,next.metadata);handicap=Number(parseSgf(next.sgf).nodes[0].HA?.[0]||0);analyses=new Map((data.analysis?.positions || []).map(p=>[p.nodeId,p]));if(selected===null||selected>=record.nodes.length)selected=record.mainLine.at(-1);drawBoard();loadError=null;$('record-message').textContent='';}catch(e){loadError=e;showLoadError();}finally{loading=false;render();schedulePoll();scheduleStatusTicker();}}
 function soundCurrentMove(){const node=trials[trialOffset-1]||aiLine?.frames[aiLine.offset]||record?.nodes[selected];if(node?.move&&node.move.index!==null)playStoneSound();}
 function selectPosition(node){aiHover=null;aiHoverBlocked=false;prepareStoneSound();const forward=record.nodes[node].depth>record.nodes[selected].depth;selected=node;try{sessionStorage.setItem('weiqi.replay.'+id,String(node));}catch{}trials=[];trialOffset=0;aiLine=null;$('record-message').textContent='';render();if(forward)soundCurrentMove();}
 function step(amount){
@@ -105,7 +105,43 @@ $('trial-undo').onclick=()=>step(-1);$('trial-clear').onclick=clearAiLine;
 document.addEventListener('keydown',event=>{if(!record||event.target.closest('input,select,textarea,[contenteditable=true]')||(!aiLine&&!trialOffset&&event.target.closest('[role=slider]')))return;if(event.key==='ArrowLeft'){event.preventDefault();event.stopPropagation();step(-1);}else if(event.key==='ArrowRight'){event.preventDefault();event.stopPropagation();step(1);}else if(event.key==='Home'){event.preventDefault();selectPosition(0);}else if(event.key==='End'){event.preventDefault();selectPosition(record.mainLine.at(-1));}},{capture:true});
 window.addEventListener('resize',()=>{if(record)render();});
 document.addEventListener('visibilitychange',()=>{if(document.hidden){clearTimeout(pollTimer);clearInterval(statusTimer);render();}else if(data){scheduleStatusTicker();if(shouldPollQuick(data.metadata.analysis,data.metadata.benchmark))schedulePoll();}});
-$('download-original').onclick=()=>{if(!data)return;const url=URL.createObjectURL(new Blob([data.sgf],{type:'application/x-go-sgf;charset=utf-8'}));const a=document.createElement('a');a.href=url;a.download=data.metadata.name.replace(/[^\p{L}\p{N} _-]/gu,'-').slice(0,80)+'.sgf';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);};
+$('download-original').onclick=()=>{if(!data)return;const url=URL.createObjectURL(new Blob([sgfWithGameInfo(data.sgf,data.metadata)],{type:'application/x-go-sgf;charset=utf-8'}));const a=document.createElement('a');a.href=url;a.download=data.metadata.name.replace(/[^\p{L}\p{N} _-]/gu,'-').slice(0,80)+'.sgf';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);};
+// Admin tools: only the signed-in site admin sees them, and the server checks the admin session on every request.
+// Editing changes only the game info (metadata.json); the saved SGF, and so the AI analysis, never change.
+let admin=false;
+adminSession.then(session=>{admin=session.signedIn;render();});
+const INFO_FIELDS=[['name-label','棋局名称','Game name'],['black-label','黑方棋手','Black player'],['white-label','白方棋手','White player'],['black-rank-label','段级位','Rank'],['white-rank-label','段级位','Rank'],['date-label','日期','Date'],['venue-label','地点','Venue'],['result-label','结果','Result']];
+function renderAdmin(){
+ $('admin-tools').hidden=!admin||!data;if(!admin)return;
+ for(const [node,zh,en] of [['admin-tools-title','管理员','Admin'],['admin-tools-note','只有管理员能看到这些工具。编辑只改变棋局信息，不会改变棋谱和 AI 分析。','Only the site admin sees these tools. Editing changes only the game info, never the moves or the AI analysis.'],['edit-info','编辑棋局信息','Edit game info'],['delete-game','删除棋局','Delete game'],['edit-title','编辑棋局信息','Edit game info'],['edit-note','棋谱、贴目、规则和 AI 分析不变。网页、下载的 SGF 和 AI 报告会使用新信息。','The moves, komi, rules and AI analysis stay the same. The page, downloaded SGF files and the AI report use the new info.'],['cancel-edit','取消','Cancel'],['save-edit','保存','Save'],['delete-title','删除这盘棋？','Delete this game?'],['cancel-delete','取消','Cancel'],['accept-delete','删除','Delete'],...INFO_FIELDS])$(node).textContent=t(zh,en);
+ if(data)$('delete-text').textContent=t('“'+data.metadata.name+'”会从棋谱库中删除，包括它的 AI 分析和 AI 报告。','"'+data.metadata.name+'" will be removed from the game library, with its AI analysis and AI report.');
+}
+function adminError(e){return e.statusCode===401?t('管理员登录已过期。请重新登录。','Your admin sign-in has expired. Please sign in again.'):requestErrorText(e,t);}
+function expired(e){if(e.statusCode===401)setTimeout(()=>location.assign(adminSignInUrl()),1500);}
+$('edit-info').onclick=()=>{if(!data)return;const values={'name-input':data.metadata.name,'black-input':record.players.black,'white-input':record.players.white,'black-rank-input':record.playerRanks?.black,'white-rank-input':record.playerRanks?.white,'date-input':record.date,'venue-input':record.venue,'result-input':record.result};for(const [node,value] of Object.entries(values))$(node).value=value||'';$('edit-error').textContent='';$('admin-message').textContent='';$('edit-dialog').showModal();};
+$('cancel-edit').onclick=()=>$('edit-dialog').close();
+$('edit-form').onsubmit=async event=>{
+ event.preventDefault();if(!data)return;
+ const value=node=>$(node).value.replace(/\s+/g,' ').trim();
+ const info={name:value('name-input'),players:{black:value('black-input'),white:value('white-input')},playerRanks:{black:value('black-rank-input'),white:value('white-rank-input')},date:value('date-input'),venue:value('venue-input'),result:value('result-input')};
+ if(!info.name){$('edit-error').textContent=t('请输入棋局名称。','Enter a game name.');return;}
+ $('save-edit').disabled=true;$('edit-error').textContent='';
+ try{
+  const saved=await libraryRequest('/api/owner/library/'+encodeURIComponent(id)+'/info',info),edited=saved.metadata||{};
+  for(const key of ['name','players','playerRanks','date','venue','result','infoEditedAt'])if(edited[key]!==undefined)data.metadata[key]=edited[key];
+  record=withGameInfo(record,data.metadata);$('edit-dialog').close();
+  $('admin-message').textContent=saved.report==='updating'?t('已保存。AI 报告正在更新，大约一分钟后显示新信息。','Saved. The AI report is being updated and will show the new info in about a minute.'):saved.report==='after-analysis'?t('已保存。AI 分析完成后，报告会使用新信息。','Saved. The AI report will use the new info when the analysis finishes.'):saved.report==='failed'?t('已保存，但 AI 报告未能更新。请稍后再保存一次。','Saved, but the AI report could not be updated. Save again later to retry.'):t('已保存。','Saved.');
+  render();
+ }catch(e){$('edit-error').textContent=adminError(e);expired(e);}
+ finally{$('save-edit').disabled=false;}
+};
+$('delete-game').onclick=()=>{if(!data)return;renderAdmin();$('delete-error').textContent='';$('delete-dialog').showModal();};
+$('cancel-delete').onclick=()=>$('delete-dialog').close();
+$('accept-delete').onclick=async()=>{
+ $('accept-delete').disabled=true;$('delete-error').textContent='';
+ try{await libraryRequest('/api/owner/library/'+encodeURIComponent(id)+'/delete',{id});try{sessionStorage.removeItem('weiqi.replay.'+id);}catch{}location.replace('/game');}
+ catch(e){$('delete-error').textContent=adminError(e);expired(e);$('accept-delete').disabled=false;}
+};
 window.addEventListener('site-language-change',()=>{render();showLoadError();});render();load();
 
 // Keep the same controls and listeners while adapting their position to the screen.

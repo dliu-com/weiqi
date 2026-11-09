@@ -10,13 +10,13 @@ const libraryStore = {
   async get(key) {const value=await libraryS3.send(new GetObjectCommand({Bucket:process.env.LIBRARY_BUCKET,Key:key}));return value.Body.transformToString();},
   async create(key,body,type) {try {await libraryS3.send(new PutObjectCommand({Bucket:process.env.LIBRARY_BUCKET,Key:key,Body:body,ContentType:type,IfNoneMatch:'*'}));return true;}catch(e){if(e.$metadata?.httpStatusCode===412)return false;throw e;}}
 };
-// Versioned reports are prepared by the Batch completion event. The same cache
-// path is read-only on user requests; only completion events create reports.
+// Versioned reports are prepared by the Batch completion event or an admin game-info edit (the key then includes
+// infoEditedAt). The same cache path is read-only on user requests.
 async function storedAiReport(id,prepare=false) {
   const prefix=gamePrefix(id)+'/',metadata=JSON.parse(await libraryStore.get(prefix+'metadata.json'));
   if(metadata.analysis.available==='quick'||metadata.analysis.status!=='ready')throw Object.assign(Error('The report will be available when deep analysis finishes. Refresh the game page to check.'),{statusCode:409});
   const analysis=JSON.parse(await libraryStore.get(prefix+'analysis.json'));
-  const hash=reportHash('sha256').update(JSON.stringify([REPORT_SCHEMA_VERSION,analysis.sgfSha256,analysis.modelSha256,analysis.visits,analysis.completedAt])).digest('hex'),key=prefix+'reports/'+hash+'.json';
+  const hash=reportHash('sha256').update(JSON.stringify([REPORT_SCHEMA_VERSION,analysis.sgfSha256,analysis.modelSha256,analysis.visits,analysis.completedAt,...(metadata.infoEditedAt?[metadata.infoEditedAt]:[])])).digest('hex'),key=prefix+'reports/'+hash+'.json';
   try{return {report:JSON.parse(await libraryStore.get(key)),key};}catch(e){if(e.name!=='NoSuchKey')throw e;}
   if(!prepare)throw Object.assign(Error('The report is being prepared in the background. Please refresh later.'),{statusCode:409});
   const source=await libraryStore.get(prefix+'original.sgf');

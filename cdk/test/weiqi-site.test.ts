@@ -156,7 +156,11 @@ test('GET /health is a cached, read-only Lambda behind CloudFront that receives 
   expect(perms.every(r=>r.Properties.Principal==='cloudfront.amazonaws.com')).toBe(true);
   const roleId=health.Properties.Role['Fn::GetAtt'][0];
   const actions=Object.values(res).filter(r=>r.Type==='AWS::IAM::Policy'&&r.Properties.Roles.some((x:any)=>x.Ref===roleId)).flatMap(r=>r.Properties.PolicyDocument.Statement).flatMap((s:any)=>{expect(s.Effect).toBe('Allow');expect(s.Resource).not.toBe('*');return [].concat(s.Action);}).sort();
-  expect(actions).toEqual(['dynamodb:GetItem','lambda:GetFunctionConfiguration','s3:GetObject','sqs:GetQueueAttributes']);
+  expect(actions).toEqual(['dynamodb:GetItem','lambda:GetFunctionConfiguration','s3:GetObject','sqs:GetQueueAttributes','ssm:GetParameters']);
+  // Sign-in check: the two non-secret settings only, never the client secret, and no kms:Decrypt.
+  const ssmResources=JSON.stringify(Object.values(res).filter(r=>r.Type==='AWS::IAM::Policy'&&r.Properties.Roles.some((x:any)=>x.Ref===roleId)).flatMap(r=>r.Properties.PolicyDocument.Statement).filter((s:any)=>s.Action==='ssm:GetParameters').map((s:any)=>s.Resource));
+  expect(ssmResources).toContain('weiqi/entra-client-id');expect(ssmResources).toContain('dliu/entra-tenant-id');
+  expect(ssmResources).not.toContain('secret');expect(ssmResources).not.toContain('weiqi/*');
 });
 
 const ownerRoutes:Record<string,{scope:string}>=JSON.parse(require('fs').readFileSync(require('path').join(__dirname,'../../backend/managed-routes.json'),'utf8'));
@@ -175,6 +179,15 @@ test('only OwnerApi may delete, only a game\'s own files, and never object versi
  expect(all.filter((a:string)=>/DeleteObjectVersion/.test(a))).toEqual([]);
  const policies=Object.values(template.findResources('AWS::IAM::Policy'));const game=policies.find((policy:any)=>JSON.stringify(policy.Properties.Roles).includes('GameHandler')) as any;
  expect(actionsOf(game.Properties.PolicyDocument.Statement).filter((a:string)=>/Delete/.test(a))).toEqual([]);
+});
+test('OwnerApi may queue a report rebuild after a game-info edit, on the report queue only',()=>{
+ const [,owner]=functionNamed(template,'Weiqi owner sign-in, owner tools and the Microsoft-token API');
+ const env=owner.Properties.Environment.Variables,res=template.toJSON().Resources as Record<string,any>;
+ const reportQueue=Object.keys(res).find(k=>res[k].Type==='AWS::SQS::Queue'&&k.startsWith('ReportQueue'))!;expect(env.REPORT_QUEUE).toEqual({Ref:reportQueue});
+ expect(res[reportQueue].Properties.FifoQueue).toBe(true);
+ const sends=roleStatements(template,owner).filter((s:any)=>[].concat(s.Action).includes('sqs:SendMessage' as never));
+ expect(sends.map((s:any)=>JSON.stringify(s.Resource)).some((r:string)=>r.includes(reportQueue))).toBe(true);
+ expect(sends.flatMap((s:any)=>[].concat(s.Action))).not.toContain('sqs:DeleteMessage');
 });
 test('owner sign-in secrets are readable only under /weiqi and the shared tenant ID, through SSM',()=>{
  for(const description of ['Weiqi owner sign-in, owner tools and the Microsoft-token API']){

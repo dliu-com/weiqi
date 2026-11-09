@@ -45,7 +45,14 @@ export const healthFunctions=[
   how:["打开 AI 分析页面；/health 确认两个程序就绪且未暂停。不会分析任何照片。", "Opens the AI analysis page; /health checks both programs are ready and not paused. No photo is analysed."],
   down:['不能用照片或局面做 AI 分析。','Photos and positions cannot be analysed.'],
   pass:['两个函数都就绪且未暂停','both functions ready and not paused'],warn:['`paused by spending guard`，或函数正在更新（`function not ready`）','`paused by spending guard`, or a function is updating (`function not ready`)'],fail:['`timeout`、`read failed`、`function not ready`','`timeout`, `read failed`, `function not ready`'],
-  reads:['两个函数的状态（Lambda GetFunctionConfiguration）；控制文件中的暂停标记。','State of both functions (Lambda GetFunctionConfiguration); the control file\'s paused flag.']}
+  reads:['两个函数的状态（Lambda GetFunctionConfiguration）；控制文件中的暂停标记。','State of both functions (Lambda GetFunctionConfiguration); the control file\'s paused flag.']},
+ {key:'signin',critical:false,name:['管理员登录和 API','Admin sign-in and API'],
+  plain:['管理员能用微软账户登录，API 拒绝没有令牌的请求。访客不登录也能使用整个网站。','The admin can sign in with Microsoft, and the API refuses requests without a token. Guests use the whole site without signing in.'],
+  does:['管理员删除棋谱、修改棋局信息；受信任的工具用 auth.dliu.com 令牌通过 API 读写。', 'The admin deletes saved games and edits game info; trusted tools use an auth.dliu.com token to read and write through the API.'],
+  how:["打开管理员登录链接（它会转到微软），并确认没有登录时得到“未登录”；/health 确认管理程序就绪、登录设置存在。", "Opens the admin sign-in link (it goes to Microsoft) and confirms a guest is told they are not signed in; /health checks the admin program is ready and the sign-in settings exist."],
+  down:['管理员不能登录，API 不能用；访客照常使用网站。','The admin cannot sign in and the API does not work; guests use the site as usual.'],
+  pass:['函数就绪且设置存在','function ready and settings present'],warn:['函数正在更新（`function not ready`）','the function is updating (`function not ready`)'],fail:['`timeout`、`read failed`、`function not ready`、`sign-in not configured`','`timeout`, `read failed`, `function not ready`, `sign-in not configured`'],
+  reads:['管理函数的状态（Lambda GetFunctionConfiguration）；两个不保密的登录设置是否存在（SSM GetParameters，不解密；从不读取客户端密钥）。','Admin function state (Lambda GetFunctionConfiguration); whether the two non-secret sign-in settings exist (SSM GetParameters without decryption; the client secret is never read).']}
 ];
 export const healthKeys=healthFunctions.map(f=>f.key);
 
@@ -55,6 +62,8 @@ export const guestChecks=[
  page('pages','/'),page('pages','/play'),page('pages','/record'),page('pages','/guide'),page('pages','/docs'),
  {key:'pages',method:'GET',path:'/docs/health',status:301,location:'/docs#health'},
  {key:'pages',method:'GET',path:'/docs/health.md',status:200,type:'text/markdown',marker:'# DL Weiqi health checks',slowMs:2000},
+ {key:'pages',method:'GET',path:'/docs/cost',status:301,location:'/docs#cost'},
+ {key:'pages',method:'GET',path:'/docs/api.md',status:200,type:'text/markdown',marker:'# Weiqi API',slowMs:2000},
  {key:'pages',method:'GET',path:'/about',status:301,location:'/docs'},
  {key:'pages',method:'GET',url:'http://weiqi.dliu.com/',status:301,location:SITE+'/'},
  api('live-game','/api/game','"state"'),api('live-game','/api/draft','"draft"'),api('live-game','/api/games','"games"'),
@@ -62,6 +71,8 @@ export const guestChecks=[
  page('reports','/game/'+SAMPLE_GAME+'/report'),api('reports','/api/library/'+SAMPLE_GAME+'/report','"availableLanguages"'),api('reports','/prepared-reports/'+SAMPLE_GAME+'/index.json','"id"'),
  api('analysis','/api/library/'+SAMPLE_GAME,'"analysis"'),
  page('position','/analysis'),
+ {key:'signin',method:'GET',path:'/auth/login',status:302,locationPrefix:'https://login.microsoftonline.com/',slowMs:3000},
+ api('signin','/api/owner/session','"signedIn":false'),
  {key:'health',method:'GET',path:'/health',status:'200 or 503',type:'application/health+json',marker:'"status"',slowMs:5000}
 ];
 export const checkUrl=c=>c.url||SITE+c.path;
@@ -69,7 +80,8 @@ export const checkUrl=c=>c.url||SITE+c.path;
 export const notTested=[
  ['下棋、记谱、保存棋谱：这些会改变共享内容，访客检查不能做。','Playing moves, recording and saving games: these change shared content, so guest checks never do them.'],
  ['真正运行 AI 分析、照片识别或局面分析：每次都要花钱。/health 只确认这些程序已就绪且未暂停。','Actually running AI analysis, photo recognition or position analysis: each run costs money. /health only confirms they are ready and not paused.'],
- ['网站没有登录，所以没有需要登录的功能。','The site has no sign-in, so there are no signed-in features.']
+ ['管理员功能（删除棋谱、修改棋局信息）和 API 的读写：需要管理员登录或令牌，访客检查从不登录。安全测试确认没有登录或令牌时这些全部被拒绝。','Admin actions (deleting games, editing game info) and API reads and writes: they need the admin sign-in or a token, and guest checks never sign in. The security tests confirm every one is refused without them.'],
+ ['跟着管理员登录链接去微软：检查只确认链接指向微软，从不打开微软的登录页。','Following the admin sign-in link to Microsoft: checks only confirm it points there and never open Microsoft\'s sign-in page.']
 ];
 export const rules=[
  ['只用 GET，不带 cookie、不带 `Authorization` 头、不带请求体。（网页也接受 HEAD，但 `/api/` 对 HEAD 返回 405。）','Only GET, with no cookies, no `Authorization` header and no request body. (Pages also accept HEAD, but `/api/` answers HEAD with 405.)'],
@@ -84,20 +96,20 @@ export const healthEndpoint={
  timeouts:['每次读取有 2 秒超时（报告为 `timeout`）；整个回应在 5 秒内返回。','Each read has its own 2 s timeout (reported as `timeout`); the response returns within 5 s.'],
  format:['`Content-Type: application/health+json`。`status` 为 `pass` 或 `warn` 时返回 HTTP 200，为 `fail` 时返回 503。顶层 `status` 是各功能中最差的状态。','`Content-Type: application/health+json`. HTTP 200 when `status` is `pass` or `warn`, 503 when it is `fail`. The top-level `status` is the worst function status.'],
  private:['只读：每个依赖只做一次便宜的读取，不写入，不列出 S3，从不启动分析、识别、报告生成、GPU 或 Fargate 工作。不透露私有信息：没有资源名称、数量或用户数据；`output` 只会是下列之一。','Read only: one cheap read per dependency, no writes, no S3 LIST, and it never starts analysis, recognition, report rendering, GPU or Fargate work. Nothing private: no resource names, counts or user data; `output` is only one of the values below.'],
- outputs:['`timeout`','`read failed`','`function not ready`','`paused by spending guard`','`failed reports waiting`'],
+ outputs:['`timeout`','`read failed`','`function not ready`','`paused by spending guard`','`failed reports waiting`','`sign-in not configured`'],
  example:{status:'warn',time:'2026-11-03T23:00:00.000Z',functions:[
   {key:'pages',name:'Pages',status:'pass'},{key:'live-game',name:'Live game and shared draft',status:'pass'},{key:'library',name:'Game library',status:'pass'},
-  {key:'reports',name:'Game reports',status:'warn',output:'failed reports waiting'},{key:'analysis',name:'AI game analysis',status:'pass'},{key:'position',name:'Photo recognition and position analysis',status:'pass'}]}
+  {key:'reports',name:'Game reports',status:'warn',output:'failed reports waiting'},{key:'analysis',name:'AI game analysis',status:'pass'},{key:'position',name:'Photo recognition and position analysis',status:'pass'},{key:'signin',name:'Admin sign-in and API',status:'pass'}]}
 };
 
 const cell=v=>String(v).replace(/\|/g,'\\|');
 export function healthMarkdown(){
- const lines=['# DL Weiqi health checks','','How status.dliu.com (or anyone) can test '+SITE+' as an anonymous guest. This is the full technical version of '+SITE+'/docs#health (the Health tab). The site has no sign-in.','',
+ const lines=['# DL Weiqi health checks','','How status.dliu.com (or anyone) can test '+SITE+' as an anonymous guest. This is the full technical version of '+SITE+'/docs#health (the Health tab). Guests use every page without signing in; only the admin signs in, and these checks never do.','',
   '## Functions','','| Key | Name | Critical | What a guest gets | Down means |','|---|---|---|---|---|',
   ...healthFunctions.map(f=>'| `'+f.key+'` | '+f.name[1]+' ('+f.name[0]+') | '+(f.critical?'yes':'no')+' | '+cell(f.plain[1])+' | '+cell(f.down[1])+' |'),'',
-  '## Guest checks','','One row per check. Method GET, no cookies. "Type" is a prefix of `Content-Type`. "Marker" is a fixed string in the body (a JSON key for JSON). For redirects, `Location` must equal the given value. "Slow" is the time above which the check counts as slow.','',
+  '## Guest checks','','One row per check. Method GET, no cookies. "Type" is a prefix of `Content-Type`. "Marker" is a fixed string in the body (a JSON key for JSON). For redirects, `Location` must equal the given value (or start with it, where the table says so); never follow a redirect to Microsoft. "Slow" is the time above which the check counts as slow.','',
   '| Function | Method | URL | Status | Type | Marker or Location | Slow (ms) |','|---|---|---|---|---|---|---|',
-  ...guestChecks.map(c=>'| `'+c.key+'` | '+c.method+' | '+checkUrl(c)+' | '+c.status+' | '+(c.type?'`'+c.type+'`':'—')+' | '+(c.location?'Location: `'+c.location+'`':'`'+cell(c.marker)+'`')+' | '+(c.slowMs??'—')+' |'),'',
+  ...guestChecks.map(c=>'| `'+c.key+'` | '+c.method+' | '+checkUrl(c)+' | '+c.status+' | '+(c.type?'`'+c.type+'`':'—')+' | '+(c.location?'Location: `'+c.location+'`':c.locationPrefix?'Location starts with `'+c.locationPrefix+'`':'`'+cell(c.marker)+'`')+' | '+(c.slowMs??'—')+' |'),'',
   '## Health endpoint','','`GET '+SITE+healthEndpoint.path+'`','',...['caching','timeouts','format','private'].map(k=>'- '+healthEndpoint[k][1]),'- `output` values: '+healthEndpoint.outputs.join(', ')+'.','',
   '| Key | What /health reads | pass | warn | fail |','|---|---|---|---|---|',
   ...healthFunctions.map(f=>'| `'+f.key+'` | '+cell(f.reads[1])+' | '+f.pass[1]+' | '+f.warn[1]+' | '+f.fail[1]+' |'),'',

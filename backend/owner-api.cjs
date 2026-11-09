@@ -41,6 +41,74 @@ async function deleteRecord(id){
  return response(200,{deleted:id});
 }
 
+// Game info (admin only): name, players, ranks, date, venue and result. Edits go to metadata.json with infoEditedAt;
+// the saved SGF is never changed, because the AI analysis is tied to its SHA-256 (see withGameInfo in src/sgf.js).
+// Komi, rules, handicap and moves are not editable: the analysis depends on them.
+const MAX_INFO_BYTES=10000,INFO_LENGTH=200;
+const infoError=message=>Object.assign(Error(message),{statusCode:400});
+function infoText(value,label,required){
+ if(typeof value!=='string')throw infoError('"'+label+'" must be text.');
+ const text=value.replace(/\s+/g,' ').trim();
+ if(/[\u0000-\u001f\u007f]/.test(text))throw infoError('"'+label+'" contains control characters.');
+ if(text.length>INFO_LENGTH)throw infoError('"'+label+'" can be at most '+INFO_LENGTH+' characters.');
+ if(required&&!text)throw infoError('"'+label+'" cannot be empty.');
+ return text;
+}
+function infoSides(value,label){
+ if(!value||typeof value!=='object'||Array.isArray(value))throw infoError('"'+label+'" must be an object with "black" and/or "white".');
+ const sides={};
+ for(const [side,text] of Object.entries(value)){if(side!=='black'&&side!=='white')throw infoError('"'+label+'" only has "black" and "white".');sides[side]=infoText(text,label+'.'+side);}
+ return sides;
+}
+function gameInfoChanges(request){
+ if(!request||typeof request!=='object'||Array.isArray(request))throw infoError('Send a JSON object.');
+ const changes={};
+ for(const [key,value] of Object.entries(request)){
+  if(key==='name')changes.name=infoText(value,'name',true);
+  else if(key==='date'||key==='venue'||key==='result')changes[key]=infoText(value,key);
+  else if(key==='players'||key==='playerRanks')changes[key]=infoSides(value,key);
+  else throw infoError('"'+key+'" cannot be edited. Editable: name, players, playerRanks, date, venue, result.');
+ }
+ if(!Object.keys(changes).length)throw infoError('Send at least one of: name, players, playerRanks, date, venue, result.');
+ return changes;
+}
+// Re-prepares the report with the new info: a new report key, rendered again by the report queue.
+async function refreshReport(id,metadata){
+ const analysis=metadata.analysis||{};
+ if(analysis.status!=='ready'||analysis.available==='quick')return 'after-analysis';
+ try{
+  const saved=await storedAiReport(id,true),jobId=analysis.deep?.jobId;
+  if(!process.env.REPORT_QUEUE||!jobId||!/^[0-9]{10,14}$/.test(id))return 'updated';
+  await libraryQueue.send(new SendMessageCommand({QueueUrl:process.env.REPORT_QUEUE,MessageGroupId:'reports',MessageDeduplicationId:reportHash('sha256').update(saved.key+'|'+jobId).digest('hex'),MessageBody:JSON.stringify({id,reportKey:saved.key,jobId})}));
+  return 'updating';
+ }catch(e){console.error('Report refresh failed',{id,name:e.name});return 'failed';}
+}
+// Retrying the same edit is safe: unchanged info keeps infoEditedAt, and the share preview and report are refreshed again.
+async function updateGameInfo(id,request){
+ if(typeof id!=='string'||!validRecordId(id))return response(404,{message:'Record not found.'});
+ const changes=gameInfoChanges(request),prefix=gamePrefix(id)+'/',key=prefix+'metadata.json';
+ let source;try{source=await libraryStore.get(prefix+'original.sgf');}catch(e){if(e.name==='NoSuchKey')return response(404,{message:'Record not found.'});throw e;}
+ const original=readSgf(source);let metadata;
+ for(let n=0;;n++){
+  let object;try{object=await libraryS3.send(new GetObjectCommand({Bucket:process.env.LIBRARY_BUCKET,Key:key}));}catch(e){if(e.name==='NoSuchKey')return response(404,{message:'Record not found.'});throw e;}
+  const current=JSON.parse(await object.Body.transformToString()),shown=withGameInfo({...original,name:current.name},current);
+  const info={name:shown.name,players:{...shown.players},playerRanks:{...shown.playerRanks},date:shown.date,venue:shown.venue||'',result:shown.result};
+  const next={...info,...changes,players:{...info.players,...changes.players},playerRanks:{...info.playerRanks,...changes.playerRanks}};
+  if(JSON.stringify(next)===JSON.stringify(info)){metadata=current;break;}
+  metadata={...current,...next,infoEditedAt:new Date().toISOString()};
+  try{await libraryS3.send(new PutObjectCommand({Bucket:process.env.LIBRARY_BUCKET,Key:key,Body:JSON.stringify(metadata),ContentType:'application/json',IfMatch:object.ETag}));break;}
+  catch(e){if(![409,412].includes(e.$metadata?.httpStatusCode)||n===5)throw e;}
+ }
+ await saveSharePreview(source,metadata);
+ const report=await refreshReport(id,metadata);
+ return response(200,{id,metadata:await attachPlayerRanks(metadata,source),report});
+}
+const jsonRequest=(event,limit)=>{
+ if(!isJson(event))return {error:response(415,{message:'Use JSON.'})};
+ const raw=bodyText(event);if(Buffer.byteLength(raw)>limit)return {error:response(413,{message:'Request too large.'})};
+ try{return {value:JSON.parse(raw)};}catch{return {error:response(400,{message:'Invalid JSON.'})};}
+};
+
 async function ownerSession(event){
  if(!weiqiAuth.hasSessionCookie(event))return null;
  return weiqiAuth.getSession(event,await weiqiAuth.loadConfig());
@@ -65,16 +133,22 @@ async function websiteHandler(event){
    // A stale session also clears the page hint, so the pages stop asking.
    return session?response(200,{signedIn:true,user:session.user,name:session.name||session.user}):response(200,{signedIn:false},weiqiAuth.logoutCookies());
   }
-  const deleteId=path.match(/^\/api\/owner\/library\/([^/]+)\/delete$/)?.[1];
-  if(deleteId!==undefined){
+  const [,ownerId,action]=path.match(/^\/api\/owner\/library\/([^/]+)\/(delete|info)$/)||[];
+  if(action){
    if(method!=='POST')return response(405,{message:'Method not allowed.'});
-   // Stricter than the public POSTs: Origin is required, so no other site can make a signed-in browser delete.
+   // Stricter than the public POSTs: Origin is required, so no other site can make a signed-in browser act.
    if(event.headers?.origin!==site)return response(403,{message:'Invalid request origin.'});
    if(!isJson(event))return response(415,{message:'Use JSON.'});
    const session=await ownerSession(event);
-   if(!session)return response(401,{message:'Sign in as the site owner to delete games.'});
-   const result=await deleteRecord(deleteId);
-   if(result.statusCode===200)console.log(JSON.stringify({message:'Owner deleted game',id:deleteId,oid:session.oid}));
+   if(!session)return response(401,{message:action==='delete'?'Sign in as the site admin to delete games.':'Sign in as the site admin to edit game info.'});
+   if(action==='delete'){
+    const result=await deleteRecord(ownerId);
+    if(result.statusCode===200)console.log(JSON.stringify({message:'Owner deleted game',id:ownerId,oid:session.oid}));
+    return result;
+   }
+   const body=jsonRequest(event,MAX_INFO_BYTES);if(body.error)return body.error;
+   const result=await updateGameInfo(ownerId,body.value);
+   if(result.statusCode===200)console.log(JSON.stringify({message:'Owner edited game info',id:ownerId,oid:session.oid}));
    return result;
   }
   return response(404,{message:'Not found.'});
@@ -157,6 +231,12 @@ async function managedHandler(event){
    }
    case 'GET /api/library/{gameId}':case 'GET /api/library/{gameId}/report':return libraryHandler(event);
    case 'POST /api/library':return await managedUpload(event,caller);
+   case 'PATCH /api/library/{gameId}':{
+    const id=event.pathParameters?.gameId,body=jsonRequest(event,MAX_INFO_BYTES);if(body.error)return body.error;
+    const result=await updateGameInfo(id,body.value);
+    if(result.statusCode===200)console.log(JSON.stringify({message:'API edited game info',id,oid:caller.user}));
+    return result;
+   }
    case 'DELETE /api/library/{gameId}':{
     const id=event.pathParameters?.gameId,result=await deleteRecord(id);
     if(result.statusCode===200)console.log(JSON.stringify({message:'API deleted game',id,oid:caller.user}));

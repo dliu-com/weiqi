@@ -179,7 +179,7 @@ export class WeiqiSiteStack extends Stack {
       reservedConcurrentExecutions:5,
       logGroup:new logs.LogGroup(this,'OwnerApiLogs',{retention:logs.RetentionDays.THREE_MONTHS,removalPolicy:RemovalPolicy.DESTROY}),
       environment:{LIBRARY_BUCKET:libraryBucket.bucketName,SITE_BUCKET:bucket.bucketName,AI_CONTROL_KEY:'control/ai-spending.json',ANALYSIS_QUEUE:analysisQueue.queueUrl,TABLE_NAME:gameTable.tableName,
-        SITE_ORIGIN:Fn.join('',['https://',domainName]),DAILY_ANALYSIS_CAP:String(projectConfig.analysis.dailyDeepLimit),DAILY_UPLOAD_CAP:String(projectConfig.analysis.dailyGameLimit),PARAMETER_PREFIX,TENANT_PARAMETER},
+        SITE_ORIGIN:Fn.join('',['https://',domainName]),DAILY_ANALYSIS_CAP:String(projectConfig.analysis.dailyDeepLimit),DAILY_UPLOAD_CAP:String(projectConfig.analysis.dailyGameLimit),PARAMETER_PREFIX,TENANT_PARAMETER,REPORT_QUEUE:reportQueue.queueUrl},
       code:lambda.Code.fromInline(ownerSource),
     });
     readSecrets(ownerApi);
@@ -194,6 +194,8 @@ export class WeiqiSiteStack extends Stack {
     ownerApi.addToRolePolicy(new iam.PolicyStatement({actions:['batch:DescribeJobs','batch:ListJobs'],resources:['*']}));
     ownerApi.addToRolePolicy(new iam.PolicyStatement({actions:['dynamodb:GetItem'],resources:[gameTable.tableArn]}));
     analysisQueue.grantSendMessages(ownerApi);
+    // A game-info edit prepares the report again (backend/owner-api.cjs refreshReport).
+    reportQueue.grantSendMessages(ownerApi);
     const ownerUrl=ownerApi.addFunctionUrl({authType:lambda.FunctionUrlAuthType.AWS_IAM});
 
     // ---------- Managed API (Microsoft access tokens) ----------
@@ -209,7 +211,7 @@ export class WeiqiSiteStack extends Stack {
       const integration=new integrations.HttpLambdaIntegration('WeiqiApi',ownerApi);
       for(const [route,{scope}] of Object.entries(managedRoutes)){
         const [method,routePath]=route.split(' ');
-        httpApi.addRoutes({path:routePath,methods:[apigateway.HttpMethod[method as 'GET'|'POST'|'DELETE']],integration,authorizer,authorizationScopes:[scope]});
+        httpApi.addRoutes({path:routePath,methods:[apigateway.HttpMethod[method as 'GET'|'POST'|'PATCH'|'DELETE']],integration,authorizer,authorizationScopes:[scope]});
       }
       ownerApi.addEnvironment('API_GATEWAY_ID',httpApi.apiId);
       ownerApi.addEnvironment('API_TENANT_ID',tenantId);
@@ -226,13 +228,15 @@ export class WeiqiSiteStack extends Stack {
       reservedConcurrentExecutions:2,
       logGroup:new logs.LogGroup(this,'HealthCheckLogs',{retention:logs.RetentionDays.THREE_MONTHS,removalPolicy:RemovalPolicy.DESTROY}),
       code:lambda.Code.fromInline(fs.readFileSync(path.join(root,'backend/health.cjs'),'utf8')),
-      environment:{SITE_BUCKET:bucket.bucketName,LIBRARY_BUCKET:libraryBucket.bucketName,AI_CONTROL_KEY:'control/ai-spending.json',TABLE_NAME:gameTable.tableName,REPORT_DLQ_URL:reportDeadLetters.queueUrl,REPORT_RENDERER:reportRenderer.functionName,POSITION_RECOGNIZER:'WeiqiPositionRecognition',POSITION_ENGINE:'WeiqiPositionEngine'},
+      environment:{SITE_BUCKET:bucket.bucketName,LIBRARY_BUCKET:libraryBucket.bucketName,AI_CONTROL_KEY:'control/ai-spending.json',TABLE_NAME:gameTable.tableName,REPORT_DLQ_URL:reportDeadLetters.queueUrl,REPORT_RENDERER:reportRenderer.functionName,POSITION_RECOGNIZER:'WeiqiPositionRecognition',POSITION_ENGINE:'WeiqiPositionEngine',OWNER_API:ownerApi.functionName,TENANT_PARAMETER,CLIENT_ID_PARAMETER:`${PARAMETER_PREFIX}/entra-client-id`},
     });
     healthCheck.addToRolePolicy(new iam.PolicyStatement({actions:['s3:GetObject'],resources:[bucket.arnForObjects('index.html'),libraryBucket.arnForObjects('control/ai-spending.json')]}));
     // Without ListBucket a missing control file reads as AccessDenied (fail), never as "not paused".
     healthCheck.addToRolePolicy(new iam.PolicyStatement({actions:['dynamodb:GetItem'],resources:[gameTable.tableArn]}));
     healthCheck.addToRolePolicy(new iam.PolicyStatement({actions:['sqs:GetQueueAttributes'],resources:[reportDeadLetters.queueArn]}));
-    healthCheck.addToRolePolicy(new iam.PolicyStatement({actions:['lambda:GetFunctionConfiguration'],resources:[reportRenderer.functionArn,`arn:${this.partition}:lambda:${this.region}:${this.account}:function:WeiqiPositionRecognition`,`arn:${this.partition}:lambda:${this.region}:${this.account}:function:WeiqiPositionEngine`]}));
+    healthCheck.addToRolePolicy(new iam.PolicyStatement({actions:['lambda:GetFunctionConfiguration'],resources:[reportRenderer.functionArn,`arn:${this.partition}:lambda:${this.region}:${this.account}:function:WeiqiPositionRecognition`,`arn:${this.partition}:lambda:${this.region}:${this.account}:function:WeiqiPositionEngine`,ownerApi.functionArn]}));
+    // The two non-secret sign-in settings only: no access to the client secret and no kms:Decrypt.
+    healthCheck.addToRolePolicy(new iam.PolicyStatement({actions:['ssm:GetParameters'],resources:[parameterArn(TENANT_PARAMETER),parameterArn(`${PARAMETER_PREFIX}/entra-client-id`)]}));
     const healthUrl=healthCheck.addFunctionUrl({authType:lambda.FunctionUrlAuthType.AWS_IAM});
     // Keyed on nothing: every viewer shares one copy for 60 s, so status checks cost at most one call a minute per edge.
     const healthCache=new cloudfront.CachePolicy(this,'HealthCache',{

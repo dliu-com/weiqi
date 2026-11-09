@@ -1,4 +1,4 @@
-import {readSgf} from './sgf.js';
+import {readSgf,withGameInfo} from './sgf.js';
 import {reviewMove,recommendedLine,moveCoordinate} from './ai-review.js';
 import {keyMoments} from './report-insights.js';
 
@@ -36,7 +36,7 @@ export function summariseLosses(items){
  };
 }
 export function buildAiReport(source,analysis,metadata,now=new Date()) {
- const record=readSgf(source),evaluations=new Map(analysis.positions.map(p=>[p.nodeId,p]));
+ const record=withGameInfo(readSgf(source),metadata),evaluations=new Map(analysis.positions.map(p=>[p.nodeId,p]));
  if(analysis.phase!=='deep'||record.mainLine.some(id=>!evaluations.has(id)))throw Object.assign(Error('A complete deep analysis is required to generate this report.'),{statusCode:409});
  const reviews=record.mainLine.slice(1).map(id=>{
   const node=record.nodes[id],r=reviewMove(record,id,evaluations,'deep'),before=evaluations.get(r.anchor),after=evaluations.get(id),side=node.move.side,played=r.played??moveCoordinate(node.move,record.size),sign=side==='B'?1:-1;

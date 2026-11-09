@@ -12,9 +12,8 @@ const KEEP=[
  'a6bbaa61-3e2d-4f0a-8fd7-bd6a51150fbe-deep', // T4 · 3,000
  '08f5cea6-45d6-4861-b557-54b6a45684e5-deep' // T4 · 5,000
 ];
-// benchmarks.html sets <base href="/">, so in-page links need the page path.
-let data=null,failed=false,scrolled=false;
-const $=id=>document.getElementById(id);
+// The Benchmarks tab of /docs (about.js). The page sets <base href="/">, so in-page links need the page path.
+let data=null,failed=false,scrolled=false,loading=null;
 const num=n=>n.toLocaleString('en-US');
 const usd=x=>Number.isFinite(x)?'US$'+x.toFixed(2):'—';
 const exact=s=>{if(!Number.isFinite(s))return '—';if(s<10)return s.toFixed(1)+t(' 秒',' s');const n=Math.round(s),m=Math.floor(n/60);return (m?m+t(' 分 ',' min '):'')+n%60+t(' 秒',' s');};
@@ -40,17 +39,20 @@ function table(head,rows,className){
  }
  tbl.append(thead,tbody);wrap.append(tbl);return wrap;
 }
-function render(){
- document.title=t('基准实验 · DL','Benchmarks · DL');$('benchmark-title').textContent=t('分析基准实验','Analysis benchmarks');
- if(!data){$('benchmark-intro').textContent=failed?t('无法加载基准数据。','Unable to load benchmarks.'):t('正在加载…','Loading…');return;}
+// refresh() is called once the data has loaded, so the caller can draw the tab again if it is still open.
+function load(refresh){loading??=fetch('/benchmarks-data.json',{cache:'no-cache'}).then(r=>{if(!r.ok)throw Error('Unable to load benchmarks.');return r.json();}).then(d=>{data=d;},()=>{failed=true;}).then(()=>refresh?.());}
+export function renderBenchmarks(titleNode,contentNode,refresh){
+ document.title=t('基准实验 · DL','Benchmarks · DL');titleNode.textContent=t('分析基准实验','Analysis benchmarks');
+ const intro=el('p'),results=el('div');intro.id='benchmark-intro';results.id='benchmark-results';contentNode.replaceChildren(intro,results);
+ if(!data){if(!failed)load(refresh);intro.textContent=failed?t('无法加载基准数据。','Unable to load benchmarks.'):t('正在加载…','Loading…');return;}
  const runs=KEEP.map(id=>data.experiments.find(r=>r.id===id));
- if(runs.some(r=>!r)){$('benchmark-intro').textContent=t('部分基准数据缺失。','Some benchmark runs are missing.');$('benchmark-results').replaceChildren();return;}
+ if(runs.some(r=>!r)){intro.textContent=t('部分基准数据缺失。','Some benchmark runs are missing.');results.replaceChildren();return;}
  const pick=(k,visits)=>runs.filter(r=>kind(r)===k&&r.visits===visits).sort((a,b)=>a.totalSeconds-b.totalSeconds);
  const [cpu]=pick('CPU',128),[t4]=pick('T4',128),[a10k]=pick('A10G',1000),t4k=pick('T4',1000),[quick]=pick('T4',32),[deep]=pick('T4',3000),[deep5k]=pick('T4',5000);
  const q=data.quality,[first]=runs,points=q.meanAbsolutePointDifference.toFixed(2),winrate=q.meanAbsoluteWinratePercentagePointDifference.toFixed(2);
  const model=first.model.replace(/-s\d+M-d\d+M\.bin\.gz$/,''),engine=(runs.find(r=>r.engineVersion)?.engineVersion||'').replace(' v',' ');
  const time=r=>({text:exact(r.totalSeconds),num:true}),cost=r=>({text:usd(r.costUSD),num:true});
- $('benchmark-intro').textContent=t(`以下测试都分析同一盘 ${first.moves} 手棋谱（${first.positions} 个局面），在 AWS 爱尔兰区域运行。时间包含启动和保存，不含排队。`,`Every run below analyses the same ${first.moves}-move game (${first.positions} positions) in AWS Ireland. Times include start-up and saving, not queue waiting.`);
+ intro.textContent=t(`以下测试都分析同一盘 ${first.moves} 手棋谱（${first.positions} 个局面），在 AWS 爱尔兰区域运行。时间包含启动和保存，不含排队。`,`Every run below analyses the same ${first.moves}-move game (${first.positions} positions) in AWS Ireland. Times include start-up and saving, not queue waiting.`);
  const settings=table([t('设置','Setting'),t('选择','Choice'),t('依据','Evidence')],[
   {cells:[{text:t('硬件','Hardware'),href:'#run-'+cpu.id},'GPU',t(`${num(cpu.visits)} 次访问时：CPU（Fargate）${mins(cpu.totalSeconds)}，${usd(cpu.costUSD)}；T4 ${mins(t4.totalSeconds)}，${usd(t4.costUSD)}。`,`CPU (Fargate) at ${num(cpu.visits)} visits: ${mins(cpu.totalSeconds)}, ${usd(cpu.costUSD)}. T4: ${mins(t4.totalSeconds)}, ${usd(t4.costUSD)}.`)]},
   {cells:[{text:t('GPU 顺序','GPU order'),href:'#run-'+a10k.id},t('深度：先 A10G，再 T4；快速：T4','Deep: A10G first, then T4. Quick: T4'),t(`${num(a10k.visits)} 次访问时：A10G ${mins(a10k.totalSeconds)}，T4 ${mins(...t4k.map(r=>r.totalSeconds))}。爱尔兰的 A10G 经常没有空闲。`,`At ${num(a10k.visits)} visits: A10G ${mins(a10k.totalSeconds)} vs T4 ${mins(...t4k.map(r=>r.totalSeconds))}. A10G is often unavailable in Ireland.`)]},
@@ -71,9 +73,6 @@ function render(){
    note(t('这是结果一致性比较，不是独立的准确度验证。','This measures agreement, not independently verified accuracy.'))),
   section('bench-runs',t('测试记录','Test runs'),table([t('日期','Date'),t('硬件','Hardware'),t('访问次数','Visits'),t('启动','Start-up'),t('引擎','Engine'),t('总计','Total'),t('费用','Cost')],ordered.map(r=>({id:'run-'+r.id,cells:[r.createdAt.slice(0,10),hardware(r)+(shared(r)?' *':''),{text:num(r.visits),num:true},{text:exact(startup(r)),num:true},{text:exact(r.engineSeconds),num:true},time(r),cost(r)]})),'bench-runs'),sharedNote(ordered),note(t('2026-10-08 AWS 对爱尔兰 A10G 空闲容量的评分为 1 / 10（T4 为 8 / 10）。','On 2026-10-08 AWS rated spare A10G capacity in Ireland 1 out of 10 (T4: 8 out of 10).')))
  );
- $('benchmark-results').replaceChildren(fragment);
- if(!scrolled&&location.hash){scrolled=true;document.getElementById(decodeURIComponent(location.hash.slice(1)))?.scrollIntoView();}
+ results.replaceChildren(fragment);
+ if(!scrolled&&/^#(run|bench)-/.test(location.hash)){scrolled=true;document.getElementById(decodeURIComponent(location.hash.slice(1)))?.scrollIntoView();}
 }
-window.addEventListener('site-language-change',render);render();
-try{const response=await fetch('/benchmarks-data.json',{cache:'no-cache'});if(!response.ok)throw Error('Unable to load benchmarks.');data=await response.json();}catch{failed=true;}
-render();

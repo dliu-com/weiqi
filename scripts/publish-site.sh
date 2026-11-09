@@ -36,7 +36,7 @@ invalidate() {
 # edge is cleared, then the HTML pages, then the edge is cleared again. Modules import each
 # other by fixed names, so this ordering (not ?v= on one entry script) keeps a release whole.
 for pass in assets pages; do
-for filename in analysis-position.js position-api.js analysis.js photo.html photo.css stone-placement.mp3 stone-placement-LICENSE.txt stone-sound.js time-control.js board-geometry.js site-time.js site-shell.js move-label.js board-view.js recording-tree.js recording-sequence-edit.js recording-tree-view.js editor.js editor.html home.js play.html site.css cost.html security.html photo-recognition.html health-spec.js documents.js flow-diagram.js report-font.otf report.html report.js report.css board-diagram.js ai-review.js game-result.js analysis-status.js evaluation-chart.js replay-navigation.js sgf.js library-api.js library.html library.js record.html record.js how-to-use.html how-to-use.js benchmarks-data.json benchmarks.html benchmarks.js about.html about.js rules.html rules.js history.html history.js i18n.js engine.js app.js styles.css favicon.svg 404.html robots.txt sitemap.xml; do
+for filename in analysis-position.js position-api.js analysis.js photo.html photo.css stone-placement.mp3 stone-placement-LICENSE.txt stone-sound.js time-control.js board-geometry.js site-time.js site-shell.js move-label.js board-view.js recording-tree.js recording-sequence-edit.js recording-tree-view.js editor.js editor.html home.js play.html site.css health-spec.js documents.js flow-diagram.js report-font.otf report.html report.js report.css board-diagram.js ai-review.js game-result.js analysis-status.js evaluation-chart.js replay-navigation.js sgf.js library-api.js library.html library.js record.html record.js how-to-use.html how-to-use.js benchmarks-data.json benchmarks.js about.html about.js rules.html rules.js history.html history.js i18n.js engine.js app.js styles.css favicon.svg 404.html robots.txt sitemap.xml; do
   case "$filename" in
     *.mp3) mime='audio/mpeg' cache="$STATIC_CACHE" ;;
     *.otf) mime='font/otf' cache="$STATIC_CACHE" ;;
@@ -55,6 +55,10 @@ if [ "$pass" = assets ]; then invalidate; fi
 done
 node "$PROJECT_DIR/scripts/build-health-md.mjs"
 aws s3 cp "$PROJECT_DIR/src/health.md" "s3://$SITE_BUCKET_NAME/docs/health.md" --content-type 'text/markdown; charset=utf-8' --cache-control "$PAGE_CACHE" --only-show-errors
+# /docs/api.md names the managed API origin, which only the stack knows.
+API_URL="$(aws cloudformation describe-stacks --stack-name "$STACK_NAME" --query "Stacks[0].Outputs[?OutputKey=='MicrosoftApiUrl'].OutputValue" --output text)"
+if [[ ! "$API_URL" =~ ^https://[a-z0-9.-]+$ ]]; then echo "The managed API (MicrosoftApiUrl) must be deployed before publishing /docs/api.md." >&2; exit 1; fi
+sed "s#__WEIQI_API_URL__#$API_URL#g" "$PROJECT_DIR/src/api.md" | aws s3 cp - "s3://$SITE_BUCKET_NAME/docs/api.md" --content-type 'text/markdown; charset=utf-8' --cache-control "$PAGE_CACHE" --only-show-errors
 aws s3 cp "$PROJECT_DIR/src/index.html" "s3://$SITE_BUCKET_NAME/index.html" --content-type 'text/html; charset=utf-8' --cache-control 'no-cache, max-age=0, must-revalidate' --only-show-errors
 invalidate
 aws cloudformation describe-stacks --stack-name "$STACK_NAME" --query "Stacks[0].Outputs[?OutputKey=='WebsiteUrl'].OutputValue" --output text

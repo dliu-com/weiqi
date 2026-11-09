@@ -8,6 +8,7 @@ import {gameTree,gameClock} from '../src/engine.js';
 import {createState,transition,GameError} from '../backend/game-service.js';
 import {gamePrefix,recordIndexKey} from '../backend/library-service.js';
 import {padMoves} from './fixtures/long-game.js';
+import {readSgf} from '../src/sgf.js';
 // Owner sign-in and the managed API. Guests (no sign-in, no Microsoft token) must get nothing new:
 // no delete, no upload, no lifted limits. Each regression here is listed on /docs#health ("Signed-in features").
 const read=file=>readFileSync(new URL('../'+file,import.meta.url),'utf8');
@@ -330,7 +331,68 @@ test('managed delete uses the same guarded delete as the website',async()=>{
 test('managed routes and scopes come from one file',()=>{
  const routes=JSON.parse(read('backend/managed-routes.json'));
  for(const [key,{scope}] of Object.entries(routes)){
-  assert.match(key,/^(GET|POST|DELETE) \/api\//);
-  assert.equal(scope,key.startsWith('GET ')?'weiqi.read':key.startsWith('POST ')?'weiqi.write':'weiqi.delete',key);
+  assert.match(key,/^(GET|POST|PATCH|DELETE) \/api\//);
+  assert.equal(scope,key.startsWith('GET ')?'weiqi.read':/^(POST|PATCH) /.test(key)?'weiqi.write':'weiqi.delete',key);
  }
+ // The /docs#api endpoint table lists exactly these routes and permissions, in the same order.
+ const docs=read('src/documents.js').match(/const API_ROUTES=\[([\s\S]*?)\n\];/)[1];
+ assert.deepEqual([...docs.matchAll(/\['([A-Z]+ \/api\/[^']+)','(weiqi\.\w+)'/g)].map(([,route,scope])=>[route,scope]),Object.entries(routes).map(([route,{scope}])=>[route,scope]));
+ const md=read('src/api.md');
+ for(const route of Object.keys(routes))assert.ok(md.includes('### '+route),route);
+});
+
+// A finished game with a complete deep analysis, so an info edit really prepares the report again.
+async function seedAnalysed(h,name='Analysed'){
+ const meta=await seedReady(h,name),prefix=gamePrefix(meta.id)+'/',source=h.buckets.library.get(prefix+'original.sgf');
+ meta.analysis.deep={status:'ready',jobId:'job-1'};h.buckets.library.set(prefix+'metadata.json',JSON.stringify(meta));
+ h.buckets.library.set(prefix+'analysis.json',JSON.stringify({phase:'deep',visits:3000,completedAt:'2026-11-01T00:00:00.000Z',modelSha256:'m',sgfSha256:crypto.createHash('sha256').update(source).digest('hex'),
+  positions:readSgf(source).mainLine.map((nodeId,move)=>({nodeId,move,blackLead:0,blackWinrate:.5,candidates:[]}))}));
+ return meta;
+}
+const infoEdit={name:'Club final',players:{black:'Ke Jie'},playerRanks:{black:'9p'},date:'2026-11-01',venue:'Online',result:'B+R'};
+
+test('only the signed-in admin edits game info on the website; the saved SGF never changes',async()=>{
+ const h=ownerApi({REPORT_QUEUE:'reports'}),meta=await seedAnalysed(h,'Before'),prefix=gamePrefix(meta.id)+'/',path='/api/owner/library/'+meta.id+'/info',body=JSON.stringify(infoEdit);
+ const sgf=h.buckets.library.get(prefix+'original.sgf'),before=h.buckets.library.get(prefix+'metadata.json'),reports=()=>[...h.buckets.library.keys()].filter(k=>k.startsWith(prefix+'reports/'));
+ assert.equal((await h.web(path,{method:'POST',body})).statusCode,401);
+ assert.equal((await h.web(path,{method:'POST',body,cookies:['weiqi_owner=1']})).statusCode,401);
+ assert.equal((await h.web(path,{method:'POST',body,headers:{'content-type':'application/json'},cookies:[ownerCookie()]})).statusCode,403,'Origin is required');
+ assert.equal((await h.web(path,{method:'POST',body,headers:{'content-type':'application/json',origin:'https://evil.example'},cookies:[ownerCookie()]})).statusCode,403);
+ assert.equal((await h.web(path,{method:'POST',body,headers:{'content-type':'text/plain',origin:SITE},cookies:[ownerCookie()]})).statusCode,415);
+ assert.equal((await h.web(path,{cookies:[ownerCookie()]})).statusCode,405);
+ assert.equal(h.buckets.library.get(prefix+'metadata.json'),before);assert.equal(reports().length,0);assert.equal(h.messages.length,0);
+ const saved=await h.web(path,{method:'POST',body,cookies:[ownerCookie()]}),result=JSON.parse(saved.body);
+ assert.equal(saved.statusCode,200);assert.equal(result.report,'updating');
+ assert.equal(result.metadata.name,'Club final');assert.deepEqual(result.metadata.players,{black:'Ke Jie',white:''});assert.deepEqual(result.metadata.playerRanks,{black:'9p',white:''});
+ assert.equal(result.metadata.result,'B+R');assert.equal(result.metadata.analysis.status,'ready','analysis untouched');assert.ok(Date.parse(result.metadata.infoEditedAt));
+ assert.equal(h.buckets.library.get(prefix+'original.sgf'),sgf,'the SGF is never rewritten');
+ assert.match(h.buckets.site.get('share/'+meta.id+'.html'),/Club final/);
+ const [reportKey]=reports(),report=JSON.parse(h.buckets.library.get(reportKey));
+ assert.equal(report.name,'Club final');assert.equal(report.game.players.black,'Ke Jie');assert.equal(report.game.result,'B+R');assert.equal(report.game.venue,'Online');
+ assert.deepEqual(JSON.parse(h.messages[0].MessageBody),{id:meta.id,reportKey,jobId:'job-1'});assert.equal(h.messages[0].QueueUrl,'reports');
+ const again=JSON.parse((await h.web(path,{method:'POST',body,cookies:[ownerCookie()]})).body);
+ assert.equal(again.metadata.infoEditedAt,result.metadata.infoEditedAt,'repeating an edit changes nothing');assert.equal(reports().length,1);
+ const read=await h.managed('GET /api/library/{gameId}',{pathParameters:{gameId:meta.id}});
+ assert.equal(read.metadata.name,'Club final');assert.equal(read.sgf,sgf);
+ for(const [name,edit] of [['empty name',{name:' '}],['komi',{komi:6.5}],['moves',{moves:1}],['too long',{venue:'x'.repeat(201)}],['control',{name:'a\u0001b'}],['number',{date:20261101}],['other side',{players:{red:'x'}}],['players text',{players:'x'}],['nothing',{}],['array',[]],['null',null]])
+  assert.equal((await h.web(path,{method:'POST',body:JSON.stringify(edit),cookies:[ownerCookie()]})).statusCode,400,name);
+ assert.equal((await h.web(path,{method:'POST',body:'{',cookies:[ownerCookie()]})).statusCode,400);
+ assert.equal((await h.web(path,{method:'POST',body:JSON.stringify({name:'x'.repeat(10001)}),cookies:[ownerCookie()]})).statusCode,413);
+ assert.equal((await h.web('/api/owner/library/2026010199/info',{method:'POST',body,cookies:[ownerCookie()]})).statusCode,404);
+ assert.equal((await h.web('/api/owner/library/x/info',{method:'POST',body,cookies:[ownerCookie()]})).statusCode,404);
+ assert.equal(h.deletes.length,0);
+});
+
+test('managed game-info edits need weiqi.write; a game still being analysed keeps its report for later',async()=>{
+ const h=ownerApi({REPORT_QUEUE:'reports'}),meta=await seedReady(h,'Busy'),key=gamePrefix(meta.id)+'/metadata.json';
+ meta.analysis={status:'running'};h.buckets.library.set(key,JSON.stringify(meta));const before=h.buckets.library.get(key);
+ for(const scopes of [['weiqi.read'],['weiqi.read','weiqi.delete']])
+  assert.equal((await h.managed('PATCH /api/library/{gameId}',{pathParameters:{gameId:meta.id},body:{name:'X'},scopes})).status,403,scopes.join());
+ assert.equal((await h.managed('PATCH /api/library/{gameId}',{pathParameters:{gameId:meta.id},body:{name:'X'},contentType:'text/plain'})).status,415);
+ assert.equal(h.buckets.library.get(key),before);
+ const saved=await h.managed('PATCH /api/library/{gameId}',{pathParameters:{gameId:meta.id},body:{players:{white:'Shin Jinseo'},result:'W+1.5'},scopes:['weiqi.write']});
+ assert.equal(saved.status,200);assert.equal(saved.report,'after-analysis');assert.equal(saved.metadata.name,'Busy');assert.equal(saved.metadata.players.white,'Shin Jinseo');assert.equal(saved.metadata.analysis.status,'running');
+ assert.equal(h.messages.length,0);
+ assert.equal((await h.managed('GET /api/library')).games[0].players.white,'Shin Jinseo');
+ assert.equal((await h.managed('PATCH /api/library/{gameId}',{pathParameters:{gameId:'2026010199'},body:{name:'X'}})).status,404);
 });

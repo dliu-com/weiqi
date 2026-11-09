@@ -22,9 +22,10 @@ const costFlows=[
   note:['存储费用随棋谱增多而缓慢增加。','Storage grows slowly as games are saved.']}
 ];
 const pages={
- cost:{title:['网站运行成本','Site running costs'],intro:costSummary,extra:costDetails,links:[['/docs/benchmarks','基准实验','Benchmark experiments'],['https://aws.amazon.com/ec2/pricing/on-demand/','AWS EC2 价格','AWS EC2 pricing'],['https://aws.amazon.com/lambda/pricing/','AWS Lambda 价格','AWS Lambda pricing'],['https://aws.amazon.com/s3/pricing/','AWS S3 价格','AWS S3 pricing'],['https://aws.amazon.com/dynamodb/pricing/','AWS DynamoDB 价格','AWS DynamoDB pricing'],['https://aws.amazon.com/cloudfront/pricing/','AWS CloudFront 价格','AWS CloudFront pricing']]},
+ cost:{title:['网站运行成本','Site running costs'],intro:costSummary,extra:costDetails,links:[['/docs#benchmarks','基准实验','Benchmark experiments'],['https://aws.amazon.com/ec2/pricing/on-demand/','AWS EC2 价格','AWS EC2 pricing'],['https://aws.amazon.com/lambda/pricing/','AWS Lambda 价格','AWS Lambda pricing'],['https://aws.amazon.com/s3/pricing/','AWS S3 价格','AWS S3 pricing'],['https://aws.amazon.com/dynamodb/pricing/','AWS DynamoDB 价格','AWS DynamoDB pricing'],['https://aws.amazon.com/cloudfront/pricing/','AWS CloudFront 价格','AWS CloudFront pricing']]},
  security:{title:['安全审查','Security review'],intro:securityOverview,extra:securityExtra,links:[['https://cheatsheetseries.owasp.org/cheatsheets/REST_Security_Cheat_Sheet.html','OWASP API 安全','OWASP REST security'],['https://cheatsheetseries.owasp.org/cheatsheets/Input_Validation_Cheat_Sheet.html','OWASP 输入验证','OWASP input validation'],['https://cheatsheetseries.owasp.org/cheatsheets/Cross_Site_Scripting_Prevention_Cheat_Sheet.html','OWASP XSS 防御','OWASP XSS prevention']]},
  health:{title:['本站如何被测试','How this site is tested'],intro:healthIntro,sections:healthSections,sourcesTitle:null,links:[['/docs/health.md','给机器看的技术版本（Markdown）','Technical version for machines (Markdown)']]},
+ api:{title:['Weiqi API','Weiqi API'],intro:apiIntro,sections:apiSections,sourcesTitle:['令牌与机器版本','Tokens and the machine version'],links:[['https://auth.dliu.com/docs#api','怎么拿到令牌（auth.dliu.com）','How to get a token (auth.dliu.com)'],['/docs/api.md','给机器看的技术版本（Markdown）','Technical version for machines (Markdown)']]},
  photo:{title:['照片识别原理','How photo recognition works'],intro:photoIntro,sections:photoSections,extra:photoResults,after:photoAfter,sourcesTitle:['源代码与许可','Source code and licences'],sourcesNote:['Moku v4 和本站的照片识别代码都采用 AGPL-3.0 许可。Moku 项目报告其测试集中约 44% 的照片完全正确；本站在其输出之上增加了上述检查。','Moku v4 and this site’s photo-recognition code are both licensed under AGPL-3.0. The Moku project reports that about 44% of its test photos are read perfectly; this site adds the checks above on top of its output.'],links:[['/analysis','照片分析','Photo analysis'],['https://github.com/kaya-go/moku','Moku 源代码','Moku source code'],['https://huggingface.co/kaya-go/moku-v4','Moku v4 模型','Moku v4 model'],['/photo-assets/photo-source.tar.gz','下载本站识别源码','Download this site’s recognition source'],['https://onnxruntime.ai/','ONNX Runtime','ONNX Runtime']]}
 };
 function costList(title,rows,className){const f=document.createDocumentFragment(),h=document.createElement('h3'),list=document.createElement('dl');h.textContent=t(...title);list.className='cost-list'+(className?' '+className:'');for(const [label,value]of rows){const dt=document.createElement('dt'),dd=document.createElement('dd');dt.textContent=t(...label);dd.textContent=t(...value);list.append(dt,dd);}f.append(h,list);return f;}
@@ -93,6 +94,67 @@ function costDetails(f){
    ['重试、后备 GPU、更大的模型或恶意流量都可能提高账单。','Retries, the backup GPU, larger models or abusive traffic can raise the bill.']])));
 }
 function table(headers,rows){const wrapper=document.createElement('div');wrapper.className='document-table';const table=document.createElement('table'),head=document.createElement('tr');for(const [zh,en]of headers){const th=document.createElement('th');th.textContent=t(zh,en);head.append(th);}table.append(head);for(const row of rows){const tr=document.createElement('tr');for(const cell of row){const td=document.createElement('td');td.textContent=say(cell);tr.append(td);}table.append(tr);}wrapper.append(table);return wrapper;}
+// ---------------------------------------------------------------- API (/docs#api, for people)
+// Exact requests, responses and errors are in docs/api.md. [route, permission, purpose]; keep equal to
+// backend/managed-routes.json (tests/owner-auth.test.js).
+const API_ROUTES=[
+ ['GET /api/me','weiqi.read',['看令牌代表谁','See who the token belongs to']],
+ ['GET /api/game','weiqi.read',['读取 /play 上正在下的棋','Read the live game on /play']],
+ ['GET /api/draft','weiqi.read',['读取 /record 上的记谱草稿','Read the recording draft on /record']],
+ ['GET /api/library','weiqi.read',['列出保存的棋谱（每页 1–50 局）','List saved games (1–50 a page)']],
+ ['GET /api/library/{gameId}','weiqi.read',['读取一局棋：SGF、对局信息和分析状态','Read one game: SGF, game info and analysis status']],
+ ['GET /api/library/{gameId}/report','weiqi.read',['读取这局棋的 AI 报告','Read the game’s AI report']],
+ ['POST /api/library','weiqi.write',['保存一局新棋谱并排队做 AI 分析','Save a new game and queue its AI analysis']],
+ ['PATCH /api/library/{gameId}','weiqi.write',['修改对局信息：名称、棋手、段位、日期、地点、结果','Edit game info: name, players, ranks, date, venue, result']],
+ ['DELETE /api/library/{gameId}','weiqi.delete',['删除一局棋及其报告','Delete a game and its report']],
+];
+const API_SCOPES=[
+ ['weiqi.read',['读取','Read'],['看正在下的棋、草稿、棋谱库和 AI 报告','See the live game, the draft, the library and AI reports'],['任何改动','Any change']],
+ ['weiqi.write',['修改','Write'],['保存新棋谱、修改对局信息','Save new games and edit game info'],['删除','Deleting']],
+ ['weiqi.delete',['删除','Delete'],['删除棋谱','Delete games'],['读取或修改（要另外授予）','Reading or changing (granted separately)']],
+];
+function apiIntro(f){
+ const top=el('p','health-md'),link=el('a','',t('给机器看的版本：/docs/api.md','Machine-readable version: /docs/api.md'));link.href='/docs/api.md';top.append(link);f.append(top);
+ f.append(para('人用网站；可信的工具、脚本和 AI 代理用这个 API 来读取棋谱、保存新棋谱、修改对局信息和删除棋谱。它代表一位已登录的人工作，用的是 Microsoft 登录（auth.dliu.com 的令牌），不是网站的访客权限。','People use the website; trusted tools, scripts and AI agents use this API to read games, save new ones, edit game info and delete games. It works for a signed-in person with a Microsoft sign-in (an auth.dliu.com token), not with the website’s guest access.'));
+ f.append(stats([[String(API_ROUTES.length),t('个接口','endpoints'),'branch'],[String(API_SCOPES.length),t('种权限：读取、修改、删除','permissions: read, write, delete'),'lock'],[t('每秒 10 个','10 / second'),t('限速，突发 20 个','rate limit, bursts of 20'),'gauge'],['0',t('个令牌被保存','tokens kept by the site'),'shield']]));
+ f.append(tiers({title:t('登录和检查怎么进行','How sign-in and checks work'),rows:[
+  {badge:t('不可信','Untrusted'),tone:'untrusted',label:t('调用方','Caller'),nodes:[{icon:'bot',title:t('你的工具或代理','Your tool or agent'),text:t('代表一位被允许使用 API 的人','Working for a person allowed to use the API')},{icon:'user',title:'Microsoft Entra ID',text:t('给出短时有效的 dliu API 访问令牌（见 auth.dliu.com）','Gives a short-lived access token for the dliu API (see auth.dliu.com)')}]},
+  {link:t('HTTPS + Microsoft 访问令牌','HTTPS + Microsoft access token'),badge:t('边缘','Edge'),tone:'edge',label:'API Gateway',nodes:[{icon:'shield',title:t('网关检查','Gateway check'),text:t('令牌是真的吗？来自 dliu.com 组织、给这个 API、没过期、有这项权限？','Is the token real, from the dliu.com organisation, for this API, unexpired, with this permission?')},{icon:'gauge',title:t('限速','Rate limit'),text:t('每秒 10 个，突发 20 个','10 a second, bursts of 20')}]},
+  {link:t('只放行通过检查的请求','Checked requests only'),badge:'API',tone:'app',label:'Lambda',nodes:[{icon:'lambda',title:t('管理函数再查一遍','The owner function checks again'),text:t('批准的应用、dliu API user 角色、这项权限','The approved app, the dliu API user role, this permission')}]},
+  {link:t('最小权限 IAM','Least-privilege IAM'),badge:t('私有','Private'),tone:'private',label:t('棋谱','Games'),nodes:[{icon:'s3',title:t('S3 棋谱库','S3 library'),text:t('保存了版本：删除或修改后旧版本仍在','Versioned: older versions stay after a delete or edit')},{icon:'dynamodb',title:'DynamoDB',text:t('只读：正在下的棋和草稿','Read only: the live game and the draft')},{icon:'sqs',title:t('分析与报告队列','Analysis and report queues'),text:t('新棋谱和修改后的报告在这里排队','New games and edited reports wait here')}]}
+ ],note:t('访客不能用这些接口：网站上的公开接口仍然只能读取，不能修改或删除。API 从不保存令牌。','Guests can’t use these endpoints: the website’s public endpoints still only read and can’t change or delete anything. The API never keeps tokens.')}));
+ f.append(flow({title:t('三种结果','Three possible answers'),steps:[
+  {icon:'check',title:t('允许','Allowed'),text:t('真令牌、有角色、有权限：请求照办','Real token, role and permission: the request runs'),tone:'good'},
+  {icon:'lock',title:t('缺少权限（403）','Missing permission (403)'),text:t('登录了，但没有角色或这项权限：拒绝','Signed in, but without the role or this permission: refused'),tone:'warn'},
+  {icon:'shield',title:t('没登录（401）','Not signed in (401)'),text:t('没有令牌，或令牌是假的、过期的：挡在门外','No token, or a fake or expired one: turned away'),tone:'bad'}
+ ]}));
+}
+function apiSections(f){
+ const scope=key=>API_SCOPES.find(([s])=>s===key)[1];
+ f.append(part('有哪些接口','The endpoints',para('所有接口都在一个单独的 API 地址上（见机器版本），不在 weiqi.dliu.com 上。','All endpoints live on a separate API address (see the machine version), not on weiqi.dliu.com.'),
+  table([['接口','Endpoint'],['用来做什么','What it’s for'],['需要的权限','Permission needed']],API_ROUTES.map(([route,key,purpose])=>[route,purpose,[`${t(...scope(key))} (${key})`,`${t(...scope(key))} (${key})`]]))));
+ f.append(part('三种权限','The three permissions',
+  table([['权限','Permission'],['允许工具','Lets a tool'],['不包括','Doesn’t include']],API_SCOPES.map(([key,label,allows,excludes])=>[[`${label[0]} (${key})`,`${label[1]} (${key})`],['✓ '+allows[0],'✓ '+allows[1]],['✗ '+excludes[0],'✗ '+excludes[1]]])),
+  para('只有网站主人分配了 dliu API user 角色的人才能用 API。网站上的“管理员登录”是另一回事：它只给网站主人用，不会给 API 权限。','Only people the site owner assigns the dliu API user role can use the API. The website’s “Admin sign in” is separate: it is only for the site owner and gives no API rights.')));
+ f.append(part('修改对局信息','Editing game info',flow({title:t('原始棋谱不会被改动','The saved SGF is never changed'),numbered:true,steps:[
+  {icon:'record',title:t('发送要改的字段','Send the fields to change'),text:t('名称、棋手、段位、日期、地点、结果；贴目、规则、让子和着法不能改','Name, players, ranks, date, venue, result; komi, rules, handicap and moves can’t be changed'),tone:'app'},
+  {icon:'library',title:t('保存为对局信息','Saved as game info'),text:t('写在棋谱的信息文件里；网站、下载和分享预览都用新信息','Stored with the game; the website, downloads and the share preview use it'),tone:'private'},
+  {icon:'report',title:t('报告重新生成','The report is rebuilt'),text:t('分析完成的棋局几分钟内更新；还在分析的棋局完成后就带新信息','Analysed games update within minutes; games still being analysed get it when they finish'),tone:'app'}
+ ]})));
+ f.append(part('数字上限','Limits in numbers',table([['内容','What'],['上限','Limit']],[
+  [['保存一局棋','Saving a game'],['50–400 手合法的主线，最多 1.6 MB','A legal main line of 50–400 moves, up to 1.6 MB']],
+  [['每天新棋谱','New games a day'],['全站 100 局，与网站共用','100 site-wide, shared with the website']],
+  [['修改对局信息','Editing game info'],['每次最多 10 KB，每项最多 200 个字符','Up to 10 KB a request, 200 characters a field']],
+  [['列出棋谱','Listing games'],['每页 1–50 局，默认 20','1–50 a page, 20 by default']],
+  [['请求速度','Request rate'],['每秒 10 个，突发 20 个；超过回答 429','10 a second, bursts of 20; above that, 429']]
+ ])));
+ f.append(part('值得知道','Good to know',ul([
+  ['棋谱没有单独的主人：有权限的工具能读取、修改或删除每一局，就像网站主人一样。','Games have no single owner: a tool with access can read, edit or delete every game, like the site owner.'],
+  ['保存时带上 requestId，重试就不会重复保存同一局。','Send a requestId when saving, so a retry never saves the same game twice.'],
+  ['重复同样的修改不会改变任何内容；对局信息改动会记下时间。','Repeating the same edit changes nothing; info edits record when they were made.'],
+  ['只在被要求时才修改或删除；不要为了试令牌而运行修改操作。','Only change or delete when asked to; don’t run changes just to try a token.']
+ ]),callout('shield',t('访客可以照常下棋、记谱、保存和看报告，但不能修改或删除棋谱。这些操作只给 Microsoft 登录的网站主人和持有 auth.dliu.com 令牌的工具。','Guests can still play, record, save games and read reports, but can’t edit or delete games. Those are only for the site owner signed in with Microsoft and for tools with an auth.dliu.com token.'))));
+}
 function securityOverview(f){
  f.append(callout('shield',t('2026 年 11 月 3 日完成威胁建模、代码审查和线上渗透测试（首次审查：10 月 8 日）；这不是安全认证。这是公开网站：在设定限额内被滥用，是可接受的设计选择。','Threat model, code review and live penetration test done on 3 November 2026 (first review: 8 October); this is not a certification. This is a public site: abuse within the set limits is an accepted design choice.')));
  f.append(tiers({title:t('信任边界','Trust boundaries'),rows:[
@@ -228,8 +290,8 @@ function healthIntro(f){
  f.append(tiers({title:t('逐层检查什么','What is checked, layer by layer'),rows:[
   {tone:'untrusted',badge:t('访客','Guest'),label:t('检查者','Testers'),nodes:[{icon:'bot',title:'status.dliu.com',text:t('爱尔兰 · 美国 · 日本，每 15 分钟','Ireland · USA · Japan, every 15 min')},{icon:'browser',title:t('任何访客','Any visitor'),text:t('可以打开同样的页面','Can open the same pages')}]},
   {link:t('HTTPS，不登录','HTTPS, no sign-in'),tone:'edge',badge:t('边缘','Edge'),label:'CloudFront',nodes:[{icon:'cloudfront',title:'Amazon CloudFront',text:t('HTTPS · 安全头','HTTPS · security headers')},{icon:'s3',title:t('网页','Pages'),text:t(count('pages')+' 项：首页、对局、文档、指南',count('pages')+' checks: home, play, docs, guide')},{icon:'report',title:t('示例报告','Sample report'),text:t(count('reports')+' 项',count('reports')+' checks')}]},
-  {link:t('页面 · 公开数据 · /health','Pages · public data · /health'),tone:'app',badge:t('应用','App'),label:t('按次运行','Runs per request'),nodes:[{icon:'lambda',title:t('棋局 API','Game API'),text:t((count('live-game')+count('library'))+' 项：现场对局、棋谱库',(count('live-game')+count('library'))+' checks: live game, library')},{icon:'lambda',title:'/health',text:t('网站检查自己的每个功能','The site checks each of its functions')},{icon:'camera',title:t('照片识别','Photo detection'),text:t('只看是否就绪，从不运行','Readiness only, never run')},{icon:'katago',title:t('AI 分析','AI analysis'),text:t('只看是否就绪和费用保护','Readiness and spending guard only')}]},
-  {link:t('每项只读一小次','One small read each'),tone:'private',badge:t('数据','Data'),label:t('私有存储','Private storage'),nodes:[{icon:'dynamodb',title:'DynamoDB',text:t('现场棋局','Live game')},{icon:'s3',title:t('棋谱库','Record library'),text:t('S3 · AI 开关','S3 · AI on/off setting')},{icon:'sqs',title:t('报告队列','Report queue'),text:t('有没有失败的报告','Any failed reports waiting?')}]}
+  {link:t('页面 · 公开数据 · /health','Pages · public data · /health'),tone:'app',badge:t('应用','App'),label:t('按次运行','Runs per request'),nodes:[{icon:'lambda',title:t('棋局 API','Game API'),text:t((count('live-game')+count('library'))+' 项：现场对局、棋谱库',(count('live-game')+count('library'))+' checks: live game, library')},{icon:'lambda',title:'/health',text:t('网站检查自己的每个功能','The site checks each of its functions')},{icon:'camera',title:t('照片识别','Photo detection'),text:t('只看是否就绪，从不运行','Readiness only, never run')},{icon:'katago',title:t('AI 分析','AI analysis'),text:t('只看是否就绪和费用保护','Readiness and spending guard only')},{icon:'lock',title:t('管理员登录','Admin sign-in'),text:t(count('signin')+' 项：转到微软；访客显示未登录',count('signin')+' checks: goes to Microsoft; a guest is not signed in')}]},
+  {link:t('每项只读一小次','One small read each'),tone:'private',badge:t('数据','Data'),label:t('私有存储','Private storage'),nodes:[{icon:'dynamodb',title:'DynamoDB',text:t('现场棋局','Live game')},{icon:'s3',title:t('棋谱库','Record library'),text:t('S3 · AI 开关','S3 · AI on/off setting')},{icon:'sqs',title:t('报告队列','Report queue'),text:t('有没有失败的报告','Any failed reports waiting?')},{icon:'shield',title:t('登录设置','Sign-in settings'),text:t('SSM · 只看是否存在，不读密钥','SSM · present? Secret never read')}]}
  ]}));
  const results=flow({title:t('三种结果','Three possible results'),steps:[
   {icon:'check',tone:'good',title:t('正常','Working'),text:t('每项检查都按时通过','Every check passed in time')},
@@ -262,6 +324,5 @@ function healthSections(f){
  f.append(part('不检查的内容','What is not tested',ul(notTested),callout('shield',t('检查只读取：绝不修改内容，也绝不启动要花钱的 AI 工作。','Checks only read: they never change anything and never start paid AI work.'))));
  showHealthNow();
 }
-// /docs#health reuses this renderer from about.js, so the targets can be passed in.
+// about.js draws the /docs#cost, #security, #photo-recognition, #api and #health tabs with this renderer.
 export function renderDocument(kind,titleNode=document.getElementById('document-title'),contentNode=document.getElementById('document-content')){const page=pages[kind],title=t(...page.title);document.title=title+' · DL Weiqi';titleNode.textContent=title;const f=document.createDocumentFragment();page.intro?.(f);page.sections?.(f);page.extra?.(f);page.after?.(f);if(page.sourcesTitle!==null){const h=document.createElement('h2');h.textContent=t(...(page.sourcesTitle??['参考与实测','Sources and measurements']));f.append(h);}if(page.sourcesNote)f.append(para(...page.sourcesNote));const nav=document.createElement('nav');nav.className='page-links';for(const [href,zh,en]of page.links){const a=document.createElement('a');a.href=href;a.textContent=t(zh,en);nav.append(a);}f.append(nav);contentNode.replaceChildren(f);}
-if(document.body.dataset.document){const render=()=>renderDocument(document.body.dataset.document);window.addEventListener('site-language-change',render);render();}

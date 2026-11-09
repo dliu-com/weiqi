@@ -183,3 +183,13 @@ test('request gates reject cross-site, non-JSON, oversized, malformed and unsupp
  for(const cursor of ['{"$ne":null}','../current','game#x'])assert.equal(await send('GET','/api/games',undefined,{},{cursor}),400,cursor);
  assert.deepEqual(await revisions(),before);assert.equal(({}).x,undefined);assert.equal(h.files.size,0);
 });
+test('guests cannot edit game info or delete games through the public website API',async()=>{
+ const h=api(),saved=await h.publish({id,sgf,filename:'x.sgf'});assert.equal(saved.status,200);
+ const before=JSON.stringify([...h.files]),sent=h.messages.length,body=JSON.stringify({name:'Hacked',players:{black:'x'},result:'B+R'});
+ for(const method of ['POST','PUT','PATCH','DELETE'])for(const path of ['/api/library/'+saved.id,'/api/library/'+saved.id+'/info','/api/library/'+saved.id+'/delete','/api/owner/library/'+saved.id+'/info','/api/owner/library/'+saved.id+'/delete']){
+  const r=await h.event({rawPath:path,queryStringParameters:{},requestContext:{http:{method}},headers:{'content-type':'application/json',origin:'https://test.invalid',authorization:'Bearer forged'},body});
+  assert.ok(r.statusCode>=400&&r.statusCode<500,method+' '+path+' → '+r.statusCode);
+ }
+ assert.equal(JSON.stringify([...h.files]),before,'nothing was written or removed');assert.equal(h.messages.length,sent);
+ const game=await h.call('/api/library/'+saved.id);assert.equal(game.metadata.name,'API test');assert.equal(game.metadata.infoEditedAt,undefined);
+});

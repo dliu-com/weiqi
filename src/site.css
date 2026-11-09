@@ -184,3 +184,15 @@ body.focus .player-boxes{flex:1 1 100%;margin:0}
 .health-chart{display:grid;gap:8px;margin:12px 0}.health-bar-row{display:grid;grid-template-columns:minmax(0,15em) minmax(0,1fr) auto;gap:10px;align-items:center}.health-bar{display:flex;gap:2px;height:14px;border-radius:7px;background:var(--dl-surface);overflow:hidden}.health-bar-visitor{background:var(--dl-accent)}.health-bar-self{background:var(--dl-ok)}.health-bar-count{color:var(--dl-muted);font-size:13px;white-space:nowrap}.health-legend{display:flex;flex-wrap:wrap;gap:6px 16px;margin:4px 0 0;color:var(--dl-muted);font-size:13px}.health-legend span::before{content:"";display:inline-block;width:10px;height:10px;margin-right:6px;border-radius:2px;vertical-align:-1px}.health-key-visitor::before{background:var(--dl-accent)}.health-key-self::before{background:var(--dl-ok)}.health-mark{font-weight:600;white-space:nowrap}.health-mark.is-pass{color:var(--dl-ok)}.health-mark.is-warn{color:#9a6700}.health-mark.is-fail{color:var(--dl-danger)}
 @media(max-width:600px){.health-bar-row{grid-template-columns:minmax(0,1fr) auto}.health-bar{grid-column:1/-1;grid-row:2}}
 @media(max-width:600px){.health-table table,.health-table tbody,.health-table tr,.health-table td{display:block;width:auto}.health-table tr:first-child{display:none}.health-table tr{padding:8px 0;border-bottom:1px solid var(--dl-line)}.health-table td{border:0;padding:3px 0}.health-table td::before{content:attr(data-label);display:block;color:var(--dl-muted);font-size:12px}.health-table td:first-child{font-weight:600}.health-table td:first-child::before{display:none}}
+
+/* Admin tools on a game record: shown only to the signed-in site admin (record.js). */
+#record-main .record-admin[hidden]{display:none}
+#record-main .record-admin h2{margin:0 0 4px;font-size:15px}
+#record-main .record-admin p{margin:0 0 10px;font-size:13px;line-height:1.5;color:var(--dl-muted)}
+#record-main .record-admin-actions{display:flex;flex-wrap:wrap;gap:8px}
+#record-main .record-admin #admin-message{margin:10px 0 0;color:var(--dl-text)}
+#record-main .record-admin #admin-message:empty{display:none}
+@media(max-width:850px){#record-main aside>.record-admin{order:4}}
+#edit-dialog #edit-error,#delete-dialog #delete-error{color:var(--dl-danger)}
+#edit-dialog #edit-error:empty,#delete-dialog #delete-error:empty{display:none}
+#edit-dialog #edit-note{margin:0 0 12px}

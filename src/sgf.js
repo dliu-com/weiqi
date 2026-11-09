@@ -118,3 +118,31 @@ export function kataCandidates(moveInfos, playedMove) {
     return {move:m.move.toLowerCase()==='pass'?'pass':m.move.toUpperCase(),order:m.order,blackLead:m.scoreLead,blackWinrate:m.winrate,visits:m.visits,pv};
   });
 }
+
+// Admin edits of the game info (name, players, ranks, date, venue, result) live in metadata.json with infoEditedAt.
+// The saved SGF never changes, because the AI analysis is tied to its SHA-256; pages and reports show the edits.
+const GAME_INFO_PROPERTIES={GN:m=>m.name,PB:m=>m.players?.black,PW:m=>m.players?.white,BR:m=>m.playerRanks?.black,WR:m=>m.playerRanks?.white,DT:m=>m.date,PC:m=>m.venue,RE:m=>m.result};
+export function withGameInfo(record,metadata){
+  if(!metadata?.infoEditedAt)return record;
+  const pick=(edited,original)=>typeof edited==='string'?edited:original;
+  return {...record,name:pick(metadata.name,record.name),date:pick(metadata.date,record.date),venue:pick(metadata.venue,record.venue),result:pick(metadata.result,record.result),
+    players:{black:pick(metadata.players?.black,record.players.black),white:pick(metadata.players?.white,record.players.white)},
+    playerRanks:{black:pick(metadata.playerRanks?.black,record.playerRanks?.black),white:pick(metadata.playerRanks?.white,record.playerRanks?.white)}};
+}
+// A downloaded copy carries the edits: the root node's info properties are replaced and everything else is kept.
+export function sgfWithGameInfo(source,metadata){
+  if(!metadata?.infoEditedAt)return source;
+  parseSgf(source);
+  const text=source.replace(/^\uFEFF/,''),escape=value=>String(value).replace(/\\/g,'\\\\').replace(/\]/g,'\\]');
+  let at=text.indexOf(';')+1;const start=at,kept=[];
+  for(;;){
+    const before=at;while(/\s/.test(text[at]||''))at++;
+    if(!/[A-Z]/.test(text[at]||'')){at=before;break;}
+    let key='';const from=at;while(/[A-Z]/.test(text[at]||''))key+=text[at++];
+    while(/\s/.test(text[at]||''))at++;
+    while(text[at]==='['){at++;while(text[at]!==']'){if(text[at]==='\\')at++;at++;}at++;const end=at;while(/\s/.test(text[at]||''))at++;if(text[at]!=='['){at=end;break;}}
+    if(!Object.hasOwn(GAME_INFO_PROPERTIES,key))kept.push(text.slice(from,at));
+  }
+  const info=Object.entries(GAME_INFO_PROPERTIES).map(([key,value])=>[key,value(metadata)]).filter(([,value])=>typeof value==='string'&&value).map(([key,value])=>key+'['+escape(value)+']');
+  return text.slice(0,start)+[...kept,...info].join('')+text.slice(at);
+}

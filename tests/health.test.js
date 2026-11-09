@@ -6,15 +6,15 @@ const healthSource=read('backend/health.cjs');
 
 function loadHealth(responses={}){
  const calls=[];const commands={};
- for(const name of ['HeadObjectCommand','GetObjectCommand','GetItemCommand','GetQueueAttributesCommand','GetFunctionConfigurationCommand'])commands[name]=class{constructor(input){this.input=input;this.name=name;}};
+ for(const name of ['HeadObjectCommand','GetObjectCommand','GetItemCommand','GetQueueAttributesCommand','GetFunctionConfigurationCommand','GetParametersCommand'])commands[name]=class{constructor(input){this.input=input;this.name=name;}};
  const client=()=>class{async send(c){calls.push({name:c.name,input:JSON.parse(JSON.stringify(c.input))});const r=responses[c.name];const v=typeof r==='function'?r(c.input):r;if(v instanceof Error)throw v;return v??{};}};
- const modules={'@aws-sdk/client-s3':{S3Client:client(),HeadObjectCommand:commands.HeadObjectCommand,GetObjectCommand:commands.GetObjectCommand},'@aws-sdk/client-dynamodb':{DynamoDBClient:client(),GetItemCommand:commands.GetItemCommand},'@aws-sdk/client-sqs':{SQSClient:client(),GetQueueAttributesCommand:commands.GetQueueAttributesCommand},'@aws-sdk/client-lambda':{LambdaClient:client(),GetFunctionConfigurationCommand:commands.GetFunctionConfigurationCommand}};
- const exports={},env={SITE_BUCKET:'private-site-bucket',LIBRARY_BUCKET:'private-library-bucket',AI_CONTROL_KEY:'control/ai-spending.json',TABLE_NAME:'private-table',REPORT_DLQ_URL:'https://sqs/private-dlq',REPORT_RENDERER:'private-renderer',POSITION_RECOGNIZER:'private-recognizer',POSITION_ENGINE:'private-engine'};
+ const modules={'@aws-sdk/client-s3':{S3Client:client(),HeadObjectCommand:commands.HeadObjectCommand,GetObjectCommand:commands.GetObjectCommand},'@aws-sdk/client-dynamodb':{DynamoDBClient:client(),GetItemCommand:commands.GetItemCommand},'@aws-sdk/client-sqs':{SQSClient:client(),GetQueueAttributesCommand:commands.GetQueueAttributesCommand},'@aws-sdk/client-lambda':{LambdaClient:client(),GetFunctionConfigurationCommand:commands.GetFunctionConfigurationCommand},'@aws-sdk/client-ssm':{SSMClient:client(),GetParametersCommand:commands.GetParametersCommand}};
+ const exports={},env={SITE_BUCKET:'private-site-bucket',LIBRARY_BUCKET:'private-library-bucket',AI_CONTROL_KEY:'control/ai-spending.json',TABLE_NAME:'private-table',REPORT_DLQ_URL:'https://sqs/private-dlq',REPORT_RENDERER:'private-renderer',POSITION_RECOGNIZER:'private-recognizer',POSITION_ENGINE:'private-engine',OWNER_API:'private-owner',TENANT_PARAMETER:'/private/tenant',CLIENT_ID_PARAMETER:'/private/client-id'};
  vm.runInNewContext(healthSource,{exports,module:{exports},require:name=>modules[name],process:{env},setTimeout,clearTimeout,Promise,JSON,Number,Object,Error,Date});
  return {handler:exports.handler,calls,FUNCTIONS:exports.FUNCTIONS};
 }
 const control=paused=>({Body:{transformToString:async()=>JSON.stringify({paused})}});
-const healthy={GetObjectCommand:control(false),GetQueueAttributesCommand:{Attributes:{ApproximateNumberOfMessages:'0'}},GetFunctionConfigurationCommand:{State:'Active',LastUpdateStatus:'Successful'}};
+const healthy={GetObjectCommand:control(false),GetQueueAttributesCommand:{Attributes:{ApproximateNumberOfMessages:'0'}},GetFunctionConfigurationCommand:{State:'Active',LastUpdateStatus:'Successful'},GetParametersCommand:{Parameters:[{Name:'/private/tenant'},{Name:'/private/client-id'}],InvalidParameters:[]}};
 const run=async responses=>{const h=loadHealth(responses),res=await h.handler();return {...h,res,body:JSON.parse(res.body)};};
 const byKey=body=>Object.fromEntries(body.functions.map(f=>[f.key,f]));
 
@@ -23,7 +23,9 @@ test('GET /health passes with one cheap read per dependency, the health+json typ
  assert.equal(res.statusCode,200);assert.equal(res.headers['content-type'],'application/health+json');assert.equal(res.headers['cache-control'],'public, max-age=60');
  assert.equal(body.status,'pass');assert.ok(!Number.isNaN(Date.parse(body.time)));
  assert.deepEqual(body.functions.map(f=>f.key),healthKeys);assert.ok(body.functions.every(f=>f.status==='pass'&&!('output' in f)));
- assert.deepEqual(calls.map(c=>c.name).sort(),['GetFunctionConfigurationCommand','GetFunctionConfigurationCommand','GetFunctionConfigurationCommand','GetItemCommand','GetObjectCommand','GetQueueAttributesCommand','HeadObjectCommand']);
+ assert.deepEqual(calls.map(c=>c.name).sort(),['GetFunctionConfigurationCommand','GetFunctionConfigurationCommand','GetFunctionConfigurationCommand','GetFunctionConfigurationCommand','GetItemCommand','GetObjectCommand','GetParametersCommand','GetQueueAttributesCommand','HeadObjectCommand']);
+ // Sign-in: only the two non-secret settings, never decrypted.
+ assert.deepEqual(calls.find(c=>c.name==='GetParametersCommand').input,{Names:['/private/tenant','/private/client-id']});
  assert.deepEqual(calls.find(c=>c.name==='GetItemCommand').input,{TableName:'private-table',Key:{gameId:{S:'current'}},ProjectionExpression:'gameId'});
  assert.equal(calls.find(c=>c.name==='HeadObjectCommand').input.Key,'index.html');
 });
@@ -47,6 +49,17 @@ test('a failed dependency returns 503 with only a generic reason and no private 
  assert.equal(byKey(missing.body).library.status,'pass');assert.equal(byKey(missing.body).analysis.status,'pass');
  const broken=await run({...healthy,GetObjectCommand:Object.assign(Error('denied'),{name:'AccessDenied'})});
  assert.deepEqual(['library','analysis','position'].map(k=>byKey(broken.body)[k].output),['read failed','read failed','read failed']);
+});
+
+test('admin sign-in fails when its settings are missing or OwnerApi is broken, without naming either',async()=>{
+ const missing=await run({...healthy,GetParametersCommand:{Parameters:[{Name:'/private/tenant'}],InvalidParameters:['/private/client-id']}});
+ assert.equal(missing.res.statusCode,503);assert.deepEqual(byKey(missing.body).signin,{key:'signin',name:'Admin sign-in and API',status:'fail',output:'sign-in not configured'});
+ assert.equal(byKey(missing.body).pages.status,'pass');
+ const broken=await run({...healthy,GetFunctionConfigurationCommand:i=>i.FunctionName==='private-owner'?{State:'Failed'}:{State:'Active'}});
+ assert.equal(byKey(broken.body).signin.output,'function not ready');assert.equal(byKey(broken.body).reports.status,'pass');
+ const updating=await run({...healthy,GetFunctionConfigurationCommand:i=>i.FunctionName==='private-owner'?{State:'Active',LastUpdateStatus:'InProgress'}:{State:'Active'}});
+ assert.equal(updating.res.statusCode,200);assert.equal(byKey(updating.body).signin.status,'warn');
+ for(const r of [missing,broken])for(const secret of ['private','/private','client-id','tenant'])assert.ok(!r.res.body.includes(secret),secret);
 });
 
 test('a hung dependency times out after about 2 s instead of hanging the response',async()=>{
@@ -79,9 +92,9 @@ test('/docs#health is the Health tab on /docs, with a diagram, folded technical 
  assert.match(html,/dl-docs\.css/);assert.match(html,/rel="alternate" type="text\/markdown" href="\/docs\/health\.md"/);
  assert.ok(!existsSync(new URL('../src/site-health.html',import.meta.url)),'the separate page is gone');
  assert.match(about,/import \{renderDocument\} from '\.\/documents\.js'/);
- assert.match(about,/location\.hash==='#health'\)\{renderDocument\('health'/);assert.match(about,/addEventListener\('hashchange',render\)/);
- assert.match(docs,/export function renderDocument\(/);assert.match(docs,/if\(document\.body\.dataset\.document\)/);
- assert.ok(shell.includes("['/docs#health','健康','Health']"));assert.match(shell,/location\.hash==='#health'/);
+ assert.match(about,/health:'health'/);assert.match(about,/renderDocument\(DOCUMENT_TABS\[tab\]/);assert.match(about,/addEventListener\('hashchange',render\)/);
+ assert.match(docs,/export function renderDocument\(/);
+ assert.ok(shell.includes("['health','健康','Health']"));assert.match(shell,/a\.href='\/docs#'\+id/);
  vm.runInNewContext(read('src/routes.cjs'),c);
  const go=(uri,querystring={})=>c.handler({request:{uri,querystring}});
  assert.equal(go('/docs').uri,'/about.html');
