@@ -226,6 +226,7 @@ status.dliu.com tests the site every 15 minutes as an anonymous guest, following
   - `output` is only a generic reason (`timeout`, `read failed`, `function not ready`, `paused by spending guard`, `failed reports waiting`, `sign-in not configured`), never names or counts.
 - `tests/health.test.js` and the CDK test guard all of this: the page, the Markdown and the endpoint keep the same function keys; the handler reads no request data; and the behavior forwards nothing.
 - Cost: at most one Lambda call a minute per CloudFront edge that is asked, about $0.00 a month.
+- **Regression tests for page bugs.** Every fixed page bug gets an automated test and an entry in `fixedBugs` (`src/health-spec.js`): date found, page, bug, what the test checks and the test file. Both the Health tab (“Page bugs fixed”) and `health.md` (“Regression tests”) list them, and `tests/health.test.js` fails if a listed test file is missing. The first entry is `tests/stone-sound.test.js` (2026-11-09: the stone click was too loud at low slider settings; the gain is now (volume/100)³).
 
 ## Public-site safeguards and release evidence
 
@@ -258,7 +259,7 @@ gitleaks git . --redact                                                # secret 
 npm audit --omit=dev && npm audit                                      # also in cdk/ and backend/report-renderer/
 ```
 
-The saved JSON redacts bucket, function and distribution names and any 12-digit number. CloudFront answers the API's 403s with the static 404 page, so the script treats a non-JSON 403/404 as a rejection.
+The saved JSON redacts bucket, function and distribution names and any 12-digit number. Behind a TLS-intercepting proxy (detected from the certificate issuer, e.g. Zscaler), the script does not send exploit-looking probes, retries proxy connection resets, and reports affected checks as not measured instead of failed; rerun from a direct connection (home or AWS CloudShell) for full coverage. CloudFront answers the API's 403s with the static 404 page, so the script treats a non-JSON 403/404 as a rejection.
 
 Local validation files record this release’s official Ireland compute prices, production route/security checks, dependency audit, private-origin checks, saved-game AI completion and bilingual PDF validation. These generated files are kept out of the public repository. `npm test` includes draft branch/publication/conflict checks. Local previews now persist live state and the shared draft under `LIBRARY_DIR`, separate from production.
 

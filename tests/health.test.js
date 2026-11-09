@@ -1,5 +1,5 @@
 import test from 'node:test';import assert from 'node:assert/strict';import vm from 'node:vm';import {readFileSync,existsSync} from 'node:fs';
-import {healthFunctions,healthKeys,guestChecks,healthMarkdown,notTested,rules} from '../src/health-spec.js';
+import {healthFunctions,healthKeys,guestChecks,healthMarkdown,notTested,rules,fixedBugs} from '../src/health-spec.js';
 // Guards the status.dliu.com contract (status/HEALTH.md): /docs#health, /docs/health.md and GET /health stay in sync.
 const root=new URL('../',import.meta.url),read=file=>readFileSync(new URL(file,root),'utf8');
 const healthSource=read('backend/health.cjs');
@@ -117,9 +117,23 @@ test('the Health tab is for people: flows, numbers, a table and a chart, with no
  for(const text of literals)assert.ok(!exact.test(text)||text==="/health",text);
  for(const fn of healthFunctions)for(const field of ['name','does','how','down'])for(const text of fn[field])assert.ok(!exact.test(text),fn.key+'.'+field+': '+text);
  for(const n of notTested)for(const text of n)assert.ok(!exact.test(text),text);
+ for(const b of fixedBugs)for(const field of ['when','page','bug','test'])for(const text of b[field])assert.ok(!exact.test(text),b.file+'.'+field+': '+text);
+ assert.ok(block.includes('fixedBugs.map('),'the Health tab lists fixed page bugs');
  assert.match(docs,/health:\{title:\[[^\]]+\],intro:healthIntro,sections:healthSections,sourcesTitle:null,links:\[\['\/docs\/health\.md','给机器看的技术版本（Markdown）','Technical version for machines \(Markdown\)'\]\]\}/);
  assert.equal((docs.match(/href='\/docs\/health\.md'/g)||[]).length,1,'one link to the Markdown under the heading, plus the one at the end');
  assert.match(block,/status\.href='https:\/\/status\.dliu\.com\/site\/weiqi'/,'links to its own status page');
  const intro=block.slice(block.indexOf('function healthIntro'));assert.ok(intro.indexOf("link.href='/docs/health.md'")<intro.indexOf('stats(['),'the Markdown link comes first');
  for(const piece of ['tiers({title:',"tone:'untrusted'","tone:'edge'","tone:'app'","tone:'private'","icon:'cloudfront'","icon:'lambda'","icon:'dynamodb'"])assert.ok(block.includes(piece),piece);
+});
+
+test('every fixed page bug has a regression test, listed on /docs#health and in health.md',()=>{
+ assert.ok(fixedBugs.length>0);const md=read('src/health.md');
+ assert.deepEqual(fixedBugs.map(b=>b.found),[...fixedBugs.map(b=>b.found)].sort().reverse(),'newest first');
+ for(const b of fixedBugs){
+  assert.match(b.found,/^\d{4}-\d{2}-\d{2}$/);assert.match(b.file,/^tests\/[\w-]+\.test\.js$/);
+  for(const field of ['when','page','bug','test'])assert.ok(b[field][0]&&b[field][1],b.file+' '+field);
+  const source=read(b.file);assert.match(source,/^test\(/m,b.file+' has tests');assert.ok(source.includes(b.found),b.file+' names the bug date '+b.found);
+  assert.ok(md.includes('| '+b.found+' | '+b.page[1]+' |')&&md.includes('`'+b.file+'`'),b.file+' is in health.md');
+ }
+ assert.match(md,/## Regression tests/);
 });

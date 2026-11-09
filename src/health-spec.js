@@ -83,6 +83,13 @@ export const notTested=[
  ['管理员功能（删除棋谱、修改棋局信息）和 API 的读写：需要管理员登录或令牌，访客检查从不登录。安全测试确认没有登录或令牌时这些全部被拒绝。','Admin actions (deleting games, editing game info) and API reads and writes: they need the admin sign-in or a token, and guest checks never sign in. The security tests confirm every one is refused without them.'],
  ['跟着管理员登录链接去微软：检查只确认链接指向微软，从不打开微软的登录页。','Following the admin sign-in link to Microsoft: checks only confirm it points there and never open Microsoft\'s sign-in page.']
 ];
+// Each page bug that was fixed gets a regression test, listed here (newest first) for /docs#health and health.md.
+export const fixedBugs=[
+ {found:'2026-11-09',when:['2026年11月9日','9 November 2026'],page:['记谱、对局和棋谱回放','Record, Play and game replay'],
+  bug:['音量条调到很低，落子声仍然太响：音量按振幅直接调节，10% 只比最大音量低 20 分贝。','The stone sound stayed too loud even with the volume slider set low: the slider scaled the sound wave directly, so 10% was only 20 dB below full volume.'],
+  test:['低音量真的很安静（10% 比最大音量至少低 50 分贝），静音不发声，修复前保存的音量保持原来的响度。','Low settings are really quiet (10% is at least 50 dB below full volume), muted makes no sound, and a volume saved before the fix keeps its old loudness.'],
+  file:'tests/stone-sound.test.js'}
+];
 export const rules=[
  ['只用 GET，不带 cookie、不带 `Authorization` 头、不带请求体。（网页也接受 HEAD，但 `/api/` 对 HEAD 返回 405。）','Only GET, with no cookies, no `Authorization` header and no request body. (Pages also accept HEAD, but `/api/` answers HEAD with 405.)'],
  ['绝不 POST，绝不修改内容，绝不启动要花钱的工作（分析、识别、生成报告）。','Never POST, never change content and never start paid work (analysis, recognition, report rendering).'],
@@ -115,6 +122,9 @@ export function healthMarkdown(){
   ...healthFunctions.map(f=>'| `'+f.key+'` | '+cell(f.reads[1])+' | '+f.pass[1]+' | '+f.warn[1]+' | '+f.fail[1]+' |'),'',
   'Example response:','','```json',JSON.stringify(healthEndpoint.example,null,2),'```','',
   '## Not tested','',...notTested.map(n=>'- '+n[1]),'',
+  '## Regression tests','','Each page bug that was fixed has an automated test that fails if the bug comes back. They run in `make test` (`npm test`), which `make deploy` runs before publishing and stops on a failure. They test the code, not the live site.','',
+  '| Found | Page | Bug | What the test checks | Test file |','|---|---|---|---|---|',
+  ...fixedBugs.map(b=>'| '+b.found+' | '+b.page[1]+' | '+cell(b.bug[1])+' | '+cell(b.test[1])+' | `'+b.file+'` |'),'',
   '## Rules','',...rules.map(r=>'- '+r[1]),''];
  return lines.join('\n');
 }

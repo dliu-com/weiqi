@@ -12,7 +12,7 @@ function readMore(){
  for(const [href,name,title,line,key]of [
   ['/docs#benchmarks','chart',['CPU / GPU 基准实验','CPU / GPU benchmarks'],['支持 GPU 与访问数选择的测试','Tests behind the GPU and visit choices'],['深度 3,000 次：T4 约 44 分钟','Deep 3,000 visits ≈ 44 min on T4']],
   ['/docs#cost','budget',['网站运行成本','Site running costs'],['网站承担，用户免费','Paid by the site, free for users'],['深度 AI US$0.50–0.75 / 局 · 3 小时对局 US$0.52','Deep AI US$0.50–0.75 / game · 3 h live game US$0.52']],
-  ['/docs#security','shield',['安全审查','Security review'],['线上渗透测试与威胁模型','Live penetration test and threat model'],['2026 年 10 月 8 日测试','Tested 8 Oct 2026']],
+  ['/docs#security','shield',['安全审查','Security review'],['线上渗透测试与威胁模型','Live penetration test and threat model'],['2026 年 11 月 9 日测试','Tested 9 Nov 2026']],
   ['/docs#photo-recognition','camera',['照片识别原理','How photo recognition works'],['从棋盘照片到可编辑局面','From a board photo to an editable position'],['6 张实拍照片中 5 张完全正确','5 of 6 real photos exact']],
   ['/docs#api','bot',['Weiqi API','Weiqi API'],['给可信的工具和 AI 代理用','For trusted tools and AI agents'],['9 个接口 · 3 种权限','9 endpoints · 3 permissions']]
  ]){

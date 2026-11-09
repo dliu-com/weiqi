@@ -121,6 +121,14 @@ Example response:
 - Admin actions (deleting games, editing game info) and API reads and writes: they need the admin sign-in or a token, and guest checks never sign in. The security tests confirm every one is refused without them.
 - Following the admin sign-in link to Microsoft: checks only confirm it points there and never open Microsoft's sign-in page.
 
+## Regression tests
+
+Each page bug that was fixed has an automated test that fails if the bug comes back. They run in `make test` (`npm test`), which `make deploy` runs before publishing and stops on a failure. They test the code, not the live site.
+
+| Found | Page | Bug | What the test checks | Test file |
+|---|---|---|---|---|
+| 2026-11-09 | Record, Play and game replay | The stone sound stayed too loud even with the volume slider set low: the slider scaled the sound wave directly, so 10% was only 20 dB below full volume. | Low settings are really quiet (10% is at least 50 dB below full volume), muted makes no sound, and a volume saved before the fix keeps its old loudness. | `tests/stone-sound.test.js` |
+
 ## Rules
 
 - Only GET, with no cookies, no `Authorization` header and no request body. (Pages also accept HEAD, but `/api/` answers HEAD with 405.)
