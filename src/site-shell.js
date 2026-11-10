@@ -1,8 +1,8 @@
 import {t,language,setLanguage} from './i18n.js';
 // /docs is one page with a tab per hash, like the other dliu.com sites: /docs#cost, /docs#api, ...
-// /docs on its own is Architecture. Benchmark rows (#run-…, #bench-…) belong to the Benchmarks tab.
-export const DOCS_TABS=[['architecture','架构','Architecture'],['cost','运行成本','Cost'],['security','安全','Security'],['benchmarks','基准实验','Benchmarks'],['photo-recognition','照片识别','Photo recognition'],['api','API','API'],['health','健康','Health']];
-export function docsTab(hash=location.hash){let id='';try{id=decodeURIComponent(hash.slice(1));}catch{}if(/^(run|bench)-/.test(id))return 'benchmarks';return DOCS_TABS.some(([tab])=>tab===id)?id:'architecture';}
+// /docs on its own is Architecture. Benchmark rows (#run-…, #bench-…) belong to the Benchmarks tab, #perf-… sections to Performance.
+export const DOCS_TABS=[['architecture','架构','Architecture'],['cost','运行成本','Cost'],['security','安全','Security'],['benchmarks','基准实验','Benchmarks'],['photo-recognition','照片识别','Photo recognition'],['performance','性能','Performance'],['api','API','API'],['health','健康','Health']];
+export function docsTab(hash=location.hash){let id='';try{id=decodeURIComponent(hash.slice(1));}catch{}if(/^(run|bench)-/.test(id))return 'benchmarks';if(/^perf-/.test(id))return 'performance';return DOCS_TABS.some(([tab])=>tab===id)?id:'architecture';}
 // Only the site admin signs in (Microsoft). Guests use the whole site without an account, so the button says "Admin sign in".
 // Pages ask /api/owner/session only when the weiqi_owner hint cookie is set, so a guest's page never calls it.
 // The hint is not trusted: the server checks the signed session cookie on every admin request.

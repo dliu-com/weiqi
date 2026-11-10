@@ -4,6 +4,7 @@ import {t,setLanguage} from './i18n.js';
 import {flow,tiers,stats,icon} from './flow-diagram.js';
 import {renderDocument} from './documents.js';
 import {renderBenchmarks} from './benchmarks.js';
+import {renderPerformance} from './performance.js';
 const text=value=>Array.isArray(value)?t(value[0],value[1]):value;
 // Cards linking to the other info pages, each with one headline fact from that page.
 function readMore(){
@@ -14,6 +15,7 @@ function readMore(){
   ['/docs#cost','budget',['网站运行成本','Site running costs'],['网站承担，用户免费','Paid by the site, free for users'],['深度 AI US$0.50–0.75 / 局 · 3 小时对局 US$0.52','Deep AI US$0.50–0.75 / game · 3 h live game US$0.52']],
   ['/docs#security','shield',['安全审查','Security review'],['线上渗透测试与威胁模型','Live penetration test and threat model'],['2026 年 11 月 9 日测试','Tested 9 Nov 2026']],
   ['/docs#photo-recognition','camera',['照片识别原理','How photo recognition works'],['从棋盘照片到可编辑局面','From a board photo to an editable position'],['6 张实拍照片中 5 张完全正确','5 of 6 real photos exact']],
+  ['/docs#performance','gauge',['性能测试','Performance tests'],['页面大小、代码速度和服务器时间','Page size, code speed and server time'],['每次部署前检查预算','Budgets checked before every deploy']],
   ['/docs#api','bot',['Weiqi API','Weiqi API'],['给可信的工具和 AI 代理用','For trusted tools and AI agents'],['9 个接口 · 3 种权限','9 endpoints · 3 permissions']]
  ]){
   const card=document.createElement('a'),body=document.createElement('span'),strong=document.createElement('strong'),small=document.createElement('span'),fact=document.createElement('span');
@@ -34,13 +36,14 @@ const DOCUMENT_TABS={cost:'cost',security:'security','photo-recognition':'photo'
 let shown=null;
 function render(event){
  const tab=docsTab(),title=document.getElementById('about-title'),content=document.getElementById('about-content'),main=document.querySelector('main');
- // A benchmark row link (#run-…) only scrolls within its tab; opening another tab starts at the top.
- if(event?.type==='hashchange'){if(tab===shown&&tab==='benchmarks'){try{document.getElementById(decodeURIComponent(location.hash.slice(1)))?.scrollIntoView();}catch{}return;}if(tab!==shown)window.scrollTo(0,0);}
+ // A benchmark row link (#run-…) or performance section (#perf-…) only scrolls within its tab; opening another tab starts at the top.
+ if(event?.type==='hashchange'){if(tab===shown&&(tab==='benchmarks'||tab==='performance')){try{document.getElementById(decodeURIComponent(location.hash.slice(1)))?.scrollIntoView();}catch{}return;}if(tab!==shown)window.scrollTo(0,0);}
  shown=tab;
  document.body.classList.toggle('site-document',tab!=='architecture');
- main.classList.toggle('rules-page',tab==='architecture'||tab==='health');main.classList.toggle('benchmarks-page',tab==='benchmarks');
+ main.classList.toggle('rules-page',tab==='architecture'||tab==='health');main.classList.toggle('benchmarks-page',tab==='benchmarks'||tab==='performance');
  if(DOCUMENT_TABS[tab]){renderDocument(DOCUMENT_TABS[tab],title,content);return;}
  if(tab==='benchmarks'){renderBenchmarks(title,content,()=>{if(docsTab()==='benchmarks')render();});return;}
+ if(tab==='performance'){renderPerformance(title,content,()=>{if(docsTab()==='performance')render();});return;}
  document.title=t('技术文档 · DL','Docs · DL');title.textContent=t('架构','Architecture');
  const fragment=document.createDocumentFragment();
  fragment.append(repoLink(),stats([[t('0 台','0'),t('空闲时运行的服务器','servers running when idle'),'power'],[t('≈ 5 分钟','≈ 5 min'),t('快速 AI 复盘','quick AI review'),'clock'],[t('≈ 1 小时','≈ 1 h'),t('深度 AI 复盘','deep AI review'),'gpu'],[t('≈ 3 秒','≈ 3 s'),t('分析一个局面','AI for one position'),'katago']]),systemMap(),deepFlow(),positionFlow(),gpuFallback(),readMore(),quickAnalysisLicence());

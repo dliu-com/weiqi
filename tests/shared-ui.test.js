@@ -43,14 +43,14 @@ test('/docs is one page with a hash per tab, like the other dliu.com sites; old 
  const c={};vm.runInNewContext(read('routes.cjs'),c);const route=(uri,querystring={})=>c.handler({request:{uri,querystring}});
  assert.equal(route('/docs').uri,'/about.html');
  for(const file of ['cost.html','security.html','benchmarks.html','photo-recognition.html'])assert.ok(!pages.includes(file),file);
- for(const [uri,to] of [['/about','/docs'],['/about/','/docs'],['/cost','/docs#cost'],['/docs/cost','/docs#cost'],['/security.html','/docs#security'],['/docs/security','/docs#security'],['/benchmarks','/docs#benchmarks'],['/docs/benchmarks','/docs#benchmarks'],['/photo-recognition','/docs#photo-recognition'],['/docs/photo-recognition','/docs#photo-recognition'],['/docs/api','/docs#api'],['/docs/health','/docs#health']]){const r=route(uri);assert.equal(r.statusCode,301,uri);assert.equal(r.headers.location.value,to,uri);}
+ for(const [uri,to] of [['/about','/docs'],['/about/','/docs'],['/cost','/docs#cost'],['/docs/cost','/docs#cost'],['/docs/performance','/docs#performance'],['/performance','/docs#performance'],['/security.html','/docs#security'],['/docs/security','/docs#security'],['/benchmarks','/docs#benchmarks'],['/docs/benchmarks','/docs#benchmarks'],['/photo-recognition','/docs#photo-recognition'],['/docs/photo-recognition','/docs#photo-recognition'],['/docs/api','/docs#api'],['/docs/health','/docs#health']]){const r=route(uri);assert.equal(r.statusCode,301,uri);assert.equal(r.headers.location.value,to,uri);}
  // The query string goes before the hash, or the browser would treat it as part of the hash.
  assert.equal(route('/docs/cost',{lang:{value:'en'}}).headers.location.value,'/docs?lang=en#cost');
  const shell=read('site-shell.js');
  assert.ok(shell.includes("['/docs','文档','Docs']")&&shell.includes("href==='/docs'?'dl-button':'dl-nav-link'"));
  const box={location:{hash:''}};vm.runInNewContext(shell.match(/export const DOCS_TABS=[^\n]+/)[0].replace('export const DOCS_TABS=','globalThis.DOCS_TABS=')+'\n'+shell.match(/export function docsTab[^\n]+/)[0].replace('export ',''),box);
- assert.deepEqual([...box.DOCS_TABS].map(([id])=>id),['architecture','cost','security','benchmarks','photo-recognition','api','health']);
- for(const [hash,tab] of [['','architecture'],['#cost','cost'],['#api','api'],['#health','health'],['#run-2026-10-01','benchmarks'],['#bench-runs','benchmarks'],['#nope','architecture'],['#%E0','architecture']])assert.equal(box.docsTab(hash),tab,hash);
+ assert.deepEqual([...box.DOCS_TABS].map(([id])=>id),['architecture','cost','security','benchmarks','photo-recognition','performance','api','health']);
+ for(const [hash,tab] of [['','architecture'],['#cost','cost'],['#api','api'],['#health','health'],['#run-2026-10-01','benchmarks'],['#bench-runs','benchmarks'],['#performance','performance'],['#perf-server','performance'],['#nope','architecture'],['#%E0','architecture']])assert.equal(box.docsTab(hash),tab,hash);
  assert.ok(shell.includes("a.href='/docs#'+id"));
  for(const file of pages)assert.ok(read(file).includes('<a href="/docs" data-zh="文档" data-en="Docs">文档</a></footer>'),file);
  for(const file of pages)assert.doesNotMatch(read(file),/href="\/docs\/(cost|security|benchmarks|photo-recognition)"/,file);

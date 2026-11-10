@@ -1,0 +1,451 @@
+{
+ "measuredAt": "2026-11-10T08:07:21.856Z",
+ "site": "https://weiqi.dliu.com",
+ "samples": 5,
+ "requests": 106,
+ "client": {
+  "proxy": "Zscaler Inc.",
+  "http": "1.1",
+  "edgeRttMs": 6.9,
+  "machine": "Apple M3 Pro",
+  "node": "v26.11.1"
+ },
+ "pages": [
+  {
+   "path": "/",
+   "files": 8,
+   "sourceGzip": 28393,
+   "servedBytes": 29098
+  },
+  {
+   "path": "/play",
+   "files": 11,
+   "sourceGzip": 51142,
+   "servedBytes": 52244
+  },
+  {
+   "path": "/game",
+   "files": 8,
+   "sourceGzip": 28425,
+   "servedBytes": 28837
+  },
+  {
+   "path": "/game/<id>",
+   "files": 20,
+   "sourceGzip": 65990,
+   "servedBytes": 67283
+  },
+  {
+   "path": "/game/<id>/report",
+   "files": 6,
+   "sourceGzip": 21922,
+   "servedBytes": 22192
+  },
+  {
+   "path": "/record",
+   "files": 17,
+   "sourceGzip": 57168,
+   "servedBytes": 58282
+  },
+  {
+   "path": "/analysis",
+   "files": 14,
+   "sourceGzip": 53923,
+   "servedBytes": 54955
+  },
+  {
+   "path": "/guide",
+   "files": 7,
+   "sourceGzip": 39270,
+   "servedBytes": 39938
+  },
+  {
+   "path": "/docs",
+   "files": 13,
+   "sourceGzip": 84169,
+   "servedBytes": 86138
+  }
+ ],
+ "live": [
+  {
+   "path": "/",
+   "kind": "page",
+   "status": 200,
+   "http": "1.1",
+   "bytes": 699,
+   "encoding": "gzip",
+   "cold": {
+    "dns": 2.7,
+    "connect": 6.8,
+    "tls": 27.6,
+    "ttfb": 811.3,
+    "total": 812.1,
+    "cache": "Miss"
+   },
+   "warm": {
+    "samples": 4,
+    "ttfb": 256.7,
+    "total": 257.3,
+    "cache": "RefreshHit"
+   }
+  },
+  {
+   "path": "/play",
+   "kind": "page",
+   "status": 200,
+   "http": "1.1",
+   "bytes": 3061,
+   "encoding": "gzip",
+   "cold": {
+    "dns": 5.9,
+    "connect": 8.4,
+    "tls": 29.9,
+    "ttfb": 768.6,
+    "total": 769.4,
+    "cache": "Miss"
+   },
+   "warm": {
+    "samples": 4,
+    "ttfb": 683.9,
+    "total": 684.8,
+    "cache": "RefreshHit"
+   }
+  },
+  {
+   "path": "/game",
+   "kind": "page",
+   "status": 200,
+   "http": "1.1",
+   "bytes": 696,
+   "encoding": "gzip",
+   "cold": {
+    "dns": 4.7,
+    "connect": 10.5,
+    "tls": 28.3,
+    "ttfb": 730.8,
+    "total": 731.6,
+    "cache": "Miss"
+   },
+   "warm": {
+    "samples": 4,
+    "ttfb": 254.3,
+    "total": 255,
+    "cache": "RefreshHit"
+   }
+  },
+  {
+   "path": "/game/<id>",
+   "kind": "page",
+   "status": 200,
+   "http": "1.1",
+   "bytes": 1975,
+   "encoding": "gzip",
+   "cold": {
+    "dns": 5.8,
+    "connect": 6.8,
+    "tls": 29.8,
+    "ttfb": 324.3,
+    "total": 325.1,
+    "cache": "Miss"
+   },
+   "warm": {
+    "samples": 4,
+    "ttfb": 685.4,
+    "total": 686.1,
+    "cache": "RefreshHit"
+   }
+  },
+  {
+   "path": "/game/<id>/report",
+   "kind": "page",
+   "status": 200,
+   "http": "1.1",
+   "bytes": 628,
+   "encoding": "gzip",
+   "cold": {
+    "dns": 5.5,
+    "connect": 6.9,
+    "tls": 30.5,
+    "ttfb": 717,
+    "total": 717.7,
+    "cache": "Miss"
+   },
+   "warm": {
+    "samples": 4,
+    "ttfb": 254.8,
+    "total": 255.6,
+    "cache": "RefreshHit"
+   }
+  },
+  {
+   "path": "/record",
+   "kind": "page",
+   "status": 200,
+   "http": "1.1",
+   "bytes": 1639,
+   "encoding": "gzip",
+   "cold": {
+    "dns": 3,
+    "connect": 7.2,
+    "tls": 30.4,
+    "ttfb": 880.4,
+    "total": 880.7,
+    "cache": "Miss"
+   },
+   "warm": {
+    "samples": 4,
+    "ttfb": 260.6,
+    "total": 261.5,
+    "cache": "RefreshHit"
+   }
+  },
+  {
+   "path": "/analysis",
+   "kind": "page",
+   "status": 200,
+   "http": "1.1",
+   "bytes": 2467,
+   "encoding": "gzip",
+   "cold": {
+    "dns": 5.7,
+    "connect": 6.4,
+    "tls": 30.8,
+    "ttfb": 814,
+    "total": 814.7,
+    "cache": "Miss"
+   },
+   "warm": {
+    "samples": 4,
+    "ttfb": 263.9,
+    "total": 264.8,
+    "cache": "RefreshHit"
+   }
+  },
+  {
+   "path": "/guide",
+   "kind": "page",
+   "status": 200,
+   "http": "1.1",
+   "bytes": 548,
+   "encoding": "gzip",
+   "cold": {
+    "dns": 4.6,
+    "connect": 6.5,
+    "tls": 28.7,
+    "ttfb": 803.6,
+    "total": 804.5,
+    "cache": "Miss"
+   },
+   "warm": {
+    "samples": 4,
+    "ttfb": 253.5,
+    "total": 254.4,
+    "cache": "RefreshHit"
+   }
+  },
+  {
+   "path": "/docs",
+   "kind": "page",
+   "status": 200,
+   "http": "1.1",
+   "bytes": 590,
+   "encoding": "gzip",
+   "cold": {
+    "dns": 5.7,
+    "connect": 7.1,
+    "tls": 28.3,
+    "ttfb": 310,
+    "total": 310.5,
+    "cache": "Miss"
+   },
+   "warm": {
+    "samples": 4,
+    "ttfb": 253,
+    "total": 253.7,
+    "cache": "RefreshHit"
+   }
+  },
+  {
+   "path": "/api/game",
+   "kind": "api",
+   "status": 200,
+   "http": "1.1",
+   "bytes": 942,
+   "encoding": "gzip",
+   "cold": {
+    "dns": 5.4,
+    "connect": 7.9,
+    "tls": 30.1,
+    "ttfb": 856.5,
+    "total": 857.3,
+    "cache": "Miss"
+   },
+   "warm": {
+    "samples": 4,
+    "ttfb": 667.9,
+    "total": 668.8,
+    "cache": "Miss"
+   }
+  },
+  {
+   "path": "/api/library",
+   "kind": "api",
+   "status": 200,
+   "http": "1.1",
+   "bytes": 3496,
+   "encoding": "gzip",
+   "cold": {
+    "dns": 4.9,
+    "connect": 6.8,
+    "tls": 29.1,
+    "ttfb": 830.6,
+    "total": 831.3,
+    "cache": "Miss"
+   },
+   "warm": {
+    "samples": 4,
+    "ttfb": 1038.5,
+    "total": 1039.3,
+    "cache": "Miss"
+   }
+  },
+  {
+   "path": "/api/library/<id>",
+   "kind": "api",
+   "status": 200,
+   "http": "1.1",
+   "bytes": 94544,
+   "encoding": "gzip",
+   "cold": {
+    "dns": 5.8,
+    "connect": 7.3,
+    "tls": 29.2,
+    "ttfb": 1677.9,
+    "total": 1696,
+    "cache": "Miss"
+   },
+   "warm": {
+    "samples": 4,
+    "ttfb": 1720.9,
+    "total": 1746.9,
+    "cache": "Miss"
+   }
+  },
+  {
+   "path": "/health",
+   "kind": "api",
+   "status": 200,
+   "http": "1.1",
+   "bytes": 505,
+   "encoding": null,
+   "cold": {
+    "dns": 5.1,
+    "connect": 6.5,
+    "tls": 32.4,
+    "ttfb": 2546.9,
+    "total": 2547.5,
+    "cache": "Miss"
+   },
+   "warm": {
+    "samples": 4,
+    "ttfb": 40.2,
+    "total": 40.9,
+    "cache": "Hit"
+   }
+  }
+ ],
+ "cpu": [
+  {
+   "id": "play-game",
+   "medianMs": 182.04,
+   "runs": 5
+  },
+  {
+   "id": "read-sgf",
+   "medianMs": 2.59,
+   "runs": 5
+  },
+  {
+   "id": "largest-sgf",
+   "medianMs": 6.12,
+   "runs": 5
+  },
+  {
+   "id": "recording-tree",
+   "medianMs": 2.77,
+   "runs": 5
+  }
+ ],
+ "server": {
+  "measuredAt": "2026-11-10T08:07:21.856Z",
+  "days": 7,
+  "functions": [
+   {
+    "id": "game",
+    "memoryMB": 256,
+    "invocations": 16099,
+    "p50Ms": 156.9,
+    "p95Ms": 632.6,
+    "p99Ms": 803.2,
+    "coldStarts": 744,
+    "initP50Ms": 417,
+    "maxMemoryMB": 146
+   },
+   {
+    "id": "owner",
+    "memoryMB": 256,
+    "invocations": 313,
+    "p50Ms": 1.7,
+    "p95Ms": 632.6,
+    "p99Ms": 1313.4,
+    "coldStarts": 11,
+    "initP50Ms": 393.3,
+    "maxMemoryMB": 128
+   },
+   {
+    "id": "health",
+    "memoryMB": 256,
+    "invocations": 2115,
+    "p50Ms": 186.7,
+    "p95Ms": 1234.5,
+    "p99Ms": 1275.9,
+    "coldStarts": 649,
+    "initP50Ms": 384.9,
+    "maxMemoryMB": 113
+   },
+   {
+    "id": "engine",
+    "memoryMB": 3008,
+    "invocations": 9,
+    "p50Ms": 3089.6,
+    "p95Ms": 3287.9,
+    "p99Ms": 3287.9,
+    "coldStarts": 6,
+    "initP50Ms": 102.9,
+    "maxMemoryMB": 268
+   },
+   {
+    "id": "recognition",
+    "memoryMB": 3538,
+    "invocations": 0,
+    "p50Ms": null,
+    "p95Ms": null,
+    "p99Ms": null,
+    "coldStarts": 0,
+    "initP50Ms": null,
+    "maxMemoryMB": null
+   },
+   {
+    "id": "report",
+    "memoryMB": 2048,
+    "invocations": 4,
+    "p50Ms": 12793.2,
+    "p95Ms": 15848.9,
+    "p99Ms": 15848.9,
+    "coldStarts": 4,
+    "initP50Ms": 959.9,
+    "maxMemoryMB": 978
+   }
+  ]
+ }
+}
