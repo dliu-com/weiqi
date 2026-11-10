@@ -2,7 +2,7 @@
 AWS_REGION ?= eu-west-1
 STACK_NAME := WeiqiSite
 
-.PHONY: install serve test synth diff deploy-infra publish deploy ai-status ai-resume ai-check build-local-analysis prepare-position-runtime set-secrets
+.PHONY: install serve test synth diff deploy-infra publish deploy ai-status ai-resume ai-check build-local-analysis prepare-position-runtime set-secrets invalidate-games
 
 install:
 	npm ci
@@ -49,6 +49,11 @@ build-local-analysis:
 
 publish: build-local-analysis
 	AWS_REGION=$(AWS_REGION) STACK_NAME=$(STACK_NAME) bash scripts/publish-site.sh
+
+# Finished games and share previews stay at the CloudFront edge for a day. Run this after a script
+# (scripts/backfill-*.mjs, migrate-game-folders.mjs) changes saved games; `make publish` also clears them.
+invalidate-games:
+	aws cloudfront create-invalidation --distribution-id "$$(aws cloudformation describe-stacks --region $(AWS_REGION) --stack-name $(STACK_NAME) --query "Stacks[0].Outputs[?OutputKey=='DistributionId'].OutputValue" --output text)" --paths '/api/library/*' '/share/*' --query 'Invalidation.Id' --output text
 
 # Recursive calls preserve deployment order even when make is run with -j.
 deploy:

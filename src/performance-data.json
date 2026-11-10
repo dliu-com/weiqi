@@ -1,12 +1,12 @@
 {
- "measuredAt": "2026-11-10T08:07:21.856Z",
+ "measuredAt": "2026-11-10T11:43:43.506Z",
  "site": "https://weiqi.dliu.com",
  "samples": 5,
  "requests": 106,
  "client": {
   "proxy": "Zscaler Inc.",
   "http": "1.1",
-  "edgeRttMs": 6.9,
+  "edgeRttMs": 7.8,
   "machine": "Apple M3 Pro",
   "node": "v26.11.1"
  },
@@ -21,7 +21,7 @@
    "path": "/play",
    "files": 11,
    "sourceGzip": 51142,
-   "servedBytes": 52244
+   "servedBytes": 52245
   },
   {
    "path": "/game",
@@ -33,7 +33,7 @@
    "path": "/game/<id>",
    "files": 20,
    "sourceGzip": 65990,
-   "servedBytes": 67283
+   "servedBytes": 67284
   },
   {
    "path": "/game/<id>/report",
@@ -51,19 +51,19 @@
    "path": "/analysis",
    "files": 14,
    "sourceGzip": 53923,
-   "servedBytes": 54955
+   "servedBytes": 54957
   },
   {
    "path": "/guide",
    "files": 7,
    "sourceGzip": 39270,
-   "servedBytes": 39938
+   "servedBytes": 39937
   },
   {
    "path": "/docs",
    "files": 13,
-   "sourceGzip": 84169,
-   "servedBytes": 86138
+   "sourceGzip": 84687,
+   "servedBytes": 86657
   }
  ],
  "live": [
@@ -75,18 +75,18 @@
    "bytes": 699,
    "encoding": "gzip",
    "cold": {
-    "dns": 2.7,
-    "connect": 6.8,
-    "tls": 27.6,
-    "ttfb": 811.3,
-    "total": 812.1,
-    "cache": "Miss"
+    "dns": 5.4,
+    "connect": 7.8,
+    "tls": 29.9,
+    "ttfb": 88.8,
+    "total": 89.1,
+    "cache": "Hit"
    },
    "warm": {
     "samples": 4,
-    "ttfb": 256.7,
-    "total": 257.3,
-    "cache": "RefreshHit"
+    "ttfb": 42,
+    "total": 42.8,
+    "cache": "Hit"
    }
   },
   {
@@ -97,18 +97,18 @@
    "bytes": 3061,
    "encoding": "gzip",
    "cold": {
-    "dns": 5.9,
-    "connect": 8.4,
-    "tls": 29.9,
-    "ttfb": 768.6,
-    "total": 769.4,
+    "dns": 4.5,
+    "connect": 7.7,
+    "tls": 31.1,
+    "ttfb": 739.2,
+    "total": 739.8,
     "cache": "Miss"
    },
    "warm": {
     "samples": 4,
-    "ttfb": 683.9,
-    "total": 684.8,
-    "cache": "RefreshHit"
+    "ttfb": 44.4,
+    "total": 45.1,
+    "cache": "Hit"
    }
   },
   {
@@ -119,18 +119,18 @@
    "bytes": 696,
    "encoding": "gzip",
    "cold": {
-    "dns": 4.7,
-    "connect": 10.5,
-    "tls": 28.3,
-    "ttfb": 730.8,
-    "total": 731.6,
+    "dns": 4.9,
+    "connect": 8.3,
+    "tls": 29.7,
+    "ttfb": 794.7,
+    "total": 795.3,
     "cache": "Miss"
    },
    "warm": {
     "samples": 4,
-    "ttfb": 254.3,
-    "total": 255,
-    "cache": "RefreshHit"
+    "ttfb": 42.2,
+    "total": 42.8,
+    "cache": "Hit"
    }
   },
   {
@@ -141,18 +141,18 @@
    "bytes": 1975,
    "encoding": "gzip",
    "cold": {
-    "dns": 5.8,
-    "connect": 6.8,
-    "tls": 29.8,
-    "ttfb": 324.3,
-    "total": 325.1,
+    "dns": 5.1,
+    "connect": 8.1,
+    "tls": 30.1,
+    "ttfb": 749.6,
+    "total": 750.1,
     "cache": "Miss"
    },
    "warm": {
     "samples": 4,
-    "ttfb": 685.4,
-    "total": 686.1,
-    "cache": "RefreshHit"
+    "ttfb": 43.6,
+    "total": 44.2,
+    "cache": "Hit"
    }
   },
   {
@@ -163,18 +163,18 @@
    "bytes": 628,
    "encoding": "gzip",
    "cold": {
-    "dns": 5.5,
-    "connect": 6.9,
-    "tls": 30.5,
-    "ttfb": 717,
-    "total": 717.7,
+    "dns": 4.6,
+    "connect": 8,
+    "tls": 33.1,
+    "ttfb": 731.9,
+    "total": 732.4,
     "cache": "Miss"
    },
    "warm": {
     "samples": 4,
-    "ttfb": 254.8,
-    "total": 255.6,
-    "cache": "RefreshHit"
+    "ttfb": 41.6,
+    "total": 42.2,
+    "cache": "Hit"
    }
   },
   {
@@ -185,18 +185,18 @@
    "bytes": 1639,
    "encoding": "gzip",
    "cold": {
-    "dns": 3,
-    "connect": 7.2,
-    "tls": 30.4,
-    "ttfb": 880.4,
-    "total": 880.7,
+    "dns": 5.9,
+    "connect": 8,
+    "tls": 32.9,
+    "ttfb": 835.1,
+    "total": 835.4,
     "cache": "Miss"
    },
    "warm": {
     "samples": 4,
-    "ttfb": 260.6,
-    "total": 261.5,
-    "cache": "RefreshHit"
+    "ttfb": 43.5,
+    "total": 44.2,
+    "cache": "Hit"
    }
   },
   {
@@ -207,18 +207,18 @@
    "bytes": 2467,
    "encoding": "gzip",
    "cold": {
-    "dns": 5.7,
-    "connect": 6.4,
-    "tls": 30.8,
-    "ttfb": 814,
-    "total": 814.7,
+    "dns": 5.4,
+    "connect": 8.8,
+    "tls": 29.5,
+    "ttfb": 793,
+    "total": 793.6,
     "cache": "Miss"
    },
    "warm": {
     "samples": 4,
-    "ttfb": 263.9,
-    "total": 264.8,
-    "cache": "RefreshHit"
+    "ttfb": 44.3,
+    "total": 44.9,
+    "cache": "Hit"
    }
   },
   {
@@ -229,18 +229,18 @@
    "bytes": 548,
    "encoding": "gzip",
    "cold": {
-    "dns": 4.6,
-    "connect": 6.5,
-    "tls": 28.7,
-    "ttfb": 803.6,
-    "total": 804.5,
+    "dns": 4.8,
+    "connect": 7.2,
+    "tls": 28.8,
+    "ttfb": 798.2,
+    "total": 798.7,
     "cache": "Miss"
    },
    "warm": {
     "samples": 4,
-    "ttfb": 253.5,
-    "total": 254.4,
-    "cache": "RefreshHit"
+    "ttfb": 42,
+    "total": 42.7,
+    "cache": "Hit"
    }
   },
   {
@@ -251,18 +251,18 @@
    "bytes": 590,
    "encoding": "gzip",
    "cold": {
-    "dns": 5.7,
-    "connect": 7.1,
-    "tls": 28.3,
-    "ttfb": 310,
-    "total": 310.5,
-    "cache": "Miss"
+    "dns": 6.3,
+    "connect": 7.9,
+    "tls": 31.1,
+    "ttfb": 89.1,
+    "total": 89.5,
+    "cache": "Hit"
    },
    "warm": {
     "samples": 4,
-    "ttfb": 253,
-    "total": 253.7,
-    "cache": "RefreshHit"
+    "ttfb": 42.9,
+    "total": 43.5,
+    "cache": "Hit"
    }
   },
   {
@@ -270,20 +270,20 @@
    "kind": "api",
    "status": 200,
    "http": "1.1",
-   "bytes": 942,
+   "bytes": 943,
    "encoding": "gzip",
    "cold": {
-    "dns": 5.4,
-    "connect": 7.9,
-    "tls": 30.1,
-    "ttfb": 856.5,
-    "total": 857.3,
+    "dns": 5.8,
+    "connect": 7.6,
+    "tls": 31.5,
+    "ttfb": 742.7,
+    "total": 743.2,
     "cache": "Miss"
    },
    "warm": {
     "samples": 4,
-    "ttfb": 667.9,
-    "total": 668.8,
+    "ttfb": 674.8,
+    "total": 675.5,
     "cache": "Miss"
    }
   },
@@ -295,17 +295,17 @@
    "bytes": 3496,
    "encoding": "gzip",
    "cold": {
-    "dns": 4.9,
-    "connect": 6.8,
-    "tls": 29.1,
-    "ttfb": 830.6,
-    "total": 831.3,
+    "dns": 6.2,
+    "connect": 7.8,
+    "tls": 31.1,
+    "ttfb": 1190.1,
+    "total": 1190.6,
     "cache": "Miss"
    },
    "warm": {
     "samples": 4,
-    "ttfb": 1038.5,
-    "total": 1039.3,
+    "ttfb": 917.1,
+    "total": 917.6,
     "cache": "Miss"
    }
   },
@@ -314,21 +314,21 @@
    "kind": "api",
    "status": 200,
    "http": "1.1",
-   "bytes": 94544,
+   "bytes": 55566,
    "encoding": "gzip",
    "cold": {
-    "dns": 5.8,
-    "connect": 7.3,
-    "tls": 29.2,
-    "ttfb": 1677.9,
-    "total": 1696,
+    "dns": 5.5,
+    "connect": 7.5,
+    "tls": 30.5,
+    "ttfb": 1731.9,
+    "total": 1748.3,
     "cache": "Miss"
    },
    "warm": {
     "samples": 4,
-    "ttfb": 1720.9,
-    "total": 1746.9,
-    "cache": "Miss"
+    "ttfb": 60.6,
+    "total": 62.5,
+    "cache": "Hit"
    }
   },
   {
@@ -339,17 +339,17 @@
    "bytes": 505,
    "encoding": null,
    "cold": {
-    "dns": 5.1,
-    "connect": 6.5,
-    "tls": 32.4,
-    "ttfb": 2546.9,
-    "total": 2547.5,
+    "dns": 6,
+    "connect": 7.6,
+    "tls": 30.4,
+    "ttfb": 2435.9,
+    "total": 2436.3,
     "cache": "Miss"
    },
    "warm": {
     "samples": 4,
-    "ttfb": 40.2,
-    "total": 40.9,
+    "ttfb": 41.3,
+    "total": 41.7,
     "cache": "Hit"
    }
   }
@@ -357,17 +357,17 @@
  "cpu": [
   {
    "id": "play-game",
-   "medianMs": 182.04,
+   "medianMs": 185.07,
    "runs": 5
   },
   {
    "id": "read-sgf",
-   "medianMs": 2.59,
+   "medianMs": 2.57,
    "runs": 5
   },
   {
    "id": "largest-sgf",
-   "medianMs": 6.12,
+   "medianMs": 6.37,
    "runs": 5
   },
   {
@@ -377,40 +377,40 @@
   }
  ],
  "server": {
-  "measuredAt": "2026-11-10T08:07:21.856Z",
+  "measuredAt": "2026-11-10T11:43:43.506Z",
   "days": 7,
   "functions": [
    {
     "id": "game",
     "memoryMB": 256,
-    "invocations": 16099,
-    "p50Ms": 156.9,
-    "p95Ms": 632.6,
-    "p99Ms": 803.2,
-    "coldStarts": 744,
-    "initP50Ms": 417,
+    "invocations": 16496,
+    "p50Ms": 157,
+    "p95Ms": 633.8,
+    "p99Ms": 804.8,
+    "coldStarts": 762,
+    "initP50Ms": 417.4,
     "maxMemoryMB": 146
    },
    {
     "id": "owner",
     "memoryMB": 256,
-    "invocations": 313,
+    "invocations": 360,
     "p50Ms": 1.7,
-    "p95Ms": 632.6,
+    "p95Ms": 936.9,
     "p99Ms": 1313.4,
-    "coldStarts": 11,
-    "initP50Ms": 393.3,
+    "coldStarts": 16,
+    "initP50Ms": 386.9,
     "maxMemoryMB": 128
    },
    {
     "id": "health",
     "memoryMB": 256,
-    "invocations": 2115,
-    "p50Ms": 186.7,
+    "invocations": 2170,
+    "p50Ms": 186.9,
     "p95Ms": 1234.5,
     "p99Ms": 1275.9,
-    "coldStarts": 649,
-    "initP50Ms": 384.9,
+    "coldStarts": 665,
+    "initP50Ms": 386.5,
     "maxMemoryMB": 113
    },
    {

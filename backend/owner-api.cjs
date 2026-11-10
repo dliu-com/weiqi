@@ -18,6 +18,27 @@ function signInPage(statusCode,message,cookies){
 const bodyText=event=>event.isBase64Encoded?Buffer.from(event.body||'','base64').toString('utf8'):event.body||'';
 const isJson=event=>Boolean(event.headers?.['content-type']?.toLowerCase().startsWith('application/json'));
 
+// Finished games (/api/library/<id>, its /report) and share previews stay at the CloudFront edge for a day, so an edit
+// or delete clears them; a delete also clears the prepared report files. A failure is logged, never fatal: the old
+// copy then expires within a day. The distribution ID comes from SSM (CDK cannot pass it here without a cycle).
+let edgeDistribution,edgeClient;
+async function clearEdge(id,paths){
+ const name=process.env.DISTRIBUTION_PARAMETER;if(!name)return false;
+ try{
+  if(!edgeDistribution){
+   const {SSMClient,GetParametersCommand}=require('@aws-sdk/client-ssm');
+   const value=(await new SSMClient({}).send(new GetParametersCommand({Names:[name]}))).Parameters?.[0]?.Value;
+   if(!/^[A-Z0-9]{8,20}$/.test(value||''))throw Object.assign(Error('Distribution ID unavailable'),{name:'DistributionUnavailable'});
+   edgeDistribution=value;
+  }
+  const {CloudFrontClient,CreateInvalidationCommand}=require('@aws-sdk/client-cloudfront');
+  await (edgeClient??=new CloudFrontClient({})).send(new CreateInvalidationCommand({DistributionId:edgeDistribution,
+   InvalidationBatch:{CallerReference:id+'-'+ownerUploadId(),Paths:{Quantity:paths.length,Items:paths}}}));
+  return true;
+ }catch(e){console.error('Edge cache clear failed',{id,name:e.name});return false;}
+}
+const gameEdgePaths=id=>['/api/library/'+id+'*','/share/'+id+'*'];
+
 // The /health sample game (src/health-spec.js SAMPLE_GAME) must stay.
 const PROTECTED_RECORDS=['2026101001'];
 const ANALYSIS_DONE=['ready','failed','limited','paused'],ANALYSIS_BUSY=['queued','running','retry_wait'];
@@ -38,6 +59,7 @@ async function deleteRecord(id){
  for(const key of await listed(process.env.LIBRARY_BUCKET,prefix))if(key!==metadataKey)await remove(process.env.LIBRARY_BUCKET,key);
  for(const key of ['share/'+id+'.html','share/'+id+'.png',...await listed(process.env.SITE_BUCKET,'prepared-reports/'+id+'/')])await remove(process.env.SITE_BUCKET,key);
  await remove(process.env.LIBRARY_BUCKET,metadataKey);
+ await clearEdge(id,[...gameEdgePaths(id),'/prepared-reports/'+id+'/*']);
  return response(200,{deleted:id});
 }
 
@@ -101,6 +123,7 @@ async function updateGameInfo(id,request){
  }
  await saveSharePreview(source,metadata);
  const report=await refreshReport(id,metadata);
+ await clearEdge(id,gameEdgePaths(id));
  return response(200,{id,metadata:await attachPlayerRanks(metadata,source),report});
 }
 const jsonRequest=(event,limit)=>{

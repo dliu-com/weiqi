@@ -87,6 +87,37 @@ test('report API rejects analysis for another SGF and incomplete positions',asyn
  files.set(prefix+'analysis.json',JSON.stringify({phase:'deep',sgfSha256:createHash('sha256').update(sgf).digest('hex'),positions:[]}));assert.equal((await call('/api/library/'+upload.id+'/report')).status,409);
 });
 
+test('only deep-finished games, 10 minutes after completion, are edge-cacheable; everything else stays no-store',async()=>{
+ const h=api({EDGE_CACHE_SECONDS:'86400'}),upload=await publish({id,sgf,filename:'edge.sgf'}),prefix=gamePrefix(upload.id)+'/';
+ const get=async path=>{const r=await h.event({rawPath:path,requestContext:{http:{method:'GET'}},headers:{}});return {status:r.statusCode,cache:r.headers['cache-control'],cookies:r.cookies};};
+ const setAnalysis=analysis=>{const meta=JSON.parse(h.files.get(prefix+'metadata.json'));meta.analysis=analysis;h.files.set(prefix+'metadata.json',JSON.stringify(meta));};
+ const old=new Date(Date.now()-11*60*1000).toISOString(),fresh=new Date(Date.now()-60*1000).toISOString(),edge='public, max-age=0, s-maxage=86400';
+ h.files.set(prefix+'analysis-quick.json',JSON.stringify({phase:'quick'}));h.files.set(prefix+'analysis.json',JSON.stringify({phase:'deep'}));
+ assert.equal((await get('/api/library/'+upload.id)).cache,'no-store','queued');
+ for(const [label,analysis] of [
+  ['quick only, deep running',{status:'running',available:'quick',quick:{status:'ready',completedAt:old},deep:{status:'running'}}],
+  ['ready but only quick results',{status:'ready',available:'quick',quick:{status:'ready',completedAt:old},deep:{status:'failed'}}],
+  ['ready, quick results, no deep pass',{status:'ready',available:'quick',completedAt:old}],
+  ['limited',{status:'limited',available:'quick',completedAt:old}],
+  ['failed',{status:'failed',completedAt:old}],
+  ['finished less than 10 minutes ago',{status:'ready',available:'deep',deep:{status:'ready',completedAt:fresh}}],
+  ['ready without a completion time',{status:'ready',available:'deep',deep:{status:'ready'}}],
+ ]){setAnalysis(analysis);assert.equal((await get('/api/library/'+upload.id)).cache,'no-store',label);}
+ setAnalysis({status:'ready',available:'deep',deep:{status:'ready',completedAt:old}});
+ const record=await get('/api/library/'+upload.id);assert.equal(record.status,200);assert.equal(record.cache,edge);assert.equal(record.cookies,undefined);
+ setAnalysis({status:'ready',available:'deep',completedAt:old});assert.equal((await get('/api/library/'+upload.id)).cache,edge,'older records keep completedAt at the top');
+ assert.equal((await get('/api/library/'+upload.id+'/report')).cache,'no-store','a report still being prepared (409) is never cached');
+ h.files.set(prefix+'analysis.json',JSON.stringify({phase:'deep',visits:3000,completedAt:old,sgfSha256:createHash('sha256').update(sgf).digest('hex'),modelSha256:'model',positions:[0,1,2].map(n=>({nodeId:n,move:n,blackLead:0,blackWinrate:.5,candidates:[{move:'D4',order:0,blackLead:2,blackWinrate:.6,visits:100,pv:['D4']}]}))}));
+ setAnalysis({status:'ready',available:'deep',deep:{status:'ready',jobId:'job',completedAt:old}});await h.event({source:'aws.batch','detail-type':'Batch Job State Change',detail:{status:'SUCCEEDED',jobName:'weiqi-'+upload.id+'-a1-1234abcd',jobId:'job'}});
+ assert.ok([...h.files.keys()].some(k=>k.includes('/reports/')));
+ const report=await get('/api/library/'+upload.id+'/report');assert.equal(report.status,200);assert.equal(report.cache,edge);
+ assert.equal((await get('/api/library')).cache,'no-store','the list changes with every new game');
+ assert.equal((await get('/api/library/2099010100')).cache,'no-store','missing records');
+ const plain=api(),other=await plain.publish({id,sgf,filename:'plain.sgf'}),otherPrefix=gamePrefix(other.id)+'/',meta=JSON.parse(plain.files.get(otherPrefix+'metadata.json'));
+ meta.analysis={status:'ready',available:'deep',deep:{status:'ready',completedAt:old}};plain.files.set(otherPrefix+'metadata.json',JSON.stringify(meta));plain.files.set(otherPrefix+'analysis.json','{}');
+ assert.equal((await plain.event({rawPath:'/api/library/'+other.id,requestContext:{http:{method:'GET'}},headers:{}})).headers['cache-control'],'no-store','without EDGE_CACHE_SECONDS nothing is cacheable');
+});
+
 test('successful production completion prepares the report before viewing, deduplicates repeats and ignores stale jobs',async()=>{
  const {call,files,messages,event}=api(),upload=await publish({id,sgf,filename:'automatic-report.sgf'}),prefix=gamePrefix(upload.id)+'/';
  const meta=JSON.parse(files.get(prefix+'metadata.json'));meta.analysis={status:'ready',available:'deep',deep:{status:'ready',jobId:'completed-job'}};files.set(prefix+'metadata.json',JSON.stringify(meta));

@@ -15,7 +15,7 @@ const read=file=>readFileSync(new URL('../'+file,import.meta.url),'utf8');
 const strip=source=>source.replace(/^import .*;\n/gm,'').replace(/^export /gm,'').replace(/^module.exports=.*;$/gm,'');
 const SITE='https://weiqi.dliu.com',TENANT='tenant-1',CLIENT='site-client';
 const LIMITS_SECRET='limits-secret-0123456789abcdefghijklmnop';
-const params={'/dliu/entra-tenant-id':TENANT,'/weiqi/entra-client-id':CLIENT,'/weiqi/entra-client-secret':'site-secret','/weiqi/limits-key':LIMITS_SECRET};
+const params={'/dliu/entra-tenant-id':TENANT,'/weiqi/entra-client-id':CLIENT,'/weiqi/entra-client-secret':'site-secret','/weiqi/limits-key':LIMITS_SECRET,'/weiqi/distribution-id':'E123ABC456'};
 const config={tenantId:TENANT,clientId:CLIENT,clientSecret:'site-secret',allowedDomain:'dliu.com'};
 const {publicKey,privateKey}=crypto.generateKeyPairSync('rsa',{modulusLength:2048});
 const jwk={...publicKey.export({format:'jwk'}),kid:'k1'};
@@ -197,7 +197,9 @@ function ownerApi(env={}){
  class BatchClient{async send(){return {jobs:[],jobSummaryList:[]};}}
  class GetItemCommand{constructor(input){this.input=input;}}
  class DynamoDBClient{async send(c){return {Item:rows.get(c.input.Key.gameId.S)};}}
- const modules={'@aws-sdk/client-s3':{S3Client,...S3},'@aws-sdk/client-sqs':{SQSClient,SendMessageCommand:command('Send')},'@aws-sdk/client-batch':{BatchClient,DescribeJobsCommand:command('Describe'),ListJobsCommand:command('ListJobs')},'@aws-sdk/client-dynamodb':{DynamoDBClient,GetItemCommand},'@aws-sdk/client-ssm':parameterStore.module,'node:crypto':crypto,'node:zlib':{deflateSync}};
+ const invalidations=[],edge={fail:false};
+ class CloudFrontClient{async send(c){if(edge.fail)throw Object.assign(Error('denied'),{name:'AccessDenied'});invalidations.push(c.input);return {Invalidation:{Id:'I1'}};}}
+ const modules={'@aws-sdk/client-s3':{S3Client,...S3},'@aws-sdk/client-sqs':{SQSClient,SendMessageCommand:command('Send')},'@aws-sdk/client-batch':{BatchClient,DescribeJobsCommand:command('Describe'),ListJobsCommand:command('ListJobs')},'@aws-sdk/client-dynamodb':{DynamoDBClient,GetItemCommand},'@aws-sdk/client-ssm':parameterStore.module,'@aws-sdk/client-cloudfront':{CloudFrontClient,CreateInvalidationCommand:command('Invalidate')},'node:crypto':crypto,'node:zlib':{deflateSync}};
  const exports={},source=ownerSources.map(f=>strip(read(f))).join('\n')+'\nconst MANAGED_ROUTES='+read('backend/managed-routes.json')+';\n'+strip(read('backend/owner-api.cjs'))
   +'\nexports.seed=async(sgf,id)=>{const m=await uploadRecord(libraryStore,sgf,"seed.sgf",id);await saveSharePreview(sgf,m);return m;};';
  const microsoftLogin=microsoft(()=>goodClaims(new URL(exports.lastLogin).searchParams.get('nonce')));
@@ -212,7 +214,7 @@ function ownerApi(env={}){
   const [method,template]=routeKey.split(' '),rawPath=template.replace(/\{(\w+)\}/g,(_,k)=>pathParameters[k]);
   const r=await exports.handler({version:'2.0',routeKey,rawPath,pathParameters,queryStringParameters:query,cookies,headers:{'content-type':contentType},body:body===undefined?undefined:typeof body==='string'?body:JSON.stringify(body),requestContext:{apiId,routeKey,http:{method},authorizer:c?{jwt:{claims:c,scopes}}:undefined}});
   return {status:r.statusCode,...JSON.parse(r.body)};};
- return {exports,web,managed,claims,buckets,deletes,messages,rows,ssmCalls:parameterStore.calls,microsoftCalls:microsoftLogin.calls};
+ return {exports,web,managed,claims,buckets,deletes,messages,rows,invalidations,edge,ssmCalls:parameterStore.calls,microsoftCalls:microsoftLogin.calls};
 }
 const longGame=(name='API game',moves=60)=>'(;GM[1]FF[4]SZ[19]KM[7.5]GN['+name+']'+padMoves(moves)+')';
 async function seedReady(h,name='Seed',uploadId=crypto.randomUUID()){
@@ -392,6 +394,32 @@ async function seedAnalysed(h,name='Analysed'){
  return meta;
 }
 const infoEdit={name:'Club final',players:{black:'Ke Jie'},playerRanks:{black:'9p'},date:'2026-11-01',venue:'Online',result:'B+R'};
+
+test('an admin edit or delete clears that game from the CloudFront edge; a failed clear never fails the change',async()=>{
+ const h=ownerApi({DISTRIBUTION_PARAMETER:'/weiqi/distribution-id'}),meta=await seedAnalysed(h,'Edge'),other=await seedAnalysed(h,'Other'),path='/api/owner/library/'+meta.id+'/info',body=JSON.stringify(infoEdit);
+ assert.equal((await h.web(path,{method:'POST',body})).statusCode,401);
+ assert.equal((await h.web(path,{method:'POST',body:'{}',cookies:[ownerCookie()]})).statusCode,400);
+ assert.equal(h.invalidations.length,0,'refused requests clear nothing');
+ assert.equal((await h.web(path,{method:'POST',body,cookies:[ownerCookie()]})).statusCode,200);
+ assert.equal(h.invalidations.length,1);const [edit]=h.invalidations;
+ assert.equal(edit.DistributionId,'E123ABC456');assert.deepEqual(JSON.parse(JSON.stringify(edit.InvalidationBatch.Paths)),{Quantity:2,Items:['/api/library/'+meta.id+'*','/share/'+meta.id+'*']});
+ assert.ok(edit.InvalidationBatch.CallerReference.startsWith(meta.id+'-'));
+ assert.equal((await h.managed('PATCH /api/library/{gameId}',{pathParameters:{gameId:other.id},body:{venue:'Club'}})).status,200);
+ assert.notEqual(h.invalidations[1].InvalidationBatch.CallerReference,edit.InvalidationBatch.CallerReference,'every clear is a new invalidation');
+ assert.deepEqual([...h.invalidations[1].InvalidationBatch.Paths.Items],['/api/library/'+other.id+'*','/share/'+other.id+'*']);
+ assert.equal(h.ssmCalls.filter(c=>c.Names.includes('/weiqi/distribution-id')).length,1,'the distribution ID is read once');
+ h.edge.fail=true;const errors=[],log=console.error;console.error=(...a)=>errors.push(a);
+ try{assert.equal((await h.web('/api/owner/library/'+meta.id+'/delete',{method:'POST',cookies:[ownerCookie()]})).statusCode,200);}finally{console.error=log;}
+ assert.ok(!h.buckets.library.has(gamePrefix(meta.id)+'/metadata.json'),'the delete still happened');
+ assert.deepEqual(errors.map(e=>e[0]),['Edge cache clear failed']);assert.equal(errors[0][1].id,meta.id);
+ h.edge.fail=false;assert.equal((await h.managed('DELETE /api/library/{gameId}',{pathParameters:{gameId:other.id}})).status,200);
+ assert.deepEqual([...h.invalidations.at(-1).InvalidationBatch.Paths.Items],['/api/library/'+other.id+'*','/share/'+other.id+'*','/prepared-reports/'+other.id+'/*']);
+ const plain=ownerApi(),kept=await seedAnalysed(plain,'Plain'),key=gamePrefix(kept.id)+'/metadata.json',m=JSON.parse(plain.buckets.library.get(key));
+ m.analysis.deep.completedAt='2026-01-01T00:00:00Z';plain.buckets.library.set(key,JSON.stringify(m));
+ const read=await plain.exports.handler({version:'2.0',routeKey:'GET /api/library/{gameId}',rawPath:'/api/library/'+kept.id,pathParameters:{gameId:kept.id},headers:{},requestContext:{apiId:API,routeKey:'GET /api/library/{gameId}',http:{method:'GET'},authorizer:{jwt:{claims:plain.claims(),scopes:['weiqi.read']}}}});
+ assert.equal(read.statusCode,200);assert.equal(read.headers['cache-control'],'no-store','OwnerApi replies are never edge-cached');
+ assert.equal((await plain.web('/api/owner/library/'+kept.id+'/delete',{method:'POST',cookies:[ownerCookie()]})).statusCode,200);assert.equal(plain.invalidations.length,0,'no DISTRIBUTION_PARAMETER, no clear');
+});
 
 test('only the signed-in admin edits game info on the website; the saved SGF never changes',async()=>{
  const h=ownerApi({REPORT_QUEUE:'reports'}),meta=await seedAnalysed(h,'Before'),prefix=gamePrefix(meta.id)+'/',path='/api/owner/library/'+meta.id+'/info',body=JSON.stringify(infoEdit);

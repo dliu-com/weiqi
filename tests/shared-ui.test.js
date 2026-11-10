@@ -68,6 +68,15 @@ test('a publish never pairs a new page with an old script: assets first, edge cl
   assert.match(s,/MODULE_CACHE='public, max-age=0, must-revalidate/);
 });
 
+test('pages stay at the CloudFront edge for a day and every publish clears them after the last upload',()=>{
+  const s=readFileSync(new URL('../scripts/publish-site.sh',import.meta.url),'utf8');
+  assert.match(s,/MODULE_CACHE='public, max-age=0, must-revalidate, s-maxage=86400'/);
+  assert.match(s,/PAGE_CACHE="\$MODULE_CACHE"/);
+  assert.doesNotMatch(s,/no-cache/,'CloudFront never keeps a no-cache page');
+  const lastInvalidate=s.lastIndexOf('\ninvalidate\n'),uploads=[...s.matchAll(/aws s3 cp [^\n]*"\$(PAGE_CACHE|cache)"/g)];
+  assert.ok(uploads.length>=4&&uploads.every(m=>m.index<lastInvalidate),'every page upload comes before the final invalidation');
+});
+
 test('the Architecture tab starts with a link to the source code',()=>{
  const about=read('about.js');
  assert.match(about,/p\.className='dl-docs-repo';label\.textContent=t\('源代码：','Source code:'\);a\.href='https:\/\/github\.com\/dliu-com\/weiqi';a\.textContent='github\.com\/dliu-com\/weiqi'/);

@@ -19,10 +19,11 @@ node --check "$PROJECT_DIR/src/engine.js"
 
 # Each publish invalidates the edge, so the long edge lifetimes below never serve an old release.
 STATIC_CACHE='public, max-age=300, s-maxage=86400, stale-while-revalidate=86400'
-# Scripts, styles and data keep fixed names and load together, so browsers revalidate them
-# (no mixed releases) while the edge keeps them for a day. HTML pages are never edge-cached long.
+# Scripts, styles, data and pages keep fixed names and load together, so browsers revalidate them
+# (no mixed releases) while the edge keeps them for a day. Pages are shells with no game or AI data:
+# those come from the API, so a cached page never shows an old AI analysis.
 MODULE_CACHE='public, max-age=0, must-revalidate, s-maxage=86400'
-PAGE_CACHE='public, max-age=0, must-revalidate'
+PAGE_CACHE="$MODULE_CACHE"
 
 aws s3 cp "$PROJECT_DIR/src/photo-assets/" "s3://$SITE_BUCKET_NAME/photo-assets/" --recursive --cache-control "$STATIC_CACHE" --only-show-errors
 
@@ -59,6 +60,6 @@ aws s3 cp "$PROJECT_DIR/src/health.md" "s3://$SITE_BUCKET_NAME/docs/health.md" -
 API_URL="$(aws cloudformation describe-stacks --stack-name "$STACK_NAME" --query "Stacks[0].Outputs[?OutputKey=='MicrosoftApiUrl'].OutputValue" --output text)"
 if [[ ! "$API_URL" =~ ^https://[a-z0-9.-]+$ ]]; then echo "The managed API (MicrosoftApiUrl) must be deployed before publishing /docs/api.md." >&2; exit 1; fi
 sed "s#__WEIQI_API_URL__#$API_URL#g" "$PROJECT_DIR/src/api.md" | aws s3 cp - "s3://$SITE_BUCKET_NAME/docs/api.md" --content-type 'text/markdown; charset=utf-8' --cache-control "$PAGE_CACHE" --only-show-errors
-aws s3 cp "$PROJECT_DIR/src/index.html" "s3://$SITE_BUCKET_NAME/index.html" --content-type 'text/html; charset=utf-8' --cache-control 'no-cache, max-age=0, must-revalidate' --only-show-errors
+aws s3 cp "$PROJECT_DIR/src/index.html" "s3://$SITE_BUCKET_NAME/index.html" --content-type 'text/html; charset=utf-8' --cache-control "$PAGE_CACHE" --only-show-errors
 invalidate
 aws cloudformation describe-stacks --stack-name "$STACK_NAME" --query "Stacks[0].Outputs[?OutputKey=='WebsiteUrl'].OutputValue" --output text

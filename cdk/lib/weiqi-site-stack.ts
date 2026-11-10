@@ -38,6 +38,10 @@ export const API_APP_PARAMETER='/dliu/api-app-id';
 // Managed API stage throttle: above this API Gateway answers 429 before Lambda runs.
 export const MANAGED_API_RATE=10;
 export const MANAGED_API_BURST=20;
+// Finished saved games stay this long at the CloudFront edge (backend/library-handler.cjs edgeCached); an admin edit
+// or delete clears them sooner. OwnerApi reads the distribution ID from this parameter to clear them.
+export const EDGE_CACHE=Duration.days(1);
+export const DISTRIBUTION_PARAMETER=`${PARAMETER_PREFIX}/distribution-id`;
 
 export class WeiqiSiteStack extends Stack {
   constructor(scope: Construct, id: string, props: StackProps & {analysisQueueArnOverride?:string;keepLegacyAnalysisQueue?:boolean;microsoftApi?:boolean;storage?:{gameTable:dynamodb.ITable;libraryBucket:s3.IBucket}} = {}) {
@@ -134,7 +138,7 @@ export class WeiqiSiteStack extends Stack {
       // Caps the cost of a request flood; normal use needs only a few at once.
       reservedConcurrentExecutions: 20,
       logGroup: new logs.LogGroup(this, 'GameLogs', { retention: logs.RetentionDays.THREE_MONTHS, removalPolicy: RemovalPolicy.DESTROY }),
-      environment: { POSITION_USAGE_TABLE:'weiqi-position-usage',POSITION_RECOGNIZER:'WeiqiPositionRecognition',POSITION_ENGINE:'WeiqiPositionEngine',POSITION_DAILY_MICROS:String(projectConfig.positionAnalysis.dailyRequests*projectConfig.positionAnalysis.requestReserveMicros),POSITION_REQUEST_MICROS:String(projectConfig.positionAnalysis.requestReserveMicros),CLIENT_EDITS_PER_MINUTE:'60',CLIENT_POSITIONS_PER_DAY:String(projectConfig.positionAnalysis.connectionDailyRequests),DAILY_ANALYSIS_CAP:String(projectConfig.analysis.dailyDeepLimit),DAILY_UPLOAD_CAP:String(projectConfig.analysis.dailyGameLimit), AI_CONTROL_KEY:'control/ai-spending.json', LIBRARY_BUCKET:libraryBucket.bucketName, SITE_BUCKET:bucket.bucketName, ANALYSIS_QUEUE:analysisQueue.queueUrl, TABLE_NAME: gameTable.tableName, REPORT_QUEUE:reportQueue.queueUrl, SITE_ORIGIN: Fn.join('', ['https://', domainName]), PARAMETER_PREFIX },
+      environment: { POSITION_USAGE_TABLE:'weiqi-position-usage',POSITION_RECOGNIZER:'WeiqiPositionRecognition',POSITION_ENGINE:'WeiqiPositionEngine',POSITION_DAILY_MICROS:String(projectConfig.positionAnalysis.dailyRequests*projectConfig.positionAnalysis.requestReserveMicros),POSITION_REQUEST_MICROS:String(projectConfig.positionAnalysis.requestReserveMicros),CLIENT_EDITS_PER_MINUTE:'60',CLIENT_POSITIONS_PER_DAY:String(projectConfig.positionAnalysis.connectionDailyRequests),DAILY_ANALYSIS_CAP:String(projectConfig.analysis.dailyDeepLimit),DAILY_UPLOAD_CAP:String(projectConfig.analysis.dailyGameLimit), AI_CONTROL_KEY:'control/ai-spending.json', LIBRARY_BUCKET:libraryBucket.bucketName, SITE_BUCKET:bucket.bucketName, ANALYSIS_QUEUE:analysisQueue.queueUrl, TABLE_NAME: gameTable.tableName, REPORT_QUEUE:reportQueue.queueUrl, SITE_ORIGIN: Fn.join('', ['https://', domainName]), PARAMETER_PREFIX, EDGE_CACHE_SECONDS:String(EDGE_CACHE.toSeconds()) },
       code: lambda.Code.fromInline([engineSource, serviceSource, sharedLibrarySource, queueEstimateSource, sharePreviewSource, libraryHandlerSource, queueStatusSource, fs.readFileSync(path.join(root,'backend/client-limit.cjs'),'utf8'), fs.readFileSync(path.join(root,'backend/position-handler.cjs'),'utf8'), authSource, handlerSource].join('\n')),
     });
     // OwnerApi reads the owner sign-in settings: this app's client ID and secret (also the session key), the tenant ID
@@ -181,7 +185,7 @@ export class WeiqiSiteStack extends Stack {
       reservedConcurrentExecutions:5,
       logGroup:new logs.LogGroup(this,'OwnerApiLogs',{retention:logs.RetentionDays.THREE_MONTHS,removalPolicy:RemovalPolicy.DESTROY}),
       environment:{LIBRARY_BUCKET:libraryBucket.bucketName,SITE_BUCKET:bucket.bucketName,AI_CONTROL_KEY:'control/ai-spending.json',ANALYSIS_QUEUE:analysisQueue.queueUrl,TABLE_NAME:gameTable.tableName,
-        SITE_ORIGIN:Fn.join('',['https://',domainName]),DAILY_ANALYSIS_CAP:String(projectConfig.analysis.dailyDeepLimit),DAILY_UPLOAD_CAP:String(projectConfig.analysis.dailyGameLimit),PARAMETER_PREFIX,TENANT_PARAMETER,REPORT_QUEUE:reportQueue.queueUrl},
+        SITE_ORIGIN:Fn.join('',['https://',domainName]),DAILY_ANALYSIS_CAP:String(projectConfig.analysis.dailyDeepLimit),DAILY_UPLOAD_CAP:String(projectConfig.analysis.dailyGameLimit),PARAMETER_PREFIX,TENANT_PARAMETER,REPORT_QUEUE:reportQueue.queueUrl,DISTRIBUTION_PARAMETER},
       code:lambda.Code.fromInline(ownerSource),
     });
     readSecrets(ownerApi);
@@ -251,6 +255,17 @@ export class WeiqiSiteStack extends Stack {
     const recordRoutes=new cloudfront.Function(this,'RecordRoutes',{code:cloudfront.FunctionCode.fromInline(fs.readFileSync(path.join(root,'src/routes.cjs'),'utf8'))});
     // Overwrites any client-supplied value, so the API can give each connection a fair share of public limits.
     const apiViewer=new cloudfront.Function(this,'ApiViewer',{code:cloudfront.FunctionCode.fromInline("function handler(event){var request=event.request;request.headers['x-weiqi-viewer']={value:event.viewer.ip};return request;}")});
+    // One saved game and its report: the same viewer header, but GET only. A HEAD reply is never cached, so it can
+    // never stand in for the game. Function replies are not cached.
+    const libraryViewer=new cloudfront.Function(this,'LibraryViewer',{code:cloudfront.FunctionCode.fromInline("function handler(event){var request=event.request;if(request.method!=='GET')return {statusCode:405,statusDescription:'Method Not Allowed',headers:{allow:{value:'GET'},'cache-control':{value:'no-store'}}};request.headers['x-weiqi-viewer']={value:event.viewer.ip};return request;}")});
+    // Keyed on the path only. GameHandler marks only finished games cacheable (s-maxage); everything else is no-store,
+    // so live AI progress, queued and failed games always come from the origin.
+    const libraryRecordCache=new cloudfront.CachePolicy(this,'LibraryRecordCache',{
+      comment:'Weiqi finished saved games: origin Cache-Control only, no headers, cookies or query strings',
+      minTtl:Duration.seconds(0),defaultTtl:Duration.seconds(0),maxTtl:EDGE_CACHE,
+      headerBehavior:cloudfront.CacheHeaderBehavior.none(),cookieBehavior:cloudfront.CacheCookieBehavior.none(),queryStringBehavior:cloudfront.CacheQueryStringBehavior.none(),
+      enableAcceptEncodingGzip:true,enableAcceptEncodingBrotli:true,
+    });
     // Central traffic monitoring (dliu-com/traffic-monitor): shared visitor cookie; TrafficMonitor
     // creates this distribution's access-log delivery (CloudFront standard logging v2).
     const visitorIdFunction = cloudfront.Function.fromFunctionAttributes(this, 'VisitorId', {
@@ -269,6 +284,7 @@ export class WeiqiSiteStack extends Stack {
       this, 'TrafficGeo', Fn.importValue('TrafficGeoOriginRequestPolicyId'));
 
     const ownerOrigin=origins.FunctionUrlOrigin.withOriginAccessControl(ownerUrl);
+    const gameOrigin=origins.FunctionUrlOrigin.withOriginAccessControl(functionUrl);
     const distribution = new cloudfront.Distribution(this, 'SiteDistribution', {
       defaultBehavior: {
         functionAssociations:[{eventType:cloudfront.FunctionEventType.VIEWER_REQUEST,function:recordRoutes},{ eventType: cloudfront.FunctionEventType.VIEWER_RESPONSE, function: visitorIdFunction }],
@@ -299,8 +315,20 @@ export class WeiqiSiteStack extends Stack {
           originRequestPolicy: cloudfront.OriginRequestPolicy.ALL_VIEWER_EXCEPT_HOST_HEADER,
           responseHeadersPolicy: headers,
         },
+        // One saved game (/api/library/<id>) and its /report; the list (/api/library) stays under api/* and live.
+        'api/library/*': {
+          origin: gameOrigin,
+          allowedMethods: cloudfront.AllowedMethods.ALLOW_GET_HEAD,
+          cachedMethods: cloudfront.CachedMethods.CACHE_GET_HEAD,
+          viewerProtocolPolicy: cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
+          cachePolicy: libraryRecordCache,
+          originRequestPolicy: publicApiRequests,
+          functionAssociations:[{eventType:cloudfront.FunctionEventType.VIEWER_REQUEST,function:libraryViewer}],
+          responseHeadersPolicy: headers,
+          compress: true,
+        },
         'api/*': {
-          origin: origins.FunctionUrlOrigin.withOriginAccessControl(functionUrl),
+          origin: gameOrigin,
           allowedMethods: cloudfront.AllowedMethods.ALLOW_ALL,
           viewerProtocolPolicy: cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
           cachePolicy: cloudfront.CachePolicy.CACHING_DISABLED,
@@ -347,6 +375,10 @@ export class WeiqiSiteStack extends Stack {
       sourceArn: distribution.distributionArn,
       invokedViaFunctionUrl: true,
     });
+    // OwnerApi clears an edited or deleted game from the edge. The ID goes through SSM and the grant is a separate
+    // policy, because the distribution already depends on OwnerApi (its function URL is an origin).
+    new ssm.StringParameter(this,'DistributionIdParameter',{parameterName:DISTRIBUTION_PARAMETER,stringValue:distribution.distributionId,description:'Weiqi CloudFront distribution: OwnerApi clears edited or deleted games from the edge'});
+    new iam.Policy(this,'OwnerEdgeInvalidation',{roles:[ownerApi.role!],statements:[new iam.PolicyStatement({actions:['cloudfront:CreateInvalidation'],resources:[distribution.distributionArn]})]});
 
     new route53.ARecord(this, 'SiteAliasRecord', {
       recordName: 'weiqi', zone: hostedZone,

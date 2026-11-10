@@ -233,6 +233,32 @@ test('/auth/* and /api/owner/* reach OwnerApi uncached, ahead of the public /api
  const perms=Object.values(res).filter(r=>r.Type==='AWS::Lambda::Permission'&&JSON.stringify(r.Properties.FunctionName).includes(ownerId));
  expect(perms.every(r=>r.Properties.Principal==='cloudfront.amazonaws.com')).toBe(true);
 });
+test('finished saved games are edge-cached on the path only (GET only); the list and live API stay uncached',()=>{
+ const res=template.toJSON().Resources as Record<string,any>;
+ const dist=Object.values(res).find(r=>r.Type==='AWS::CloudFront::Distribution')!.Properties.DistributionConfig;
+ const patterns=dist.CacheBehaviors.map((b:any)=>b.PathPattern);
+ expect(patterns.indexOf('api/library/*')).toBeGreaterThan(-1);expect(patterns.indexOf('api/library/*')).toBeLessThan(patterns.indexOf('api/*'));
+ const library=dist.CacheBehaviors.find((b:any)=>b.PathPattern==='api/library/*'),api=dist.CacheBehaviors.find((b:any)=>b.PathPattern==='api/*');
+ expect(library.TargetOriginId).toBe(api.TargetOriginId);expect(library.OriginRequestPolicyId).toEqual(api.OriginRequestPolicyId);
+ expect(library.AllowedMethods).toEqual(['GET','HEAD']);expect(library.Compress).toBe(true);expect(api.CachePolicyId).toBe(cloudfrontNoCache());
+ const cache=res[library.CachePolicyId.Ref].Properties.CachePolicyConfig;
+ expect(cache.MinTTL).toBe(0);expect(cache.DefaultTTL).toBe(0);expect(cache.MaxTTL).toBe(86400);
+ expect(cache.ParametersInCacheKeyAndForwardedToOrigin).toMatchObject({HeadersConfig:{HeaderBehavior:'none'},CookiesConfig:{CookieBehavior:'none'},QueryStringsConfig:{QueryStringBehavior:'none'},EnableAcceptEncodingGzip:true,EnableAcceptEncodingBrotli:true});
+ const [fn]=library.FunctionAssociations;expect(fn.EventType).toBe('viewer-request');
+ const code=res[fn.FunctionARN['Fn::GetAtt'][0]].Properties.FunctionCode;
+ expect(code).toContain("request.method!=='GET'");expect(code).toContain('statusCode:405');expect(code).toContain('x-weiqi-viewer');
+ const [,game]=Object.entries(res).find(([,r])=>r.Type==='AWS::Lambda::Function'&&r.Properties.ReservedConcurrentExecutions===20)!;
+ const [,owner]=functionNamed(template,'Weiqi owner sign-in, owner tools and the Microsoft-token API');
+ expect(game.Properties.Environment.Variables.EDGE_CACHE_SECONDS).toBe('86400');
+ expect(owner.Properties.Environment.Variables.EDGE_CACHE_SECONDS).toBeUndefined();
+ expect(owner.Properties.Environment.Variables.DISTRIBUTION_PARAMETER).toBe('/weiqi/distribution-id');
+ template.hasResourceProperties('AWS::SSM::Parameter',{Name:'/weiqi/distribution-id',Type:'String',Value:{Ref:Match.stringLikeRegexp('SiteDistribution')}});
+ const invalidations=Object.values(res).filter(r=>r.Type==='AWS::IAM::Policy').flatMap(r=>r.Properties.PolicyDocument.Statement.filter((s:any)=>[].concat(s.Action).includes('cloudfront:CreateInvalidation' as never)).map((s:any)=>({s,roles:r.Properties.Roles})));
+ expect(invalidations).toHaveLength(1);
+ expect(invalidations[0].roles).toEqual([{Ref:owner.Properties.Role['Fn::GetAtt'][0]}]);
+ expect(JSON.stringify(invalidations[0].s.Resource)).toMatch(/distribution\/.*SiteDistribution/);
+ expect(actionsOf(roleStatements(template,game))).not.toContain('cloudfront:CreateInvalidation');
+});
 test('the managed API exists only when enabled; every route needs a Microsoft token with its weiqi.* scope',()=>{
  expect(Object.keys(template.findResources('AWS::ApiGatewayV2::Api'))).toEqual([]);
  const managed=Template.fromStack(makeSite('Managed',{microsoftApi:true}));

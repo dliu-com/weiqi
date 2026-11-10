@@ -17,12 +17,12 @@ async function storedAiReport(id,prepare=false) {
   if(metadata.analysis.available==='quick'||metadata.analysis.status!=='ready')throw Object.assign(Error('The report will be available when deep analysis finishes. Refresh the game page to check.'),{statusCode:409});
   const analysis=JSON.parse(await libraryStore.get(prefix+'analysis.json'));
   const hash=reportHash('sha256').update(JSON.stringify([REPORT_SCHEMA_VERSION,analysis.sgfSha256,analysis.modelSha256,analysis.visits,analysis.completedAt,...(metadata.infoEditedAt?[metadata.infoEditedAt]:[])])).digest('hex'),key=prefix+'reports/'+hash+'.json';
-  try{return {report:JSON.parse(await libraryStore.get(key)),key};}catch(e){if(e.name!=='NoSuchKey')throw e;}
+  try{return {report:JSON.parse(await libraryStore.get(key)),key,metadata};}catch(e){if(e.name!=='NoSuchKey')throw e;}
   if(!prepare)throw Object.assign(Error('The report is being prepared in the background. Please refresh later.'),{statusCode:409});
   const source=await libraryStore.get(prefix+'original.sgf');
   if(reportHash('sha256').update(source).digest('hex')!==analysis.sgfSha256)throw Object.assign(Error('Analysis does not match the saved SGF.'),{statusCode:409});
   const report=buildAiReport(source,analysis,metadata);await libraryStore.create(key,JSON.stringify(report),'application/json');
-  return {report:JSON.parse(await libraryStore.get(key)),key};
+  return {report:JSON.parse(await libraryStore.get(key)),key,metadata};
 }
 async function completedAnalysisReport(job) {
   const match=/^weiqi-(\d{10,14})-a\d+-[a-f0-9]{8}$/.exec(job.jobName||'');
@@ -32,6 +32,21 @@ async function completedAnalysisReport(job) {
   const saved=await storedAiReport(id,true);
   if(process.env.REPORT_QUEUE){await libraryQueue.send(new SendMessageCommand({QueueUrl:process.env.REPORT_QUEUE,MessageGroupId:'reports',MessageDeduplicationId:reportHash('sha256').update(saved.key+'|'+job.jobId).digest('hex'),MessageBody:JSON.stringify({id,reportKey:saved.key,jobId:job.jobId})}));}
   return {id,reportDataReady:true,reportFilesScheduled:Boolean(process.env.REPORT_QUEUE)};
+}
+// A finished game's reply is the same for everyone and never changes on its own, so CloudFront keeps it for
+// EDGE_CACHE_SECONDS (GameHandler only; OwnerApi replies stay no-store). Only deep-finished games count, 10 minutes
+// after completion, when late status patches have landed. An admin edit or delete clears the edge (owner-api.cjs).
+const EDGE_SETTLE_MS=10*60*1000;
+function finishedRecord(metadata,now=Date.now()){
+  const a=metadata?.analysis;
+  if(!a||a.status!=='ready'||a.available==='quick'||(a.deep&&a.deep.status!=='ready'))return false;
+  const done=Date.parse(a.deep?.completedAt||a.completedAt);
+  return Number.isFinite(done)&&now-done>=EDGE_SETTLE_MS;
+}
+function edgeCached(reply,metadata){
+  const seconds=Number(process.env.EDGE_CACHE_SECONDS);
+  if(reply.statusCode===200&&Number.isInteger(seconds)&&seconds>0&&finishedRecord(metadata))reply.headers={...reply.headers,'cache-control':'public, max-age=0, s-maxage='+seconds};
+  return reply;
 }
 async function attachPlayerRanks(metadata,source) {
  if(metadata.playerRanks)return metadata;
@@ -55,7 +70,8 @@ async function libraryHandler(event,pageSize=LIBRARY_PAGE_SIZE) {
     }
     const reportId=path.match(/^\/api\/library\/([^/]+)\/report$/)?.[1];
     if(method==='GET'&&validRecordId(reportId||'')){
-      return response(200,(await storedAiReport(reportId)).report);
+      const saved=await storedAiReport(reportId);
+      return edgeCached(response(200,saved.report),saved.metadata);
     }
     if (method==='GET' && validRecordId(id)) {
       const prefix=gamePrefix(id)+'/', metadata=JSON.parse(await libraryStore.get(prefix+'metadata.json'));
@@ -63,7 +79,7 @@ async function libraryHandler(event,pageSize=LIBRARY_PAGE_SIZE) {
       if(metadata.analysis.status==='ready'||metadata.analysis.available) analysis=JSON.parse(await libraryStore.get(prefix+(metadata.analysis.available==='quick'?'analysis-quick.json':'analysis.json')));
       await attachQueueStatus(metadata);
       if(!['ready','limited','paused'].includes(metadata.analysis.status)&&await libraryStore.analysisPaused())metadata.analysis={...metadata.analysis,status:'paused',reason:'monthly_budget',quick:metadata.analysis.quick?.status==='ready'?metadata.analysis.quick:undefined,deep:undefined};
-      return response(200,{metadata,sgf,analysis});
+      return edgeCached(response(200,{metadata,sgf,analysis}),metadata);
     }
     // Records are only created by the live game and the shared draft, never by a public upload.
     if(path==='/api/library')return response(405,{message:'Method not allowed.'});
