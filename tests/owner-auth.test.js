@@ -14,7 +14,8 @@ import {readSgf} from '../src/sgf.js';
 const read=file=>readFileSync(new URL('../'+file,import.meta.url),'utf8');
 const strip=source=>source.replace(/^import .*;\n/gm,'').replace(/^export /gm,'').replace(/^module.exports=.*;$/gm,'');
 const SITE='https://weiqi.dliu.com',TENANT='tenant-1',CLIENT='site-client';
-const params={'/dliu/entra-tenant-id':TENANT,'/weiqi/entra-client-id':CLIENT,'/weiqi/entra-client-secret':'site-secret'};
+const LIMITS_SECRET='limits-secret-0123456789abcdefghijklmnop';
+const params={'/dliu/entra-tenant-id':TENANT,'/weiqi/entra-client-id':CLIENT,'/weiqi/entra-client-secret':'site-secret','/weiqi/limits-key':LIMITS_SECRET};
 const config={tenantId:TENANT,clientId:CLIENT,clientSecret:'site-secret',allowedDomain:'dliu.com'};
 const {publicKey,privateKey}=crypto.generateKeyPairSync('rsa',{modulusLength:2048});
 const jwk={...publicKey.export({format:'jwk'}),kid:'k1'};
@@ -108,7 +109,8 @@ test('a callback without the matching sign-in cookie or with attacker text is re
  assert.equal(calls.length,0,'no token exchange');
 });
 
-// The public website Lambda: an owner session lifts only per-connection shares; nothing else changes.
+// The public website Lambda: an admin limits pass lifts only per-connection shares; nothing else changes.
+// It never reads the Microsoft client secret and ignores the admin session cookie (W-13).
 function gameHandler(env={}){
  const rows=new Map(),parameterStore=ssm();
  class GetItemCommand{constructor(input){this.input=input;}}
@@ -127,6 +129,8 @@ function gameHandler(env={}){
  return {call,ssmCalls:parameterStore.calls};
 }
 const ownerCookie=(claims={})=>{const {auth}=loadAuth();return auth.SESSION_COOKIE+'='+auth.sign({typ:'session',user:'me@dliu.com',name:'Dewei Liu',oid:'owner-oid',exp:seconds+600,...claims},auth.sessionKey(config));};
+const limitsKey=crypto.createHmac('sha256',LIMITS_SECRET).update('weiqi-limits-v1').digest();
+const limitsPass=(claims={},key=limitsKey)=>{const {auth}=loadAuth();return auth.LIMITS_COOKIE+'='+auth.sign({typ:'limits',exp:seconds+600,...claims},key);};
 
 test('guests keep every public limit and never cause a sign-in lookup',async()=>{
  const h=gameHandler(),hint=['weiqi_owner=1'];
@@ -139,17 +143,30 @@ test('guests keep every public limit and never cause a sign-in lookup',async()=>
  assert.equal((await gameHandler().call('/api/owner/library/2026101001/delete',{method:'POST',cookies:[ownerCookie()]})).statusCode,404,'the public Lambda has no owner routes');
 });
 
-test('forged, expired, login-typed and other-key cookies are treated as guests',async()=>{
- const {auth}=loadAuth();
- for(const cookie of [auth.SESSION_COOKIE+'=garbage',ownerCookie({exp:seconds-5}),ownerCookie({typ:'login'}),auth.SESSION_COOKIE+'='+auth.sign({typ:'session',user:'x',exp:seconds+600},auth.loginKey(config))]){
+test('forged, expired, wrong-type and other-key passes are treated as guests',async()=>{
+ const {auth}=loadAuth(),limits=auth.LIMITS_COOKIE+'=';
+ const forged=[limits+'garbage',limitsPass({exp:seconds-5}),limitsPass({typ:'session'}),limitsPass({},auth.sessionKey(config)),limitsPass({},auth.loginKey(config)),limitsPass({},Buffer.from('site-secret')),limitsPass({},Buffer.from(LIMITS_SECRET)),
+  limits+ownerCookie().split('=').slice(1).join('=')];
+ for(const cookie of forged){
   const h=gameHandler();
   assert.equal((await h.call('/api/games',{cookies:[cookie]})).statusCode,200);
-  assert.equal((await h.call('/api/games',{cookies:[cookie]})).statusCode,429,cookie.slice(0,40));
+  assert.equal((await h.call('/api/games',{cookies:[cookie]})).statusCode,429,cookie.slice(0,50));
  }
 });
 
+test('the public Lambda ignores a valid admin session and never reads the Microsoft secret',async()=>{
+ const h=gameHandler();
+ assert.equal((await h.call('/api/games',{cookies:[ownerCookie()]})).statusCode,200);
+ assert.equal((await h.call('/api/games',{cookies:[ownerCookie()]})).statusCode,429,'a session cookie alone lifts nothing');
+ assert.equal(h.ssmCalls.length,0,'a session cookie causes no parameter read');
+ await h.call('/api/games',{cookies:[limitsPass()]});
+ assert.equal(JSON.stringify(h.ssmCalls.map(c=>c.Names)),'[["/weiqi/limits-key"]]','only the limits key');
+ for(const file of ['backend/handler.cjs','backend/client-limit.cjs','backend/position-handler.cjs','backend/library-handler.cjs'])
+  assert.doesNotMatch(read(file),/loadConfig|getSession|sessionKey|entra-client-secret/,file);
+});
+
 test('a signed-in owner skips per-connection shares but not the site-wide caps',async()=>{
- const h=gameHandler(),cookies=[ownerCookie()];
+ const h=gameHandler(),cookies=[limitsPass()];
  for(let n=0;n<3;n++)assert.equal((await h.call('/api/games',{cookies})).statusCode,200);
  for(let n=0;n<3;n++)assert.notEqual((await h.call('/api/game',{method:'POST',cookies})).statusCode,429,'edit '+n);
  const capped=await h.call('/api/game',{method:'POST',cookies});
@@ -233,16 +250,41 @@ test('sign-in routes redirect to Microsoft, finish with a session and sign out c
  const callback=await h.web('/auth/callback',{query:{code:'c',state:new URL(h.exports.lastLogin).searchParams.get('state')},cookies:[auth]});
  assert.equal(callback.statusCode,302);assert.equal(callback.headers.location,'/library');
  const session=cookieValue(callback.cookies,'__Host-weiqi_session');assert.ok(session);
- assert.deepEqual(JSON.parse((await h.web('/api/owner/session',{cookies:[session]})).body),{signedIn:true,user:'me@dliu.com',name:'Dewei Liu'});
+ const maxAge=name=>Number(callback.cookies.find(c=>c.startsWith(name+'=')).match(/Max-Age=(\d+)/)[1]);
+ const pass=cookieValue(callback.cookies,'__Host-weiqi_limits');assert.ok(pass,'sign-in also gives the limits pass');
+ assert.ok(Math.abs(maxAge('__Host-weiqi_limits')-maxAge('__Host-weiqi_session'))<=1,'the pass expires with the session');
+ assert.match(callback.cookies.find(c=>c.startsWith('__Host-weiqi_limits=')),/; Path=\/; Max-Age=\d+; Secure; HttpOnly; SameSite=Lax$/);
+ const checker=loadAuth().auth;
+ assert.ok(checker.hasLimitsPass({cookies:[pass]},limitsKey),'signed with the limits key');
+ assert.equal(checker.getSession({cookies:['__Host-weiqi_session='+pass.split('=').slice(1).join('=')]},config),null,'a pass is never a session');
+ const asked=await h.web('/api/owner/session',{cookies:[session]});
+ assert.deepEqual(JSON.parse(asked.body),{signedIn:true,user:'me@dliu.com',name:'Dewei Liu'});
+ assert.ok(cookieValue(asked.cookies,'__Host-weiqi_limits'),'a session from before the pass gets one');
+ assert.equal((await h.web('/api/owner/session',{cookies:[session,pass]})).cookies,undefined,'a valid pass is not reissued');
  const failed=await h.web('/auth/callback',{query:{error:'"><script>x</script>'}});
  assert.equal(failed.statusCode,401);assert.match(failed.headers['content-type'],/^text\/html/);assert.doesNotMatch(failed.body,/<script>/);assert.match(failed.body,/dl\.css/);
  const logout=await h.web('/auth/logout');
  assert.equal(logout.statusCode,302);assert.equal(logout.headers.location,'/');
- for(const name of ['__Host-weiqi_session','__Host-weiqi_auth','weiqi_owner'])assert.match(logout.cookies.find(c=>c.startsWith(name+'=')),/Max-Age=0/);
+ for(const name of ['__Host-weiqi_session','__Host-weiqi_auth','__Host-weiqi_limits','weiqi_owner'])assert.match(logout.cookies.find(c=>c.startsWith(name+'=')),/Max-Age=0/);
  const stale=await h.web('/api/owner/session',{cookies:[ownerCookie({exp:seconds-5})]});
  assert.deepEqual(JSON.parse(stale.body),{signedIn:false});assert.ok(stale.cookies.some(c=>c.startsWith('weiqi_owner=;')),'a stale session clears the page hint');
  const unconfigured=ownerApi({PARAMETER_PREFIX:'/missing'});
  assert.equal((await unconfigured.web('/auth/login')).statusCode,503);
+});
+
+test('a missing limits key never blocks admin sign-in; the admin just keeps the public limits',async()=>{
+ const saved=params['/weiqi/limits-key'];delete params['/weiqi/limits-key'];
+ try{
+  const h=ownerApi();
+  const auth=cookieValue((await h.web('/auth/login',{query:{return:'/'}})).cookies,'__Host-weiqi_auth');
+  const callback=await h.web('/auth/callback',{query:{code:'c',state:new URL(h.exports.lastLogin).searchParams.get('state')},cookies:[auth]});
+  assert.equal(callback.statusCode,302);assert.ok(cookieValue(callback.cookies,'__Host-weiqi_session'));assert.equal(cookieValue(callback.cookies,'__Host-weiqi_limits'),undefined);
+  const asked=await h.web('/api/owner/session',{cookies:[ownerCookie()]});
+  assert.deepEqual(JSON.parse(asked.body),{signedIn:true,user:'me@dliu.com',name:'Dewei Liu'});
+  const g=gameHandler();
+  assert.equal((await g.call('/api/games',{cookies:[limitsPass()]})).statusCode,200);
+  assert.equal((await g.call('/api/games',{cookies:[limitsPass()]})).statusCode,429,'no key, no lifted limits');
+ }finally{params['/weiqi/limits-key']=saved;}
 });
 
 test('the owner deletes a finished game: unlisted first, metadata last, counters kept, recoverable versions only',async()=>{

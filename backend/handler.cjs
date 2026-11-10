@@ -87,12 +87,13 @@ exports.handler = async event => {
   }
 };
 
-// Only a request carrying the session cookie costs a parameter read; a guest request is never looked up.
-// Any failure counts as a guest, so the public limits apply.
+// The admin's limits pass (issued by OwnerApi) lifts per-connection limits. This Lambda can't read the Microsoft
+// client secret, never receives the admin session cookie and never checks admin sessions.
+// Only a request carrying the pass costs a parameter read; any failure counts as a guest, so the public limits apply.
 async function ownerRequest(event){
- if(!weiqiAuth.hasSessionCookie(event))return false;
- try{return Boolean(weiqiAuth.getSession(event,await weiqiAuth.loadConfig()));}
- catch(e){console.error('Owner session check unavailable',{name:e.name});return false;}
+ if(!weiqiAuth.hasLimitsCookie(event))return false;
+ try{return weiqiAuth.hasLimitsPass(event,await weiqiAuth.loadLimitsKey());}
+ catch(e){console.error('Limits pass check unavailable',{name:e.name});return false;}
 }
 
 // Save completed live games through the same idempotent library pipeline as uploads.

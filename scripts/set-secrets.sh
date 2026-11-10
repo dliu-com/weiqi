@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# Stores this app's Microsoft Entra sign-in settings (client ID and secret) in SSM Parameter Store.
+# Stores this app's Microsoft Entra sign-in settings (client ID and secret) in SSM Parameter Store,
+# and creates the random limits key if it is missing.
 # The tenant ID is shared by every dliu.com app: /dliu/entra-tenant-id, owned by the dliu-com/audit stack.
 # Values are read interactively and passed to AWS via a private temp file, so they never
 # appear in shell history, process arguments, or this repository.
@@ -55,5 +56,11 @@ if [[ -n "$CLIENT_SECRET" ]]; then
 elif [[ -z "$(aws ssm get-parameter --region "$REGION" --name "$PREFIX/entra-client-secret" --query Parameter.Name --output text 2>/dev/null || true)" ]]; then
   echo "No client secret stored yet; run again and enter it." >&2
   exit 1
+fi
+# The limits key signs the admin's limits pass, the only thing the public Lambda checks (W-13). It is random and
+# separate from the Microsoft secret. Rotating it (ROTATE_LIMITS_KEY=1) only resets the admin's lifted limits
+# until the next page load; nobody is signed out.
+if [[ "${ROTATE_LIMITS_KEY:-}" == 1 || -z "$(aws ssm get-parameter --region "$REGION" --name "$PREFIX/limits-key" --query Parameter.Name --output text 2>/dev/null || true)" ]]; then
+  put limits-key SecureString "$(node -e 'process.stdout.write(require("node:crypto").randomBytes(32).toString("base64url"))')"
 fi
 echo "Done. Website sign-in reads these settings once deployed (cached for 5 minutes)."

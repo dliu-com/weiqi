@@ -198,9 +198,26 @@ test('owner sign-in secrets are readable only under /weiqi and the shared tenant
   expect(kms.Condition.StringEquals['kms:ViaService']).toEqual({'Fn::Join':['',['ssm.',{Ref:'AWS::Region'},'.amazonaws.com']]});
  }
 });
-test('the public API bundle checks the owner cookie but contains no delete code',()=>{
+test('the public API bundle checks the limits pass but contains no delete code',()=>{
  const game=Object.values(template.toJSON().Resources as Record<string,any>).find(r=>r.Type==='AWS::Lambda::Function'&&r.Properties.ReservedConcurrentExecutions===20)!;
- const code=game.Properties.Code.ZipFile;expect(code).toContain('weiqiAuth');expect(code).not.toMatch(/Delete(Object|Objects)Command/);expect(code).not.toMatch(/^module\.exports=/m);
+ const code=game.Properties.Code.ZipFile;expect(code).toContain('hasLimitsPass');expect(code).not.toMatch(/Delete(Object|Objects)Command/);expect(code).not.toMatch(/^module\.exports=/m);
+});
+test('W-13: the public API reads only the limits key, never the Microsoft secret, and never receives the admin session cookie',()=>{
+ const res=template.toJSON().Resources as Record<string,any>;
+ const [gameId,game]=Object.entries(res).find(([,r])=>r.Type==='AWS::Lambda::Function'&&r.Properties.ReservedConcurrentExecutions===20)!;
+ const statements=roleStatements(template,game),ssmStatements=statements.filter((s:any)=>[].concat(s.Action).some((a:string)=>a.startsWith('ssm:')));
+ expect(ssmStatements.flatMap((s:any)=>[].concat(s.Action))).toEqual(['ssm:GetParameters']);
+ const resources=JSON.stringify(ssmStatements.map((s:any)=>s.Resource));
+ expect(resources).toContain('parameter/weiqi/limits-key');expect(resources).not.toMatch(/weiqi\/\*|entra|dliu\//);
+ expect(game.Properties.Environment.Variables.TENANT_PARAMETER).toBeUndefined();
+ const dist=Object.values(res).find(r=>r.Type==='AWS::CloudFront::Distribution')!.Properties.DistributionConfig;
+ const api=dist.CacheBehaviors.find((b:any)=>b.PathPattern==='api/*');
+ const urlId=Object.keys(res).find(k=>res[k].Type==='AWS::Lambda::Url'&&JSON.stringify(res[k].Properties.TargetFunctionArn).includes(gameId))!;
+ expect(JSON.stringify(dist.Origins.find((o:any)=>o.Id===api.TargetOriginId).DomainName)).toContain(urlId);
+ const policy=res[api.OriginRequestPolicyId.Ref].Properties.OriginRequestPolicyConfig;
+ expect(policy.CookiesConfig).toEqual({CookieBehavior:'allExcept',Cookies:['__Host-weiqi_session','__Host-weiqi_auth']});
+ expect(policy.HeadersConfig).toEqual({HeaderBehavior:'allExcept',Headers:['host']});
+ expect(policy.QueryStringsConfig).toEqual({QueryStringBehavior:'all'});
 });
 test('/auth/* and /api/owner/* reach OwnerApi uncached, ahead of the public /api/* behaviour',()=>{
  const res=template.toJSON().Resources as Record<string,any>;const [ownerId]=functionNamed(template,'Weiqi owner sign-in, owner tools and the Microsoft-token API');

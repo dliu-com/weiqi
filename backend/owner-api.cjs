@@ -113,6 +113,14 @@ async function ownerSession(event){
  if(!weiqiAuth.hasSessionCookie(event))return null;
  return weiqiAuth.getSession(event,await weiqiAuth.loadConfig());
 }
+// The public GameHandler never sees the admin session or the Microsoft secret. It only checks this limits pass,
+// which expires with the session and lifts per-connection limits. A missing key never blocks sign-in.
+async function limitsPass(exp,event){
+ try{
+  const key=await weiqiAuth.loadLimitsKey();if(event&&weiqiAuth.hasLimitsPass(event,key))return [];
+  const pass=weiqiAuth.limitsCookie(key,exp);return pass?[pass]:[];
+ }catch(e){console.error('Limits pass unavailable',{name:e.name});return [];}
+}
 async function websiteHandler(event){
  const method=event.requestContext?.http?.method,path=event.rawPath||'',site=process.env.SITE_ORIGIN;
  try{
@@ -123,15 +131,17 @@ async function websiteHandler(event){
    try{config=await weiqiAuth.loadConfig();}
    catch(e){console.error('Sign-in not available',{name:e.name});return signInPage(503,'Sign-in is not available right now. Please try again later.');}
    if(path==='/auth/login'){const login=weiqiAuth.startLogin(config,site,Date.now(),event.queryStringParameters?.return);return redirect(login.location,login.cookies);}
-   try{const result=await weiqiAuth.finishLogin(event,config,site);return result.error?signInPage(result.status,result.error,result.cookies):redirect(result.location,result.cookies);}
+   try{const result=await weiqiAuth.finishLogin(event,config,site);return result.error?signInPage(result.status,result.error,result.cookies):redirect(result.location,[...result.cookies,...await limitsPass(result.exp)]);}
    catch(e){console.error('Sign-in failed',{name:e.name,message:e.message});return signInPage(401,'Sign-in failed. Please try again.',[weiqiAuth.clearLoginCookie()]);}
   }
   if(path==='/api/owner/session'){
    if(method!=='GET')return response(405,{message:'Method not allowed.'});
    if(!weiqiAuth.hasSessionCookie(event))return response(200,{signedIn:false});
    const session=await ownerSession(event);
-   // A stale session also clears the page hint, so the pages stop asking.
-   return session?response(200,{signedIn:true,user:session.user,name:session.name||session.user}):response(200,{signedIn:false},weiqiAuth.logoutCookies());
+   // A stale session also clears the page hint, so the pages stop asking. A session from before the limits pass gets one here.
+   if(!session)return response(200,{signedIn:false},weiqiAuth.logoutCookies());
+   const pass=await limitsPass(session.exp,event);
+   return response(200,{signedIn:true,user:session.user,name:session.name||session.user},pass.length?pass:undefined);
   }
   const [,ownerId,action]=path.match(/^\/api\/owner\/library\/([^/]+)\/(delete|info)$/)||[];
   if(action){

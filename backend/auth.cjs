@@ -1,8 +1,10 @@
 // Microsoft sign-in for the site owner (ported from dliu-com/travel-plan lambda/api/auth.js and config.js).
 // Concatenated into both website Lambdas, so everything lives inside weiqiAuth. Modules load on first use:
-// a guest request without the session cookie never reads SSM or does any crypto.
+// a guest request without a sign-in cookie never reads SSM or does any crypto.
+// Only OwnerApi can read the Microsoft client secret and check admin sessions. The public GameHandler only checks
+// the limits pass, signed with its own random key (/weiqi/limits-key), which lifts per-connection limits and nothing else.
 const weiqiAuth=(()=>{
- const SESSION_COOKIE='__Host-weiqi_session',AUTH_COOKIE='__Host-weiqi_auth';
+ const SESSION_COOKIE='__Host-weiqi_session',AUTH_COOKIE='__Host-weiqi_auth',LIMITS_COOKIE='__Host-weiqi_limits';
  // Not a secret: only tells the pages to ask /api/owner/session, so guests never call it. The server ignores it.
  const HINT_COOKIE='weiqi_owner';
  const SESSION_SECONDS=30*24*60*60,AUTH_SECONDS=10*60,CLOCK_SKEW_SECONDS=120,JWKS_TTL_MS=60*60*1000,CONFIG_TTL_MS=5*60*1000;
@@ -24,7 +26,17 @@ const weiqiAuth=(()=>{
   cached={tenantId:values[names.tenantId].trim(),clientId:values[names.clientId].trim(),clientSecret:values[names.clientSecret],allowedDomain:(process.env.ALLOWED_DOMAIN||'dliu.com').trim().toLowerCase()};
   cachedAt=now;return cached;
  }
- const resetConfigCache=()=>{cached=undefined;cachedAt=0;};
+ let limitsCached,limitsCachedAt=0;
+ async function loadLimitsKey(ssm,now=Date.now()){
+  if(limitsCached&&now-limitsCachedAt<CONFIG_TTL_MS)return limitsCached;
+  const {SSMClient,GetParametersCommand}=require('@aws-sdk/client-ssm');
+  ssm??=(ssmClient??=new SSMClient({}));
+  const name=PREFIX()+'/limits-key',result=await ssm.send(new GetParametersCommand({Names:[name],WithDecryption:true}));
+  const value=(result.Parameters||[]).find(p=>p.Name===name)?.Value;
+  if(!value||value.length<32)throw new NotConfigured('Missing SSM parameter '+name+'. Run "make set-secrets".');
+  limitsCached=crypto().createHmac('sha256',value).update('weiqi-limits-v1').digest();limitsCachedAt=now;return limitsCached;
+ }
+ const resetConfigCache=()=>{cached=undefined;cachedAt=0;limitsCached=undefined;limitsCachedAt=0;};
 
  // Sign-in and session cookies use different keys and a checked typ, so the sign-in
  // cookie that /auth/login hands to anyone can never be replayed as a session.
@@ -50,6 +62,13 @@ const weiqiAuth=(()=>{
  const cookie=(name,value,maxAge,httpOnly=true)=>name+'='+value+'; Path=/; Max-Age='+maxAge+'; Secure'+(httpOnly?'; HttpOnly':'')+'; SameSite=Lax';
  const authority=config=>'https://login.microsoftonline.com/'+encodeURIComponent(config.tenantId);
  const hasSessionCookie=event=>Boolean(parseCookies(event)[SESSION_COOKIE]);
+ const hasLimitsCookie=event=>Boolean(parseCookies(event)[LIMITS_COOKIE]);
+ // The limits pass expires with the admin session; OwnerApi issues it at sign-in and on /api/owner/session.
+ const hasLimitsPass=(event,key,now=Date.now())=>Boolean(verifySigned(parseCookies(event)[LIMITS_COOKIE],key,now,'limits'));
+ function limitsCookie(key,exp,now=Date.now()){
+  const maxAge=exp-nowSeconds(now);
+  return maxAge>0?cookie(LIMITS_COOKIE,sign({typ:'limits',exp},key),maxAge):null;
+ }
 
  function getSession(event,config,now=Date.now()){
   const session=verifySigned(parseCookies(event)[SESSION_COOKIE],sessionKey(config),now,'session');
@@ -115,12 +134,12 @@ const weiqiAuth=(()=>{
    console.warn(JSON.stringify({message:'User domain not allowed',domain:username.includes('@')?username.split('@').pop():'',oid:claims.oid}));
    return {error:(claims.preferred_username||'This account')+' is not allowed to manage DL Weiqi.',status:403,cookies:[clearAuth]};
   }
-  const session=sign({typ:'session',user:claims.preferred_username||claims.email||claims.oid,name:claims.name,oid:claims.oid,exp:nowSeconds(now)+SESSION_SECONDS},sessionKey(config));
-  return {location:safeReturnPath(transient.returnTo),cookies:[clearAuth,cookie(SESSION_COOKIE,session,SESSION_SECONDS),cookie(HINT_COOKIE,'1',SESSION_SECONDS,false)]};
+  const exp=nowSeconds(now)+SESSION_SECONDS,session=sign({typ:'session',user:claims.preferred_username||claims.email||claims.oid,name:claims.name,oid:claims.oid,exp},sessionKey(config));
+  return {location:safeReturnPath(transient.returnTo),exp,cookies:[clearAuth,cookie(SESSION_COOKIE,session,SESSION_SECONDS),cookie(HINT_COOKIE,'1',SESSION_SECONDS,false)]};
  }
- const logoutCookies=()=>[cookie(SESSION_COOKIE,'',0),cookie(AUTH_COOKIE,'',0),cookie(HINT_COOKIE,'',0,false)];
+ const logoutCookies=()=>[cookie(SESSION_COOKIE,'',0),cookie(AUTH_COOKIE,'',0),cookie(LIMITS_COOKIE,'',0),cookie(HINT_COOKIE,'',0,false)];
  const clearLoginCookie=()=>cookie(AUTH_COOKIE,'',0);
 
- return {SESSION_COOKIE,AUTH_COOKIE,HINT_COOKIE,NotConfigured,loadConfig,resetConfigCache,sessionKey,loginKey,sign,verifySigned,parseCookies,hasSessionCookie,getSession,safeReturnPath,startLogin,verifyIdToken,isAllowed,finishLogin,logoutCookies,clearLoginCookie};
+ return {SESSION_COOKIE,AUTH_COOKIE,LIMITS_COOKIE,HINT_COOKIE,NotConfigured,loadConfig,loadLimitsKey,resetConfigCache,hasLimitsCookie,hasLimitsPass,limitsCookie,sessionKey,loginKey,sign,verifySigned,parseCookies,hasSessionCookie,getSession,safeReturnPath,startLogin,verifyIdToken,isAllowed,finishLogin,logoutCookies,clearLoginCookie};
 })();
 module.exports=weiqiAuth;

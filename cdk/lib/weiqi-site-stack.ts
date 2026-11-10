@@ -134,17 +134,19 @@ export class WeiqiSiteStack extends Stack {
       // Caps the cost of a request flood; normal use needs only a few at once.
       reservedConcurrentExecutions: 20,
       logGroup: new logs.LogGroup(this, 'GameLogs', { retention: logs.RetentionDays.THREE_MONTHS, removalPolicy: RemovalPolicy.DESTROY }),
-      environment: { POSITION_USAGE_TABLE:'weiqi-position-usage',POSITION_RECOGNIZER:'WeiqiPositionRecognition',POSITION_ENGINE:'WeiqiPositionEngine',POSITION_DAILY_MICROS:String(projectConfig.positionAnalysis.dailyRequests*projectConfig.positionAnalysis.requestReserveMicros),POSITION_REQUEST_MICROS:String(projectConfig.positionAnalysis.requestReserveMicros),CLIENT_EDITS_PER_MINUTE:'60',CLIENT_POSITIONS_PER_DAY:String(projectConfig.positionAnalysis.connectionDailyRequests),DAILY_ANALYSIS_CAP:String(projectConfig.analysis.dailyDeepLimit),DAILY_UPLOAD_CAP:String(projectConfig.analysis.dailyGameLimit), AI_CONTROL_KEY:'control/ai-spending.json', LIBRARY_BUCKET:libraryBucket.bucketName, SITE_BUCKET:bucket.bucketName, ANALYSIS_QUEUE:analysisQueue.queueUrl, TABLE_NAME: gameTable.tableName, REPORT_QUEUE:reportQueue.queueUrl, SITE_ORIGIN: Fn.join('', ['https://', domainName]), PARAMETER_PREFIX, TENANT_PARAMETER },
+      environment: { POSITION_USAGE_TABLE:'weiqi-position-usage',POSITION_RECOGNIZER:'WeiqiPositionRecognition',POSITION_ENGINE:'WeiqiPositionEngine',POSITION_DAILY_MICROS:String(projectConfig.positionAnalysis.dailyRequests*projectConfig.positionAnalysis.requestReserveMicros),POSITION_REQUEST_MICROS:String(projectConfig.positionAnalysis.requestReserveMicros),CLIENT_EDITS_PER_MINUTE:'60',CLIENT_POSITIONS_PER_DAY:String(projectConfig.positionAnalysis.connectionDailyRequests),DAILY_ANALYSIS_CAP:String(projectConfig.analysis.dailyDeepLimit),DAILY_UPLOAD_CAP:String(projectConfig.analysis.dailyGameLimit), AI_CONTROL_KEY:'control/ai-spending.json', LIBRARY_BUCKET:libraryBucket.bucketName, SITE_BUCKET:bucket.bucketName, ANALYSIS_QUEUE:analysisQueue.queueUrl, TABLE_NAME: gameTable.tableName, REPORT_QUEUE:reportQueue.queueUrl, SITE_ORIGIN: Fn.join('', ['https://', domainName]), PARAMETER_PREFIX },
       code: lambda.Code.fromInline([engineSource, serviceSource, sharedLibrarySource, queueEstimateSource, sharePreviewSource, libraryHandlerSource, queueStatusSource, fs.readFileSync(path.join(root,'backend/client-limit.cjs'),'utf8'), fs.readFileSync(path.join(root,'backend/position-handler.cjs'),'utf8'), authSource, handlerSource].join('\n')),
     });
-    // Both functions read the owner sign-in settings: this app's client ID and secret (also the session key) and the tenant ID.
+    // OwnerApi reads the owner sign-in settings: this app's client ID and secret (also the session key), the tenant ID
+    // and the limits key. GameHandler reads only the limits key (W-13): it checks the admin's limits pass, which lifts
+    // per-connection limits and nothing else, so a bug in the public Lambda can never expose the Microsoft secret.
     const parameterArn=(name:string)=>this.formatArn({service:'ssm',resource:'parameter',resourceName:name.slice(1)});
-    const readSecrets=(fn:lambda.Function)=>{
-      fn.addToRolePolicy(new iam.PolicyStatement({actions:['ssm:GetParameters'],resources:[parameterArn(`${PARAMETER_PREFIX}/*`),parameterArn(TENANT_PARAMETER)]}));
+    const readParameters=(fn:lambda.Function,resources:string[])=>{
+      fn.addToRolePolicy(new iam.PolicyStatement({actions:['ssm:GetParameters'],resources}));
       fn.addToRolePolicy(new iam.PolicyStatement({actions:['kms:Decrypt'],resources:['*'],conditions:{StringEquals:{'kms:ViaService':`ssm.${this.region}.amazonaws.com`}}}));
     };
-    // GameHandler only checks the owner's session cookie to lift per-connection limits; it can never delete.
-    readSecrets(gameHandler);
+    const readSecrets=(fn:lambda.Function)=>readParameters(fn,[parameterArn(`${PARAMETER_PREFIX}/*`),parameterArn(TENANT_PARAMETER)]);
+    readParameters(gameHandler,[parameterArn(`${PARAMETER_PREFIX}/limits-key`)]);
     gameHandler.addToRolePolicy(new iam.PolicyStatement({actions:['lambda:InvokeFunction'],resources:[`arn:${this.partition}:lambda:${this.region}:${this.account}:function:WeiqiPositionRecognition`,`arn:${this.partition}:lambda:${this.region}:${this.account}:function:WeiqiPositionEngine`]}));
     gameHandler.addToRolePolicy(new iam.PolicyStatement({actions:['dynamodb:PutItem','dynamodb:UpdateItem'],resources:[`arn:${this.partition}:dynamodb:${this.region}:${this.account}:table/weiqi-position-usage`]}));
     reportQueue.grantSendMessages(gameHandler);
@@ -255,6 +257,13 @@ export class WeiqiSiteStack extends Stack {
       functionArn: Fn.importValue('TrafficVisitorFunctionArn'),
       functionName: 'dliu-visitor-id',
     });
+    // Like AllViewerExceptHostHeader, but the public GameHandler never receives the admin session or sign-in cookie (W-13).
+    const publicApiRequests = new cloudfront.OriginRequestPolicy(this, 'PublicApiRequests', {
+      comment: 'Weiqi public API: viewer headers except Host, all query strings, cookies except the admin session',
+      headerBehavior: cloudfront.OriginRequestHeaderBehavior.denyList('host'),
+      cookieBehavior: cloudfront.OriginRequestCookieBehavior.denyList('__Host-weiqi_session', '__Host-weiqi_auth'),
+      queryStringBehavior: cloudfront.OriginRequestQueryStringBehavior.all(),
+    });
     // Makes CloudFront add CloudFront-Viewer-City so the visitor function can log the city.
     const trafficGeoPolicy = cloudfront.OriginRequestPolicy.fromOriginRequestPolicyId(
       this, 'TrafficGeo', Fn.importValue('TrafficGeoOriginRequestPolicyId'));
@@ -295,7 +304,7 @@ export class WeiqiSiteStack extends Stack {
           allowedMethods: cloudfront.AllowedMethods.ALLOW_ALL,
           viewerProtocolPolicy: cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
           cachePolicy: cloudfront.CachePolicy.CACHING_DISABLED,
-          originRequestPolicy: cloudfront.OriginRequestPolicy.ALL_VIEWER_EXCEPT_HOST_HEADER,
+          originRequestPolicy: publicApiRequests,
           functionAssociations:[{eventType:cloudfront.FunctionEventType.VIEWER_REQUEST,function:apiViewer}],
           responseHeadersPolicy: headers,
         },
