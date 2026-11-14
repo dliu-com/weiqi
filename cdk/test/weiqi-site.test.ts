@@ -268,6 +268,13 @@ test('the managed API exists only when enabled; every route needs a Microsoft to
  expect(new Set(Object.values(ownerRoutes).map(v=>v.scope))).toEqual(new Set(['weiqi.read','weiqi.write','weiqi.delete']));
  managed.hasResourceProperties('AWS::ApiGatewayV2::Authorizer',{AuthorizerType:'JWT',IdentitySource:['$request.header.Authorization'],JwtConfiguration:{Audience:[Match.anyValue()],Issuer:Match.anyValue()}});
  managed.hasResourceProperties('AWS::ApiGatewayV2::Stage',{DefaultRouteSettings:{ThrottlingRateLimit:10,ThrottlingBurstLimit:20}});
+ const apiHost={'Fn::Join':['',['api.weiqi.',{'Fn::ImportValue':'MainDomain'}]]};
+ managed.hasResourceProperties('AWS::ApiGatewayV2::Api',{DisableExecuteApiEndpoint:true});
+ managed.hasResourceProperties('AWS::CertificateManager::Certificate',{DomainName:apiHost,ValidationMethod:'DNS'});
+ managed.hasResourceProperties('AWS::ApiGatewayV2::DomainName',{DomainName:apiHost,DomainNameConfigurations:[Match.objectLike({EndpointType:'REGIONAL',SecurityPolicy:'TLS_1_2'})]});
+ managed.resourceCountIs('AWS::ApiGatewayV2::ApiMapping',1);
+ managed.hasResourceProperties('AWS::Route53::RecordSet',{Type:'A',Name:{'Fn::Join':['',['api.weiqi.',{'Fn::ImportValue':'MainDomain'},'.']]}});
+ managed.hasOutput('MicrosoftApiUrl',{Value:{'Fn::Join':['',['https://api.weiqi.',{'Fn::ImportValue':'MainDomain'}]]}});
  const [,owner]=functionNamed(managed,'Weiqi owner sign-in, owner tools and the Microsoft-token API');
  expect(Object.keys(owner.Properties.Environment.Variables)).toEqual(expect.arrayContaining(['API_GATEWAY_ID','API_TENANT_ID','API_AUDIENCE','API_CLIENT_ID']));
 });

@@ -211,7 +211,13 @@ export class WeiqiSiteStack extends Stack {
       const tenantId=ssm.StringParameter.valueForStringParameter(this,TENANT_PARAMETER);
       // The shared "dliu API" app: tokens are issued for it (audience) and through it (azp).
       const apiAppId=ssm.StringParameter.valueForStringParameter(this,API_APP_PARAMETER);
-      const httpApi=new apigateway.HttpApi(this,'MicrosoftApi',{description:'Weiqi API: Microsoft Entra access tokens, delegated weiqi.* permissions and assigned users'});
+      // Tools call api.weiqi.<root>; the raw execute-api address is switched off so there is only one way in.
+      const apiDomainName=Fn.join('',['api.weiqi.',rootDomain]);
+      // A regional API needs its certificate in the stack's own region (eu-west-1), unlike CloudFront's.
+      const apiCertificate=new acm.Certificate(this,'ApiCertificate',{domainName:apiDomainName,validation:acm.CertificateValidation.fromDns(hostedZone)});
+      const apiDomain=new apigateway.DomainName(this,'ApiDomain',{domainName:apiDomainName,certificate:apiCertificate,securityPolicy:apigateway.SecurityPolicy.TLS_1_2});
+      const httpApi=new apigateway.HttpApi(this,'MicrosoftApi',{description:'Weiqi API: Microsoft Entra access tokens, delegated weiqi.* permissions and assigned users',defaultDomainMapping:{domainName:apiDomain},disableExecuteApiEndpoint:true});
+      new route53.ARecord(this,'ApiAliasRecord',{recordName:'api.weiqi',zone:hostedZone,target:route53.RecordTarget.fromAlias(new targets.ApiGatewayv2DomainProperties(apiDomain.regionalDomainName,apiDomain.regionalHostedZoneId))});
       (httpApi.defaultStage!.node.defaultChild as apigateway.CfnStage).defaultRouteSettings={throttlingRateLimit:MANAGED_API_RATE,throttlingBurstLimit:MANAGED_API_BURST};
       const authorizer=new authorizers.HttpJwtAuthorizer('MicrosoftJwt',Fn.join('',['https://login.microsoftonline.com/',tenantId,'/v2.0']),{jwtAudience:[apiAppId]});
       const integration=new integrations.HttpLambdaIntegration('WeiqiApi',ownerApi);
@@ -223,7 +229,7 @@ export class WeiqiSiteStack extends Stack {
       ownerApi.addEnvironment('API_TENANT_ID',tenantId);
       ownerApi.addEnvironment('API_AUDIENCE',apiAppId);
       ownerApi.addEnvironment('API_CLIENT_ID',apiAppId);
-      new CfnOutput(this,'MicrosoftApiUrl',{value:httpApi.apiEndpoint});
+      new CfnOutput(this,'MicrosoftApiUrl',{value:Fn.join('',['https://',apiDomainName])});
     }
 
     // Public GET /health for status.dliu.com: read only, one cheap read per dependency, never paid work.

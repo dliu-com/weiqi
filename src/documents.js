@@ -131,7 +131,7 @@ function apiIntro(f){
 }
 function apiSections(f){
  const scope=key=>API_SCOPES.find(([s])=>s===key)[1];
- f.append(part('有哪些接口','The endpoints',para('所有接口都在一个单独的 API 地址上（见机器版本），不在 weiqi.dliu.com 上。','All endpoints live on a separate API address (see the machine version), not on weiqi.dliu.com.'),
+ f.append(part('有哪些接口','The endpoints',para('所有接口都在单独的 API 地址 api.weiqi.dliu.com 上，不在 weiqi.dliu.com 上。','All endpoints live on a separate API address, api.weiqi.dliu.com, not on weiqi.dliu.com.'),
   table([['接口','Endpoint'],['用来做什么','What it’s for'],['需要的权限','Permission needed']],API_ROUTES.map(([route,key,purpose])=>[route,purpose,[`${t(...scope(key))} (${key})`,`${t(...scope(key))} (${key})`]]))));
  f.append(part('三种权限','The three permissions',
   table([['权限','Permission'],['允许工具','Lets a tool'],['不包括','Doesn’t include']],API_SCOPES.map(([key,label,allows,excludes])=>[[`${label[0]} (${key})`,`${label[1]} (${key})`],['✓ '+allows[0],'✓ '+allows[1]],['✗ '+excludes[0],'✗ '+excludes[1]]])),
